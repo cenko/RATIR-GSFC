@@ -45,13 +45,24 @@ FOR i =0,n_elements(zffiles)-1 DO BEGIN
    tmp=strsplit(filter,'.',/extract)
    filter=tmp(0)  
 
-;   IF strcmp(filter,'i') NE 1 THEN BEGIN
       s=size(img)
-      x1=0.1*s(1) 
+      x1=0.1*s(1)
       x2=0.9*s(1)
       y1=0.1*s(2)
       y2=0.9*s(2)
-;   ENDIF
+   IF strcmp(filter,'i') THEN BEGIN
+      x1=1103.
+      x2=2067.
+      y1=238.
+      y2=1160.
+   ENDIF
+   IF strcmp(filter,'r') THEN BEGIN
+      x1=1090.
+      x2=2070.
+      y1=75.
+      y2=1020.
+   ENDIF
+
 ;   IF strcmp(filter,'H') THEN BEGIN
 ;      x1=550.
 ;      x2=1250.
@@ -64,12 +75,6 @@ FOR i =0,n_elements(zffiles)-1 DO BEGIN
 ;      y1=380.
 ;      y2=1250.
 ;   ENDIF
-   IF strcmp(filter,'r') THEN BEGIN
-      x1=105.
-      x2=1580.
-      y1=500.
-      y2=1500.
-   ENDIF
 ;   IF strcmp(filter,'J') THEN BEGIN
 ;      x1=700.
 ;      x2=1500.
@@ -88,6 +93,8 @@ FOR i =0,n_elements(zffiles)-1 DO BEGIN
 ;      y1=150.
 ;      y2=1950.
 ;   ENDIF
+
+
 
    hextract,img,h,x1,x2,y1,y2
    img=img

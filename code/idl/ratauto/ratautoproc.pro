@@ -2230,7 +2230,7 @@ pro autolrisstack, camera=camera, chip=chip
    camver = camera
    if camver eq 'red' then camver = camver + clip(lrisversion)
    if file_test(imworkingdir+'autophotsummaryflux.txt') then begin
-      readcol,imworkingdir+'autophotsummaryflux.txt',pfile,pexp,pfilt,pdich,pair,dum,pdmag,pfluxratio,pseeing,format='a,i,a,a,f,a,f,f,f,f',/silent
+      readcol,imworkingdir+'autophotsummaryflux.txt',pfile,pexp,pfilt,pair,dum,pdmag,pfluxratio,pseeing,format='a,i,a,f,a,f,f,f,f',/silent
       photodata = replicate({filename:'',dmag:0.,fluxratio:0.,seeing:0.},n_elements(pfile))
       photodata.filename = pfile
       photodata.dmag = pdmag

@@ -38,7 +38,7 @@ oplot,hmag(tmp),Hmagerr(tmp),psym=8,color=red
 
 items=['r','i','z','y','J','H']
 colors=[purple,blue,aqua,green,orange,red]
-legend,items,colors=colors,psym=8,charsize=1.2
+al_legend,items,colors=colors,psym=8,charsize=1.2
 
 ;ofile='photometry'
 ;WSHOW, 0, ICONIC=0
