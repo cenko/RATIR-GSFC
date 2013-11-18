@@ -499,87 +499,6 @@
 ; need to recognize saturated standards - done
 ; cleanup of autoastrometry files - done
 
-
-; -------------------------
-
-pro autolrisskysub, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
-
-	;Setup pipeline variables that carry throughout the pipeline
-	if keyword_set(inpipevar) then begin
-		pipevar = inpipevar
-		print, 'Using provided pipevar'
-	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
-					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:'' }
-	endelse
-	
-   prefchar = '2'
-   fchip = strmid(chip,0,1)
-   wildcharimg = '?????????????????_img_?'
-
-   files = findfile(pipevar.imworkingdir+'fp'+prefchar+wildcharimg+'.fits')
-   sfiles = findfile(pipevar.imworkingdir+'sfp'+prefchar+wildcharimg+'.fits')
-   if n_elements(files) eq 1 and files[0] eq '' then return
-   skys = findfile(pipevar.imworkingdir+'*sky-*.fits')
-   skyfilts = strarr(n_elements(skys))
-   skycams = strarr(n_elements(skys))
-   skychips = strarr(n_elements(skys))
-   skydichs = strarr(n_elements(skys))
-   skywins = strarr(n_elements(skys))
-   skybins = strarr(n_elements(skys))
-
-   if skys[0] ne '' then begin
-     for f = 0, n_elements(skys)-1 do begin
-       h = headfits(skys[f], /silent)
-       filter = clip(sxpar(h, 'FILTER'))
-       skyfilts[f] = filter
-     endfor
-   endif else begin
-     nopskys = 1
-     ; Don't actually raise the error until we know skys were necessary.
-   endelse
-   for f = 0, n_elements(files)-1 do begin
-      if files[f] eq '' then continue
-      outfile = fileappend(files[f], 's')
-      match = where(outfile eq sfiles, ct) ; check if output file exists
-      if ct eq 0 or pipevar.overwrite then begin               
-         h = headfits(files[f], /silent)
-         camera = sxpar(h,'WAVELENG')
-         camera = strcompress(camera,/remove_all)
-         counts = sxpar(h, 'SKYCTS') > sxpar(h,'COUNTS')
-         exptime = sxpar(h, 'ELAPTIME')
-         azimuth = sxpar(h,'AZ')
-         elevation = sxpar(h,'EL')
-         domeazimuth = sxpar(h,'DOMEPOSN')
-         target = sxpar(h,'TARGNAME')
-
-         filter = clip(sxpar(h, 'FILTER'))
-         binning='1'
-         skyfileno = where(skyfilts eq filter, ct) ;all we care about is the filter for RATIR
-
-         if ct eq 0 then begin
-            skyfilenoothbin = where(skyfilts eq filter,ctwobin) ;all we care about is the filter for RATIR
-            ; Currently doesn't support flat-fielding with a different binning until I can be sure the case where both windowing and binning
-            ; are wrong are dealt with
-            if ctwobin gt 0 then binstr = ', '+repstr(binning,',','x') else binstr = ''
-            print, 'Sky field not found for ';, removepath(files[f]), ' (', filter+', '+'D'+dich+ binstr,')' ; , ' / ', win
-            pipevar.flatfail = pipevar.flatfail +' '+ files[f]
-            continue
-         endif
-         skyfile = skys[skyfileno[0]]
-         print, 'Sky Subtracting ', removepath(files[f]), ' using ', removepath(skyfile)
-         if strcmp(camera,'OPT') then skyprocopt, files[f], skyfile else skyproc, files[f], skyfile
-
-      endif
-      skipskysub:
-    endfor
-    
-	outpipevar = pipevar
-
-end
-
 ; -------------------------
 pro autolriscrcleanim, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
 
@@ -1055,10 +974,8 @@ pro autolrisstack, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=in
 end
 
 
-
 ; -------------------------
 
-; need to allow the user to completely ignore the left chip at all stages by specifying the chip.
 ; need to restore the gain correction.
 ; need to do something about when crashes, leaves you in imredux (check if you are already in the imredux directory)
 
@@ -1151,7 +1068,7 @@ if n_elements(only) gt 0 then begin
       print, "Invalid step '", only, "'
       print, "Must be one of: ", steps
       if n_elements(start) gt 0 then print, 'Note that start is also set.'
-      if n_elements(stop) gt 0 then print, 'Note that stop is also set.'
+      if n_elements(stop)  gt 0 then print, 'Note that stop is also set.'
       return
    endif
    steps = steps[w]
@@ -1225,8 +1142,8 @@ for istep = 0, nsteps-1 do begin
          mo = strmid(modes[imode],0,2)
          if mo eq 'im' then begin   
             if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
-            if instep eq 'makesky' then autopipemakesky, outpipevar=pipevar, inpipevar=pipevar
-            if instep eq 'skysub'  then autolrisskysub,  cam=camera, chip='', outpipevar=pipevar, inpipevar=pipevar
+            if instep eq 'makesky' then autopipemakesky,   outpipevar=pipevar, inpipevar=pipevar
+            if instep eq 'skysub'  then autopipeskysub,    outpipevar=pipevar, inpipevar=pipevar
          endif
 
          for ichip = 0, nchips-1 do begin
