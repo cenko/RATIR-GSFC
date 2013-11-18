@@ -545,7 +545,6 @@ pro autolrisdefaults
             if varname eq 'imoutputdir'  then imoutputdir = varset
             if varname eq 'spoutputdir'  then spoutputdir = varset
          endwhile
-;         print 'Using parameters in ', sfile
          break ; found the file: stop looping
       endif
    endfor
@@ -614,7 +613,6 @@ pro autolrisprepare, modestr=modestr, camstr=camstr
      mode = ''
   endelse
 
-;  prefchar = strmid(camstr,0,1) ;old prefix for LRIS meaning Red or Blue camera.  But RATIR has only 1, so we use prefchar = 2 (i.e., 2012...)
   prefchar = '2'
 
   files = findfile(datadir+prefchar+wildchar+'.fits')
@@ -630,9 +628,6 @@ pro autolrisprepare, modestr=modestr, camstr=camstr
         print, 'Did not find any files!  Check your data directory path!'
      endelse
   endif
-
-  ;'~/research/redux/allgrbpos.txt' 
-  ;'~/research/redux/standardpos.txt'
 
   namefixfiles = ['']
   catalogfile = 'catalog.txt' ; current directory
@@ -658,8 +653,7 @@ pro autolrisprepare, modestr=modestr, camstr=camstr
      if ct eq 0 or overwrite gt 0 then begin
         filemode = 'i'          ;placeholder
         outname=outnameim
-        
-        ;print, 'Preparing ', files[f]
+
 print,outname
         lrisprepare, files[f], gain=[1,1,1,1], flag=flag, /merge, crop='auto', $
           outname=outname, namefixfiles=namefixfiles
@@ -723,9 +717,6 @@ pro autolrismakeimflat, chip=chip, camera=camera
          endelse
        endif
 
-       ; print, files[f], ' ', clip(targets[f],12), string(exps[f],format='(I4)'), ' ', clip(filters[f],5), ' ', clip(dichs[f],5), ' ', binnings[f], ' ', counts[f], domerelaz, isdomeflat[f], isskyflat[f], isscience[f]
-       ;printzxx, files[f], counts[f], isdomeflat[f], isskyflat[f], isscience[f], elevation, domeazimuth, azimuth, domerelaz
-  
     endfor
 
     sciindex = where(isscience, ct)
@@ -749,9 +740,6 @@ pro autolrismakeimflat, chip=chip, camera=camera
 
           flatsuccess = 0
 
-          ;print, filt, ' ', dich, ' ', bin
-          ;for f = 0, n_elements(filtskyflatlist)-1 do print, '   ', filtskyflatlist[f], ' (', strtrim(string(counts[(where(files eq filtskyflatlist[f])) [0]]),2), ' counts)'
-        
           ; Good supersky flat.
           ctsupersky = 0
           if (lrisversion eq 1 and camera eq 'red' and (filt eq 'I' or filt eq 'RG850' or filt eq 'GG570')) ne 1 then begin ; don't supersky fringed frames
@@ -769,7 +757,6 @@ pro autolrismakeimflat, chip=chip, camera=camera
                if file_test('badflattargets.txt') eq 0 then begin
                   badflattargets = [''] 
                endif else begin
-                  ;badflattargets = grabcolumn('badflattargets.txt', 0, /str)
                   nbf = countlines ('badflattargets.txt')
                   openr, 6, 'badflattargets.txt'
                   badflattargets = strarr(nbf)
@@ -790,9 +777,6 @@ pro autolrismakeimflat, chip=chip, camera=camera
                ; this criterion is a bit loose and depends on the number of very bright stars in the image and how big the dither steps were.
                ; eventually, should make flatcombine able to find bright (ultra-saturated) objects and add halo masks, and make
                ; lrisautoproc treat big dithers like new fields.
-               ;print, ctsupersky, nsuperskyfields
-               ;if (ctsupersky ge  9 and nsuperskyfields ge 5) or (ctsupersky ge 17 and nsuperskyfields ge 4) or $
-               ;   (ctsupersky gt 17 and nsuperskyfields gt 3) or  ctsupersky ge 21 then begin
                if (ctsupersky ge 21 and nsuperskyfields ge 5) or (ctsupersky ge 25 and nsuperskyfields ge 4) or $
                  (ctsupersky gt 29 and nsuperskyfields gt 3) or ctsupersky ge 33 then begin
                   print, filt, '-band / ', 'D'+dich,' '+binstr+': ', strtrim(string(ctsupersky),2), ' supersky flats (', clip(nsuperskyfields), ' unique fields)'
@@ -844,8 +828,6 @@ pro autolrismakeimflat, chip=chip, camera=camera
             endif
         endif
 
-
-
         if flatsuccess eq 0 then begin
            print, 'Unable to produce a flat field for this setting: ', filt, '-band / ', 'D'+dich,' '+binstr
            noproc = where(isscience and filters eq filt and dichs eq dich and binnings eq bin, ctnoproc)
@@ -868,7 +850,6 @@ pro autolrismakesky, chip=chip, camera=camera
 
     common lrisauto, autoastrocommand, swarpcommand, datadir, imworkingdir, spworkingdir, imfinaldir, spfinaldir, lrisversion, wildchar, overwrite, fileseq, filterstr, gratingstr, targetstr
   
-;    prefchar = strmid(camera,0,1)
     prefchar = '2'
 
     wildcharsky = '?????????????????_sky_?'
@@ -912,38 +893,6 @@ pro autolrismakesky, chip=chip, camera=camera
           endif
        endif
 
-;        ; Dome flat.
-;        if flatsuccess eq 0 then begin
-;           if strmid(camera,0,1) eq 'b' then mincounts=5000. else mincounts=7000.
-;           domeflats = where(isdomeflat and filters eq filt and dichs eq dich and binnings eq bin and $
-;                             counts gt mincounts and counts lt 39000., ctdome)
-;           if ctdome ge 3 then begin
-;              print, filt, '-band / ', 'D'+dich,' '+binstr+': ', strtrim(string(ctdome),2), ' dome flats'
-;              flatcombine, files[domeflats], outflatname, type='dome', normzone=normzone, xnormkey='AMPR1'
-;              flatsuccess = 1
-;           endif
-;        endif
-
-;        ; marginal sky flat
-;        if flatsuccess eq 0 then begin
-;            print, 'WARNING - insufficient images for a good flat.  ('+clip(ctdome)+' dome, '+clip(ctsky)+' sky, '+clip(ctsupersky)+' science).'
-;            if ctsky ge 3 then begin
-;               print, filt, '-band / ', 'D'+dich,' '+binstr+': ', strtrim(string(ctsky),2), ' sky flats (WARNING - marginal!)'
-;               flatcombine, files[skyflats], outflatname, /removeobjects, type='sky', xnormkey='AMPR1'
-;               flatsuccess = 1
-;            endif
-;        endif
-;
-;        ; marginal supersky flat
-;        if flatsuccess eq 0 then begin
-;            if ctsupersky ge 5 then begin
-;               print, filt, '-band / ', 'D'+dich,' '+binstr+': ', strtrim(string(ctsupersky),2), ' supersky flats  (WARNING - EXTREMELY marginal)'
-;               print, 'Flat field for this filter/dichroic combination is likely to be extremely poor.'
-;               flatcombine, files[superskyflats], outflatname, /removeobjects, type='supersky', xnormkey='AMPR1'
-;               flatsuccess = 1
-;            endif
-;        endif
-
        if flatsuccess eq 0 then begin
           print, 'Unable to produce a flat field for this setting: ', filt, '-band / ', 'D'+dich,' '+binstr
           noproc = where(isscience and filters eq filt and dichs eq dich and binnings eq bin, ctnoproc)
@@ -964,7 +913,6 @@ pro autolrisimflatten, chip=chip, camera=camera
    common lrisauto, autoastrocommand, swarpcommand, datadir, imworkingdir, spworkingdir, imfinaldir, spfinaldir, lrisversion, wildchar, overwrite, fileseq, filterstr, gratingstr, targetstr
    common lrisfail, flatfail, catastrofail, relastrofail, fullastrofail, extractfail, wavsolfail, wavsolwarn, fluxcalfail
 
-;   prefchar = strmid(camera,0,1)
    prefchar = '2'
    fchip = strmid(chip,0,1)
 
@@ -980,20 +928,8 @@ pro autolrisimflatten, chip=chip, camera=camera
    if flats[0] ne '' then begin
      for f = 0, n_elements(flats)-1 do begin
        h = headfits(flats[f], /silent)
-;       inst = strtrim(sxpar(h, 'INSTRUME'),2)
-;       if inst eq 'LRIS' then instabbrev = 'r'
-;       if inst eq 'LRISBLUE' then instabbrev = 'b'
-;       if instabbrev ne strmid(camera,0,1) then continue
        filter = clip(sxpar(h, 'FILTER'))
-;       dich = clip(sxpar(h, 'DICHNAME'))
-;       win = clip(sxpar(h,'WINDOW'))
-;       if clip(sxpar(h,'PANE')) ne '0' then win = clip(sxpar(h,'PANE')) else win = strmid(win,2) ; if available, more useful
-;       flatchip = clip(sxpar(h, 'CHIP'))
        flatfilts[f] = filter
-;       flatdichs[f] = dich
-;       flatwins[f] = win ; some unused characters at the start, or something
-;       flatbins[f] = clip((sxpar(h,'BINNING')))
-;       flatchips[f] = flatchip
      endfor
    endif else begin
      nopflats = 1
@@ -1007,51 +943,17 @@ pro autolrisimflatten, chip=chip, camera=camera
       match = where(outfile eq ffiles, ct) ; check if output file exists
       if ct eq 0 or overwrite then begin               
          h = headfits(files[f], /silent)
-         ;;fits = mrdfits(files[f], 0, h, /silent)
          counts = sxpar(h, 'SKYCTS') > sxpar(h,'COUNTS')
          exptime = sxpar(h, 'ELAPTIME')
          azimuth = sxpar(h,'AZ')
          elevation = sxpar(h,'EL')
          domeazimuth = sxpar(h,'DOMEPOSN')
          target = sxpar(h,'TARGNAME')
-
-;         domerelaz = domeazimuth - azimuth
-;         while domerelaz lt -180.0 do domerelaz += 360.
-;         while domerelaz ge  180.0 do domerelaz -= 360.
-;         ;print, files[f], elevation, domerelaz, target, counts, exptime, counts/exptime
-;                                         ; (abs(domerelaz-90) lt 15 or abs(domerelaz+90) lt 15) 
-;         if abs(elevation-45) lt 0.5 and abs(domerelaz) gt 3 then continue ; silently skip dome flats
-;         if strpos(target,'cass') ge 0 then continue 
-;         if strpos(target,'dome') ge 0 then continue ; sometimes the telescope is pointed wrong; we still don't want these...
-;         if strpos(target,'horizon') ge 0 then continue 
-;
-;         if counts gt 40000 then continue  ; skip anything close to saturation
-;         if counts gt 30000. and exptime lt 10 then continue
-;         if counts/exptime gt 10000. and exptime gt 1 then begin
-;            print, files[f], ' is probably a sky flat: skipping'
-;            continue
-;         endif
          filter = clip(sxpar(h, 'FILTER'))
-;         dich = clip(sxpar(h, 'DICHNAME'))
-;         win = strmid(clip(sxpar(h,'WINDOW')),2)
-;         if clip(sxpar(h,'PANE')) ne '0' then win = clip(sxpar(h,'PANE')) else win = strmid(win,2)
-;         binning = clip((sxpar(h,'BINNING')))
          binning='1'
-;         flatchip = clip(sxpar(h, 'CHIP'))
-;         flatfileno = where(flatfilts eq filter and flatchips eq flatchip and flatdichs eq dich and flatbins eq binning, ct) ; and flatwins eq win
          flatfileno = where(flatfilts eq filter, ct) ;all we care about is the filter for RATIR
-;stop
-;         ;print, flatfilts, '(', filter,')'
-;         ;print, flatchips,'(',flatchip ,')'
-;         ;print, flatdichs, '(', dich,')' 
-;         ;print, flatwins, '(', win,')'
-;
+
          if ct eq 0 then begin
-;            if nopflat eq 1 then begin
-;               print, 'No processed flats found!  Cannot perform flatfielding.'
-;               return
-;            endif
-;            flatfilenoothbin = where(flatfilts eq filter and flatchips eq flatchip and flatdichs eq dich, ctwobin) ; and flatwins eq win
             flatfilenoothbin = where(flatfilts eq filter,ctwobin) ;all we care about is the filter for RATIR
             ; Currently doesn't support flat-fielding with a different binning until I can be sure the case where both windowing and binning
             ; are wrong are dealt with
@@ -1063,12 +965,6 @@ pro autolrisimflatten, chip=chip, camera=camera
          flatfile = flats[flatfileno[0]]
          print, 'Flattening ', removepath(files[f]), ' using ', removepath(flatfile)
          flatproc, files[f], flatfile, flatminval=0.3, crop='auto'  ; add autocropping of low-signal zones
-
-;         ;if flatchip eq 'right' then flatproc, files[f], flatfile, crop=rcrop
-;         ;if flatchip eq 'left' then flatproc, files[f], flatfile, crop=lcrop
-;         ;if flatchip eq 'old' then flatproc, files[f], flatfile, crop=ocrop
-;         ;if flatchip eq 'old' and keyword_set(noxfix) eq 0 then lrisxfix, 'f'+files[f], prefix=''
-;         ;if flatchip ne 'right' and flatchip ne 'left' and flatchip ne 'old' then print, 'Chip not recognized - cannot flatten'
       endif
     endfor
 
@@ -1080,7 +976,6 @@ pro autolrisskysub, chip=chip, camera=camera
    common lrisauto, autoastrocommand, swarpcommand, datadir, imworkingdir, spworkingdir, imfinaldir, spfinaldir, lrisversion, wildchar, overwrite, fileseq, filterstr, gratingstr, targetstr
    common lrisfail, flatfail, catastrofail, relastrofail, fullastrofail, extractfail, wavsolfail, wavsolwarn, fluxcalfail
 
-;   prefchar = strmid(camera,0,1)
    prefchar = '2'
    fchip = strmid(chip,0,1)
    wildcharimg = '?????????????????_img_?'
@@ -1099,20 +994,8 @@ pro autolrisskysub, chip=chip, camera=camera
    if skys[0] ne '' then begin
      for f = 0, n_elements(skys)-1 do begin
        h = headfits(skys[f], /silent)
-;       inst = strtrim(sxpar(h, 'INSTRUME'),2)
-;       if inst eq 'LRIS' then instabbrev = 'r'
-;       if inst eq 'LRISBLUE' then instabbrev = 'b'
-;       if instabbrev ne strmid(camera,0,1) then continue
        filter = clip(sxpar(h, 'FILTER'))
-;       dich = clip(sxpar(h, 'DICHNAME'))
-;       win = clip(sxpar(h,'WINDOW'))
-;       if clip(sxpar(h,'PANE')) ne '0' then win = clip(sxpar(h,'PANE')) else win = strmid(win,2) ; if available, more useful
-;       skychip = clip(sxpar(h, 'CHIP'))
        skyfilts[f] = filter
-;       skydichs[f] = dich
-;       skywins[f] = win ; some unused characters at the start, or something
-;       skybins[f] = clip((sxpar(h,'BINNING')))
-;       skychips[f] = skychip
      endfor
    endif else begin
      nopskys = 1
@@ -1127,16 +1010,6 @@ pro autolrisskysub, chip=chip, camera=camera
          h = headfits(files[f], /silent)
          camera = sxpar(h,'WAVELENG')
          camera = strcompress(camera,/remove_all)
-;         if strcmp(camera,'OPT') then begin
-;            data = mrdfits(files[f],0,h, /silent)
-;            tmp=strsplit(files[f],'/',/extract)
-;            dir=tmp(0)
-;            outfile='s'+tmp(1)
-;            outname=strcompress([dir+'/'+outfile],/remove_all)
-;            mwrfits, data, outname, h, /create
-;            goto,skipskysub
-;         endif
-         ;;fits = mrdfits(files[f], 0, h, /silent)
          counts = sxpar(h, 'SKYCTS') > sxpar(h,'COUNTS')
          exptime = sxpar(h, 'ELAPTIME')
          azimuth = sxpar(h,'AZ')
@@ -1162,11 +1035,6 @@ stop
          print, 'Sky Subtracting ', removepath(files[f]), ' using ', removepath(skyfile)
          if strcmp(camera,'OPT') then skyprocopt, files[f], skyfile else skyproc, files[f], skyfile
 
-;         ;if flatchip eq 'right' then flatproc, files[f], flatfile, crop=rcrop
-;         ;if flatchip eq 'left' then flatproc, files[f], flatfile, crop=lcrop
-;         ;if flatchip eq 'old' then flatproc, files[f], flatfile, crop=ocrop
-;         ;if flatchip eq 'old' and keyword_set(noxfix) eq 0 then lrisxfix, 'f'+files[f], prefix=''
-;         ;if flatchip ne 'right' and flatchip ne 'left' and flatchip ne 'old' then print, 'Chip not recognized - cannot flatten'
       endif
       skipskysub:
     endfor
@@ -1178,7 +1046,6 @@ pro autolriscrcleanim, chip=chip, camera=camera
 
    common lrisauto, autoastrocommand, swarpcommand, datadir, imworkingdir, spworkingdir, imfinaldir, spfinaldir, lrisversion, wildchar, overwrite, fileseq, filterstr, gratingstr, targetstr
 
-;   prefchar = strmid(camera,0,1)
    prefchar = '2'
    chipchar = strmid(chip,0,1)
 
@@ -1214,38 +1081,6 @@ pro autolriscrcleanim, chip=chip, camera=camera
    endfor
 
 end
-
-; -------------------------
-;pro autolrisskysubtract, camera=camera, chip=chip
-;
-;   common lrisauto, autoastrocommand, swarpcommand, datadir, imworkingdir, spworkingdir, imfinaldir, spfinaldir, lrisversion, wildchar, overwrite, fileseq, filterstr, gratingstr, targetstr
-
-;camchar = strmid(camera,0,1)
-;chipchar = strmid(chip,0,1)
-
-;files = choosefiles(camchar+wildchar+chipchar+'.fits',spworkingdir+'zfp',spworkingdir+'fp')
-;if overwrite eq 0 then files = unmatched(files,'s')
-
-;for f = 0, n_elements(files)-1 do begin
-;   if files[f] eq '' then continue
-;   if n_elements(fileseq) gt 0 then if total(filenum(files[f]) eq fileseq) eq 0 then continue
-
-
-;   h = headfits(files[f])
-;   lampstr = clip(sxpar(h,'LAMPS'))
-;   lamps = strsplit(lampstr,',',/extract)
-;   ;;if total(lamps ne '0') gt 0 then continue ;  skip flats/arcs
-
-;   trapdoor = clip(sxpar(h,'TRAPDOOR'))
-;   if trapdoor eq 'closed' then continue
-
-;   dum = subtractsky2(files[f])
-
-;endfor
-
-;end
-
-; -------------------------
 
 pro autolrisextract, camera=camera, chip=chip
 
@@ -1350,7 +1185,6 @@ pro autolrisextract, camera=camera, chip=chip
    arcra = arcra[w]    ; az and el would actually be more useful
    arcdec = arcdec[w]
 
-
    ; ----- If overwrite mode, destroy old arc solutions -----
 
    if overwrite then begin
@@ -1358,7 +1192,6 @@ pro autolrisextract, camera=camera, chip=chip
       for a = 0, nsol-1 do $
         file_delete, arcsols[a]
    endif
-
 
    ; -------- Now do the extraction ------------
 
@@ -1406,7 +1239,6 @@ pro autolrisextract, camera=camera, chip=chip
       close, 9
    endif
 
-
    files = choosefiles(camchar+wildchar+chipchar+'.fits',spworkingdir+'szfp',spworkingdir+'sfp')
 
 
@@ -1436,7 +1268,6 @@ pro autolrisextract, camera=camera, chip=chip
         if gr eq '400/3400' then cwav = 3600. ; 3505??
         if gr eq '600/4000' then cwav = 4305.
       endif
-
 
       outfile = fileappend(repstr(filename,'.fits', '.spec'),'e')
 
@@ -1471,7 +1302,6 @@ pro autolrisextract, camera=camera, chip=chip
          endif
       endif
 
-      ;'~/research/Useful/skyspec/gident_most.dat'
       skylist = refdatapath + '/' + 'skylines.dat'
 
       if n_elements(arcfile) gt 0 then delvarx, arcfile
@@ -1490,7 +1320,6 @@ pro autolrisextract, camera=camera, chip=chip
          print, '     gr='+gr, ' binning='+repstr(binning,',','x'), ' window='+window, ' cwav='+clip(cwav)
          print, 'Cannot wavelength calibrate.  Skipping...'
          continue
-         ;print, 'Spectrum will not be wavelength calibrated.'
       endif else begin
          archere = 0
          w = where(abs(arcra[matches]-ra) lt 0.1 and abs(arcdec[matches]-dec) lt 0.1, ct)
@@ -1547,7 +1376,6 @@ pro autolrisextract, camera=camera, chip=chip
             wav = wav[where(keep)]
             arclist = wav
 
-                            ;'~/research/redux/arc/lrisarcbright.list'
             brightarclistfile = refdatapath+'/'+'lrisarcbright.list'
             readcol, brightarclistfile, wav, name, format='f,a'
             keep = intarr(n_elements(name)) + 1
@@ -1608,10 +1436,6 @@ pro autolrisextract, camera=camera, chip=chip
       if camchar eq 'r' and sxpar(h,'SUNELEV') gt -6  then skylist = ''
 
       if camchar eq 'r' then begin
-         ;print, airmass, arcair
-         ;if abs(airmass-arcair) le 0.01 then maxnudge = 10.
-         ;if abs(airmass-arcair) gt 0.01 and abs(airmass-arcair) lt 1.0 then maxnudge = 100.
-         ;if abs(airmass-arcair) ge 1.0 then maxnudge = 250.
          maxnudge = 220.
       endif
       if camchar eq 'b' then maxnudge = 3. ; actually 10 more than this, this is for the search
@@ -1628,7 +1452,6 @@ pro autolrisextract, camera=camera, chip=chip
 
   endfor
 
-
 end
 
 ; -------------------------
@@ -1642,7 +1465,6 @@ pro autolrisfluxcal, camera=camera, chip=chip
    common standardspos, standardslist, standardsra, standardsdec
 
    standardpath = refdatapath
-
 
    camchar = strmid(camera,0,1)
    chipchar = strmid(chip,0,1)
@@ -1670,7 +1492,6 @@ pro autolrisfluxcal, camera=camera, chip=chip
 
       target = sxpar(h,'TARGNAME')
       object = sxpar(h,'OBJECT')
-      ;;targets[f] = standardizename(target, ismatch=ismatch) ; old method
       rastr = sxpar(h,'RA')
       decstr = sxpar(h,'DEC')
       if strpos(rastr,':') gt 0 then ra = 15*ten(rastr) else ra = float(rastr)
@@ -1752,9 +1573,6 @@ pro autolrisfluxcal, camera=camera, chip=chip
       sciair = airmasses[wsci]
       print, 'Flux-calibrating ', removepath(files[wsci]), ' (',names[wsci],')  airmass=', fpr(sciair,1.4)
       stdair = airmasses[wfluxcal[matchstandards]]
- 
-
-
 
          hydrogen = [6562.80, 4861.34, 4340.48, 4101.75, 3970.09, 3889.07, $
                      3835.40, 3797.92, 3770.65, 3750.17, 3734.39, 3721.96, $
@@ -1766,8 +1584,6 @@ pro autolrisfluxcal, camera=camera, chip=chip
          tellv = [0.008, 0.02, 0.011, 0.004, 0.013, 0.022]
          lines = [hydrogen, calcium, telluric]
          linev = [hv, cav, tellv]
-
-         ;for n2 = 3, 20 do print,( 911.760 * 1./(1./n1^2 - 1./n2^2) ) / (1.0 + 2.735182E-4 + 131.4182 / vac^2 + 2.76249E8 / vac^4)
 
       if nmatchstd eq 1 then begin
          if abs(sciair-stdair[0]) gt 0.1 then begin
@@ -1881,7 +1697,6 @@ pro autolrisfluxcal, camera=camera, chip=chip
       r = median(response[5:n_elements(wav)-5])
       for o = 3, 16 do begin
         par = polyfitg((wav[5:n-5]-c)/1e3, alog((response[5:n-5]/r)), o, guess=[par, 0]) ; in theory I shouldn't be using bad regions for this
-        ;print, o, ':', par
       endfor
       modelresponse = r*exp(poly((wav-c)/1e3, par))
 
@@ -1972,8 +1787,6 @@ pro autolrisfluxcal, camera=camera, chip=chip
       endfor
       !p.multi = 0
       !p.position = 0
- 
-    ;  stop
 
       writespec, outfile, outspec, h
 
@@ -1993,7 +1806,6 @@ pro autolriscombine, camera=camera
    standardpath = refdatapath
 
    ; automatic combination of 1D spectra of a common source in a common setting.
-
    ; assumes the central wavelength wasn't wildly adjusted between exposures.
  
    camchar = strmid(camera,0,1)
@@ -2015,7 +1827,6 @@ pro autolriscombine, camera=camera
      target = clip(sxpar(h,'TARGNAME'))
      if strpos(target,'_S') gt 0 then begin  ; strip the offset star from the target info
         ustriptarget = strmid(target,0,strpos(target,'_', /reverse_search))
-        ;if ustriptarget ne 'HD' and ustriptarget ne 'BD' and ustriptarget ne 'PTF' then 
         target = ustriptarget
      endif
      targets[f] = target
@@ -2270,7 +2081,6 @@ pro autolrisastrometry, camera=camera, chip=chip
    common lrisfail, flatfail, catastrofail, relastrofail, fullastrofail, extractfail, wavsolfail, wavsolwarn, fluxcalfail
    
     achip = strmid(chip,0,1)
-;    prefchar = strmid(camera,0,1)
     prefchar = '2'
     wildcharimg = '?????????????????_img_?'
     zffiles = choosefiles(prefchar+wildcharimg+'.fits',imworkingdir+'zisfp',imworkingdir+'zsfp',$
@@ -2284,10 +2094,6 @@ pro autolrisastrometry, camera=camera, chip=chip
     for f = 0, n_elements(zffiles)-1 do begin
        if zffiles[f] eq '' then continue
        h = headfits(zffiles[f], /silent)
-    ;   print, 'autoastrometry '+zffiles[f]+ ' -o' ; Initially, get a "rough" solution for every image using the catalog
-    ;   spawn, 'autoastrometry '+zffiles[f]+ ' -o' ;  (for deep images to be used in stacking we will improve this later)
-    ;                                               ; Overwrites initial file
-    ; 
        filetargets[f] = repstr(repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_'),'/','_')  ; spaces cause barfing in filenames
        filefilt[f] = sxpar(h,'FILTER')
        fileexposures[f] = string(sxpar(h,'EXPTIME'))
@@ -2303,7 +2109,6 @@ pro autolrisastrometry, camera=camera, chip=chip
        for f = 0, n_elements(filters)-1 do begin
 
           targetfiles = where(zffiles eq targets[t])
-;          refcatfile = imworkingdir+targets[t]+'.cat'
           refcatfile = strcompress(imworkingdir+targets[t]+'.'+filters[f]+'.cat',/remove_all)
 
           if file_test(refcatfile) and overwrite eq 0 then continue
@@ -2317,15 +2122,8 @@ pro autolrisastrometry, camera=camera, chip=chip
           endif
           
           imagesthistarg = zffiles[thistarget]
-          
-          
-      ;for i = 0, n_elements(imagesthistarg)-1 do begin
-      ;   h = headfits(imagesthistarg[i])
-      ;endfor
           refimagename = imagesthistarg[n_elements(imagesthistarg)/2]
 
-      ;h = headfits(refimagename, /silent)
-      ;pa = strtrim(string((float(sxpar(h, 'ROTPOSN'))+0) MOD 360),2)
           print
           print, 'Making reference catalog for ', targets[t], ' using ', refimagename
           print, autoastrocommand+' '+refimagename;+' -upa 2 -q'
@@ -2341,7 +2139,6 @@ pro autolrisastrometry, camera=camera, chip=chip
              spawn, autoastrocommand+' '+outfile+' -n '+refcatfile + ' -x 55000 -q'
              print
           endelse
-      ; ' -px '+strtrim(string(pxscale),2)+' -pa '+pa+               ;;+' -s 6'
       ;   (respecifying px and pa should no longer be necessary with the new splitlrisred and splitlris blue which add astrometry.)
        endfor
     endfor
@@ -2375,7 +2172,7 @@ pro autolrisastrometry, camera=camera, chip=chip
           if targname eq '' then continue
           if strpos(targname,'flat') ge 0 then continue
           refcatfile = strcompress(imworkingdir+targname+'.'+filt+'.cat',/remove_all)
-;          refcatfile = imworkingdir + targname + '.'+camera+'.'+achip+'.cat'
+          
           if file_test(refcatfile) then begin
              print, targname
              print, autoastrocommand+' '+zffiles[f]+' -c '+refcatfile;+' -upa 2' + ' -x 55000 -q' ;-upa 0.1
@@ -2387,13 +2184,12 @@ pro autolrisastrometry, camera=camera, chip=chip
              print, 'Refined astrometry of ', zffiles[f], ' was not successful.  Trying direct astrometry:'
              print, autoastrocommand+' '+zffiles[f];+' -upa 2 -q'
              spawn, autoastrocommand+' '+zffiles[f];+' -upa 2 -q'
-;             stop
+
              if file_test(outfile) then relastrofail  = [relastrofail,  zffiles[f]] $
              else fullastrofail = [fullastrofail, zffiles[f]] 
           endif
        endelse
-;stop
-          ; ' -px '+strtrim(string(pxscale),2)+' -pa '+pa+  ;;+' -s 6'
+
     endfor
 
 end
@@ -2408,14 +2204,6 @@ pro autolrisphotometry, camera=camera, chip=chip
 
    common lrisauto, autoastrocommand, swarpcommand, datadir, imworkingdir, spworkingdir, imfinaldir, spfinaldir, lrisversion, wildchar, overwrite, fileseq, filterstr, gratingstr, targetstr
 
-;  if camera eq 'red' then camiter = clip(lrisversion) else camiter = ''
-;
-;  if camera eq 'blue' and file_test('zeropointsblue.dat') eq 0 then $              ; ichip eq 0 and 
-;    lrisautostdphot, /blue ; chip-independent
-;  if camera eq 'red' and countfiles('zeropointsred*.dat') eq 0 then $              ; ichip eq 0 and 
-;    lrisautostdphot, /red
-;  if file_test(imworkingdir+'autophotsummaryflux.'+camera+camiter+'.txt') eq 0 then $
-;   lrisautofieldphot, blue=bl, red=re, chip=ch
    lrisautofieldphot,blue=bl,red=re,chip=ch
 
 end
@@ -2431,7 +2219,6 @@ pro autolrisstack, camera=camera, chip=chip
 
   if n_elements(chip) eq '' then chip = '*'
   chipchar = strmid(chip,0,1)
-;  prefchar = strmid(camera,0,1)
   prefchar = '2'
   wildcharimg = '?????????????????_img_?'
   azffiles = findfile(imworkingdir+'a*'+prefchar+wildcharimg+'.fits')
@@ -2451,7 +2238,6 @@ pro autolrisstack, camera=camera, chip=chip
       photodata.seeing = pseeing
    endif
 
-
    filetargets = strarr(n_elements(azffiles))
    fileexposures = fltarr(n_elements(azffiles))
    filefilters = strarr(n_elements(azffiles))
@@ -2466,7 +2252,6 @@ pro autolrisstack, camera=camera, chip=chip
      h = headfits(azffiles[f], /silent)
      if f eq 0 then datestr = sxpar(h,'DATE')
      filetargets[f] = repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_')  ; spaces cause barfing in filenames
-;     fileexposures[f] = float(sxpar(h,'ELAPTIME'))
      fileexposures[f] = 60.
      filefilters[f] = string(sxpar(h,'FILTER'))
      filesatval[f] = sxpar(h,'SATURATE')
@@ -2491,13 +2276,9 @@ pro autolrisstack, camera=camera, chip=chip
         filter = thistargetfilts[l]
         thistargfilt = where(filetargets eq target and filefilters eq filter, cttargfilt)
         if cttargfilt eq 0 then continue
-;        if max(fileexposures[thistargfilt]) lt 30. then continue
         expthresh = (median(fileexposures[thistargfilt]) * 0.5) > (max(fileexposures[thistargfilt]) * 0.19) ; formerly median*0.8
-;        stacki = where(filetargets eq target and filefilters eq filter and fileexposures gt expthresh, ctstack)
         stacki = where(filetargets eq target and filefilters eq filter, ctstack)
-        ;if ctstack lt 2 then continue
         if ctstack eq 0 then continue
-        ;;if ctstack eq 1 then print, 'Only one deep exposure:  trivial stack'
         stacklist = azffiles[stacki]
         stackexps = fileexposures[stacki]
         medianexp = median(stackexps)
@@ -2514,8 +2295,6 @@ pro autolrisstack, camera=camera, chip=chip
         nstack = n_elements(stacklist)
         if nstack gt 1 then stdfluxratio = stdev(filefluxratio[stacki]) else stdfluxratio = 0
 
-;        outfile       = imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.' + chipchar + '.fits'
-;        outweightfile = imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.' + chipchar + '.weight.fits'
         outfile       = imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.fits'
         outweightfile = imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.weight.fits'
         stackcmd = swarpcommand+' '    ;'swarp '
@@ -2543,17 +2322,12 @@ pro autolrisstack, camera=camera, chip=chip
         endif else begin
           stackcmd = stackcmd + ' -WEIGHT_TYPE BACKGROUND'
         endelse
-        ;stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET'
         stackcmd = stackcmd + ' -FSCALE_DEFAULT '
         for s = 0, n_elements(stacklist)-1 do stackcmd = stackcmd + strtrim(string(medianexp/stackexps[s]),2) + ','   ; multiplicative factor...
         stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,DICHNAME,SLITNAME,'+$
                                'GRISNAME,GRANAME,GRANGLE,INSTRUME,UT,UTC,MJD_OBS,MJD-OBS,ST,'+$
                                'DATE,DATE-OBS,AIRMASS,AZ,RA,DEC,EL,HA,TELFOCUS,ROTPOSN,DOMEPOSN,CURRINST,OBSERVER,'+$
                                'FLATFLD,FLATTYPE'
-                              ;'DOMEPOSN,CURRINST,ADCWAVE0,ADCWAVE1,AMPMODE,CCDGAIN,CCDSPEED,NUMAMPS'
-                              ;'DATE_BEG,DATE,END,UTC-END,DATE-END,BINNING,TRAPDOOR,LAMPS,FLIMAGIN,FLSPECTR'
-          ; Too many keywords causes pyfits to be unable to load the mosaic.  It's rather freakish.
-        ;stackcmd = stackcmd + ' -BACK_SIZE 256'
 
         if (file_test(outfile) eq 0) or overwrite then begin
            if nstack eq 1 then $ ; used to be 3 for some bizarre reason?
@@ -2592,15 +2366,10 @@ pro autolrisstack, camera=camera, chip=chip
            hist = 'Processed by lrisautoproc '+now
            sxaddhist, hist, h, /COMMENT
            mwrfits, data, outfile, h, /create ; add this header info
-           ;;print, autoastrocommand+' '+outfile+' -q'
-           ;;spawn, autoastrocommand+' '+outfile+' -q'
-           ;;                 ; do another round of precise astrometry on the stack (probably unnecessary now)
 
            ; In the future, there will be a final alignment step.
 
         endif
-
-
      endfor
   endfor
 
@@ -2608,32 +2377,18 @@ pro autolrisstack, camera=camera, chip=chip
   if qq eq 0 then begin; chip eq 'b' and (camera ne 'red' and lrisversion gt 1) then begin 
      ; Combine left and right sides (or multiple exposure blocks, if necessary) for COADDS
 
-;     coaddfilesr = findfile(imworkingdir+'coadd*r.fits')
-;     coaddfilesl = findfile(imworkingdir+'coadd*l.fits')
-;     if coaddfilesr ne [''] then coaddfilesr = coaddfilesr[where(coaddfilesr ne '')] ;else continue
-;     if coaddfilesl ne [''] then coaddfilesl = coaddfilesl[where(coaddfilesl ne '')] ;else continue
      coaddfiles = findfile(imworkingdir+'coadd*.fits')
-;stop
+
      if coaddfiles ne [''] then coaddfiles = coaddfiles[where(coaddfiles ne '')] ;else continue
 
      ; match every r with an l and coadd
      for f = 0, n_elements(coaddfilesr)-1 do begin
-;        rfilename = coaddfilesr[f]
-;        lfilename = repstr(rfilename, 'r.','l.')
-        ;match = where(coaddfilesl eq lfilename, ct)
         filename = coaddfiles[f]
         if ct eq 1 then begin
-;           stackcmd = swarpcommand + ' ' + rfilename + ',' + lfilename
-;           outfile = repstr((coaddfilesr[f]), '.r.fits', '.fits')
            outfile = coaddfiles[f]
            if file_test(outfile) eq 0 or overwrite then begin
-;              rweightname = repstr(rfilename, '.fits','.weight.fits') 
-;              lweightname = repstr(lfilename, '.fits','.weight.fits') 
               weightname = repstr(filename, '.fits','.weight.fits') 
-              ;if file_test(rweightname) eq 0 then spawn, 'mv ' + strmid(rweightname,1) + ' ' + rweightname
-              ;if file_test(lweightname) eq 0 then spawn, 'mv ' + strmid(lweightname,1) + ' ' + lweightname
               print
-;              print, 'Combining ', rfilename, ' and ', lfilename
               stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile
               stackcmd = stackcmd + ' -WEIGHT_TYPE MAP_WEIGHT'
               stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,DICHNAME,'+$
@@ -2666,14 +2421,8 @@ pro autolrisstack, camera=camera, chip=chip
 
 
      ; For individual images (standards, found if exptime < 30 sec)
-
-     ;if crclean eq 0 then begin
-     ;    azffiles = findfile('af'+prefchar+wildchar+'r.fits')
-     ;endif else begin
-     ;    azffiles = findfile('azf'+prefchar+wildchar+'r.fits')
-     ;endelse
+     
      azffiles = findfile(imworkingdir+'a*f*'+prefchar+wildchar+'r.fits')
-
      realfiles = where(azffiles ne '', ct)
 
      ; Combine l and r images.
@@ -2786,11 +2535,6 @@ endif
 
 autolrisdefaults
 
-;if lastdir eq imworkingdir or lastdir eq imfinaldir or $
-;   lastdir eq spworkingdir or lastdir eq spfinaldir or $ 
-;   pwd eq imworkingdir or pwd eq imfinaldir or $
-;   pwd eq spworkingdir or pwd eq spfinaldir  $ 
-
 
 
 ; --- Process mode options
@@ -2807,19 +2551,6 @@ if n_elements(modes) eq 0 then begin
   return
 endif
 
-; --- Process camera options
-;if n_elements(camerastr) eq 0 then camerastr = 'rb'
-;camerastr = strlowcase(camerastr)
-;if camerastr eq 'br' or camerastr eq 'b,r' then cameras = ['blue', 'red']
-;if camerastr eq 'rb' or camerastr eq 'r,b' then cameras = ['red', 'blue']
-;if n_elements(cameras) eq 0 then begin
-;   if strmid(camerastr,0,1) eq 'b' then cameras = ['blue']
-;   if strmid(camerastr,0,1) eq 'r' then cameras = ['red']
-;endif
-;if n_elements(cameras) eq 0 then begin
-;  print, 'Cannot recognize camera request: ', camerastr
-;  return
-;endif
 cameras=['blue']                ;placeholder
 
 ; --- Process chip options
@@ -2835,7 +2566,6 @@ if n_elements(chips) eq 0 then begin
   print, 'Cannot recognize chip request: ', chipstr
   return
 endif
-
 
 ; --- Process step options
 steps = ['prepare', 'makeflat', 'flatten', 'makesky', 'skysub', 'makefringe', 'rmfringe', 'split', 'crclean', 'skysubtract', 'extract', 'fluxcal', 'combine', 'connect', 'astrometry', 'photometry', 'stack']
@@ -2870,8 +2600,6 @@ if n_elements(only) gt 0 then begin
    endif
    steps = steps[w]
 endif
-
-
 
 ; For imaging, check if autoastrometry, sextractor, swarp are installed and functioning
 
@@ -2916,21 +2644,6 @@ if total(modes eq 'im') ge 1 then begin
    endif
 endif
 
-
-
-;; Investigate the data and rename files to modern format if necessary.
-;
-;noldfiles = countfiles(datadir+'lred*.fits') + countfiles(datadir+'lblue*.fits')
-; ;+ countfiles(datadir+'rfoc*.fits') + countfiles(datadir+'bfoc*.fits')
-;if noldfiles gt 0 then begin
-;   print, 'Image file names are in old format.  Updating...'
-;   autolrisrename
-;endif
-
-
-;lrisversion = getlrisversion(datadir=datadir, /quiet)
-;if lrisversion le 0 then lrisversion=getlrisversion(datadir=spworkingdir, /quiet)
-;if lrisversion le 0 then lrisversion=getlrisversion(datadir=imworkingdir)
 lrisversion = 3
 
 if redo then overwrite = 1 else overwrite = 0
@@ -2961,7 +2674,6 @@ for istep = 0, nsteps-1 do begin
       for imode = 0, nmodes-1 do begin
          mo = strmid(modes[imode],0,2)
          if mo eq 'im' then begin   
-;            if instep eq 'makeflat' then autolrismakeimflat,cam=camera, chip=''
             if instep eq 'flatten'  then autolrisimflatten,  cam=camera, chip=''
             if instep eq 'makesky' then autolrismakesky,cam=camera, chip=''
             if instep eq 'skysub'  then autolrisskysub,  cam=camera, chip=''
@@ -2970,15 +2682,6 @@ for istep = 0, nsteps-1 do begin
                if instep eq 'rmfringe'   then autolrisrmfringe, chip=ch, cam=ca
             endif
          endif
-;         if mo eq 'sp' then begin
-;            if instep eq 'makeflat' then autolrismakespecflat, cam=camera, chip=''
-;            if instep eq 'flatten'  then autolrisspecflatten,  cam=camera, chip=''
-;         endif
-
-;         if instep eq 'split' and (lrisversion gt 1 or cameras[icam] eq 'blue') then begin  ; and n_elements(chips) eq 2 
-;            if n_elements(chips) eq 1 then ch = chips[0] else ch = ''
-;            autolrissplit, cam=camera, mode=mo, ch=ch
-;         endif
 
          for ichip = 0, nchips-1 do begin
             ch = strmid(chips[ichip],0,1)
@@ -3004,32 +2707,11 @@ for istep = 0, nsteps-1 do begin
                if instep eq 'extract' and ch eq 'r' then autolrisextract, chip='r', cam=camera
             endif
          endfor
-;         if mo eq 'sp' then begin ;  not really necessary
-;            if instep eq 'fluxcal' then autolrisfluxcal, chip='r', cam=camera ; could move this in the chip loop
-;            if instep eq 'combine' then autolriscombine, camera=camera
-;         endif
-       
       endfor ; mode
-
    endfor ; camera
-
-   
-;   ; Camera has ceased to be relevant for the following
-;
-;   for imode = 0, nmodes-1 do begin
-;
-;      if mo eq 'sp' and instep eq 'connect' then autolrisconnect
-;
-;      ; a redblue imaging alignment procedure would also go here      
-;
-;   endfor
-
 endfor ; step
 
-
-
 print
-
 
 nflatfail = n_elements(flatfail)-1
 if nflatfail gt 1 then begin ;element 0 is blank
@@ -3040,7 +2722,6 @@ if nflatfail gt 1 then begin ;element 0 is blank
     gg = sxpar(h,'GRNAME')
     if clip(gg) eq '0' then gg = sxpar(h,'SLITNAME')
     print, clip(removepath(flatfail[f]),25), string(sxpar(h,'ELAPTIME'),format='(I5)'), ' ', clip(sxpar(h,'FILTER'),5), ' ', clip(sxpar(h,'DICHNAME'),7),' ',clip(gg,12), ' ',clip(sxpar(h,'TARGNAME'),16), ' ', repstr(clip(sxpar(h,'BINNING')),',','x')
-   ;, clip(sxpar(h,'WINDOW')), ' ', clip(sxpar(h,'PANE'))
   endfor
   flats = [findfile(imworkingdir+'*flat*.fits'),findfile(spworkingdir+'*flat*.fits')]
   nflats = total(flats ne '')
@@ -3053,7 +2734,7 @@ if nflatfail gt 1 then begin ;element 0 is blank
        if clip(gg) eq '0' then gg = sxpar(h,'SLITNAME')
 
 print, clip(removepath(flats[f]),25), string(sxpar(h,'ELAPTIME'),format='(I5)'), ' ', clip(sxpar(h,'FILTER'),5), ' ', clip(sxpar(h,'DICHNAME'),7),' ',clip(gg,12), ' ',clip(sxpar(h,'TARGNAME'),16), ' ', repstr(clip(sxpar(h,'BINNING')),',','x')
-   ;, clip(sxpar(h,'WINDOW')), ' ', clip(sxpar(h,'PANE'))
+
      endfor
    endif else begin
      print, 'No processed flat-fields exist!  Check inputs or copy raw flat-field files to data directory.'
@@ -3111,9 +2792,7 @@ if nafail ge 1 then begin
     h = headfits(fullastrofail[f])
     print, clip(removepath(fullastrofail[f]),25), string(sxpar(h,'ELAPTIME'),format='(I5)'), ' ', clip(sxpar(h,'FILTER'),4), ' ', clip(sxpar(h,'TARGNAME'),16), ' ', clip(sxpar(h,'COUNTS'))
   endfor
-endif; else begin
-  ;print, 'Finished with no astrometric problems.'
-;endelse
+endif
 
 if keyword_set(continuous) then begin
    print, 'Pipeline iteration complete.'
@@ -3129,7 +2808,6 @@ endwhile
 
 
 print, 'Processing complete.'
-;while !window ge 0 do wdelete, !window
 !quiet = 0
 
 ; cleanup- should ultimately put these things in imredux
@@ -3137,8 +2815,6 @@ print, 'Processing complete.'
 if file_test('temp*.*') gt 0 then spawn, 'rm -f temp*.*'
 if file_test('det.*') gt 0 then spawn, 'rm -f det.*'
 if file_test('cat.*') gt 0 then spawn, 'rm -f cat.*'
-; if file_test('match*') gt 0 then spawn, 'rm -f match*'
-
 
 end
 
