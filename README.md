@@ -22,7 +22,7 @@ Outline
 
 1.1 Run startup.sh in Unix shell to source code
 
-1.2 Alter lrisautoproc.par to point to full path of autoastrometry.py on individual computer (under code/idl/ratauto)
+1.2 Alter pipeautoproc.par to point to full path of autoastrometry.py on individual computer (under code/idl/ratauto)
 
 2. Reduction {#redux}
 ------------

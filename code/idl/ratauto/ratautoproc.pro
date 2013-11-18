@@ -500,76 +500,6 @@
 ; cleanup of autoastrometry files - done
 
 
-; -------------
-
-pro autolrismakesky, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
-
-	;Setup pipeline variables that carry throughout the pipeline
-	if keyword_set(inpipevar) then begin
-		pipevar = inpipevar
-		print, 'Using provided pipevar'
-	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
-					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:'' }
-	endelse
- 
-    prefchar = '2'
-
-    wildcharsky = '?????????????????_sky_?'
-    files = findfile(pipevar.imworkingdir+'fp'+prefchar+wildcharsky+'.fits')
-    isdomeflat = intarr(n_elements(files))
-    isskyflat  = intarr(n_elements(files))
-    isscience  = intarr(n_elements(files))
-    filters =  strarr(n_elements(files))  
-    dichs =  strarr(n_elements(files))    
-    wins =  strarr(n_elements(files))     
-    binnings = strarr(n_elements(files))  
-    counts = fltarr(n_elements(files))    
-    targets = strarr(n_elements(files))   
-    exps = fltarr(n_elements(files))      
-    for f = 0, n_elements(files)-1 do begin
-       if files[f] eq '' then continue
-       h = headfits(files[f], /silent)
-
-       filters[f] = clip(sxpar(h, 'FILTER'))
-       targets[f] = clip(sxpar(h,'TARGNAME'))
-       isscience[f]=1           ;all images are sky frames here
-       isskyflat[f]=1           ;all images are sky frames here
-    endfor
-    sciindex = where(isscience, ct)
-    if ct eq 0 then return
-    scifilterlist  = unique(filters[sciindex])
-
-    for i = 0, n_elements(scifilterlist)-1 do begin
-       filt = scifilterlist[i]
-       flatsuccess = 0
-       ; Regular sky flat.
-       if flatsuccess eq 0 then begin
-          skyflats = where(isskyflat and filters eq filt, ctsky)
-          outflatname = pipevar.imworkingdir+'sky-'+filt+'.fits'
-          if ctsky ge 2 then begin
-             print, filt, '-band sky flats.'
-             if file_test(outflatname) and pipevar.overwrite eq 0 then continue ; flat exists already
-             skycombine, files[skyflats], outflatname, /removeobjects, type='sky'
-             flatsuccess = 1
-          endif
-       endif
-
-       if flatsuccess eq 0 then begin
-          print, 'Unable to produce a flat field for this setting: ', filt, '-band / ', 'D'+dich,' '+binstr
-          noproc = where(isscience and filters eq filt and dichs eq dich and binnings eq bin, ctnoproc)
-          print, 'Will not be able to further process ', clip(ctnoproc), ' images without a flat from another source:'
-          for j = 0, ctnoproc-1 do print, '   ', files[noproc[j]], exps[noproc[j]], '  ', targets[noproc[j]]
-          
-       endif
-
-    endfor
-    
-	outpipevar = pipevar
-end
-
 ; -------------------------
 
 pro autolrisskysub, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
@@ -635,7 +565,6 @@ pro autolrisskysub, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=i
             ; are wrong are dealt with
             if ctwobin gt 0 then binstr = ', '+repstr(binning,',','x') else binstr = ''
             print, 'Sky field not found for ';, removepath(files[f]), ' (', filter+', '+'D'+dich+ binstr,')' ; , ' / ', win
-stop
             pipevar.flatfail = pipevar.flatfail +' '+ files[f]
             continue
          endif
@@ -1296,7 +1225,7 @@ for istep = 0, nsteps-1 do begin
          mo = strmid(modes[imode],0,2)
          if mo eq 'im' then begin   
             if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
-            if instep eq 'makesky' then autolrismakesky,cam=camera, chip='', outpipevar=pipevar, inpipevar=pipevar
+            if instep eq 'makesky' then autopipemakesky, outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'skysub'  then autolrisskysub,  cam=camera, chip='', outpipevar=pipevar, inpipevar=pipevar
          endif
 
