@@ -24,7 +24,7 @@
 ;	Check pipeprepare for RIMAS, RATIR, or VLT/VT to see changes that need to be made for RIMAS pipeline
 ;-
 
-pro autopipeprepare, outpipevar=outpipeprepare, inpipevar=inpipevar
+pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
