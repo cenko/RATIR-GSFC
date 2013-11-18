@@ -1,0 +1,79 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1187\cocoasubrtf340
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+
+\f0\fs24 \cf0 README \
+20130104\
+\
+The software reported here is based off of Dan Perley's Keck/LRIS reduction pipeline.  Inside the sw folder, Dan provides a complete manual and quickstart routine.  I encourage you to read those documents to fully understand the requirements to run this package.  Forgive the naming convention for now.  All code still uses LRIS references.\
+\
+---Make sure all paths in your setup files are set correctly to run the code.---\
+\
+For now, you should know that you need:\
+-IDL\
+-Python\
+-SExtractor\
+-SWarp\
+\
+The last three should all be downloadable and installable via Mac's 'port' command.  \
+\
+STEP 1 - Prepare files for pipeline using two simple IDL scripts.\
+\
+From your data directory (~/ratir_reduction_fox/sample_data) run a bash command to create lists:\
+ofox% bash ratlist.sh\
+\
+---This outputs lists for each directory, flats and grb.\
+\
+Open IDL and from an IDL prompt:\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural
+\cf0 idl> ratdisp_flat\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
+\cf0 ---This will pop up a window showing you all the flats from that night, with the proper rotation.  It will start with C0 unless you specify a camera you want to re-do (i.e., ratdisp_flat, camera=2).\
+---Follow the instructions to select useful flat field frames.  Essentially, "Y" for yes and "N" for no and "Q" for quit.\
+---The program prints out the median pixel value for both the detector, including the East/West pairs in the IR detectors.  I find that values between about 3K and 20K are useful for flats.\
+---The flat-field procedure is automated, so most of the early frames are saturated.\
+---This program crops the data, saves the cropped data, and creates lists of user accepted/rejected data.  All results are stored in the flat-field directory.\
+\
+Now, do the same thing for the actual data:\
+idl> ratdisp\
+\
+---This program does the same thing, but it requires the user to take one additional step and identify whether the data occur on the East (left) or West (right) side of the field.  This step matches the data with the appropriate sky images.\
+---This might be a little difficult since none of the data have been flat-fielded yet.  So, if you can't tell from just looking, you should use the log.  In the future, I will try to use the log to do this automatically.\
+\
+STEP 2 - Make your flats in IRAF\
+\
+cl> cd flats_20121212\
+cl> mfrat\
+\
+STEP 3 - Run the Keck/LRIS Pipeline\
+\
+First, go into your data directory, and move all the prepared data into a "raw" folder.\
+Also move the flats into the redux folder.\
+ofox% cd grb_v3/\
+ofox% mkdir raw\
+ofox% mv *img* raw\
+ofox% mv *sky* raw\
+ofox% mkdir imredux\
+ofox% cp ../flats_20121212/flat_*fits imredux/\
+\
+idl> ratautoproc, datadir='raw/', mode='im',redo=1\
+\
+STEP 4 - Perform Photometry\
+\
+Move the necessary data\
+ofox% mkdir photometry\
+ofox% cp imredux/coadd*fits photometry/\
+ofox% cp imredux/*.cal photometry/\
+ofox% cp imredux/*.txt photometry/\
+\
+Run SExtractor and compare output magnitudes to catalogues\
+idl> ratphot,prefix="coadd2012A-1000-vis3"\
+\
+---View plot to obtain limiting magnitudes\
+\
+\
+\
+}

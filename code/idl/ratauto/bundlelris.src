@@ -1,0 +1,6 @@
+mv lrisautoproc.par store/
+mv store/lrisautoproccit.par ./lrisautoproc.par
+tar -czvf lrisauto.tar.gz *.* dependencies defaults refdata
+mv lrisautoproc.par store/lrisautoproccit.par
+mv store/lrisautoproc.par ./lrisautoproc.par
+

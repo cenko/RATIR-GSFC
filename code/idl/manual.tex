@@ -1,0 +1,44 @@
+\documentclass[12pt,preprint]{aastex}
+%\documentclass[iop]{emulateapj}
+
+%Make personal definitions
+\newcommand{\spitzer}{\textit{Spitzer~}}
+\newcommand{\kms}{\textrm{km~s$^{-1}$}}
+\newcommand{\ms}{\textrm{m~s$^{-1}$}}
+\newcommand{\cms}{\textrm{cm~s$^{-1}$}}
+\newcommand{\ergs}{\textrm{erg~s$^{-1}$}}
+\newcommand{\lsolar}{L$_{\odot}$}
+\newcommand{\msolar}{M$_{\odot}$}
+\newcommand{\ml}{M$_{\odot}$ yr$^{-1}$}
+\newcommand{\mdot}{\dot{M}}
+\newcommand{\radbbwarm}{$4.8\times10^{16}~{\rm cm~(0.048~ly)}$}
+\newcommand{\radbbhot}{$7.7\times10^{15}~{\rm cm~(0.0077~ly)}$}
+
+\pagenumbering{arabic}
+\usepackage{subfigure}
+\usepackage{multirow}
+\usepackage[dvips]{color}
+\definecolor{Mygrey}{gray}{0.6}
+
+\begin{document}
+
+%\title{Late-Time Circumstellar Interaction in Type IIn Supernovae and\\ Implications on the Progenitor Mass-Loss History}
+\title{RATIR Data Reduction Package: Fox Pipeline v2.0}
+\shorttitle{Fox RATIR Pipeline}
+\author{Ori D. Fox\altaffilmark{1}}
+\altaffiltext{1}{Department of Astronomy, University of California, Berkeley, CA 94720-3411.}
+\email{ofox@berkeley.edu}
+
+\clearpage
+
+\section{Sky Subtraction}
+\label{sec:sky}
+
+\noindent In ratautoproc.pro, see pro autolrismakesky
+
+\begin{itemize}
+	\item Search for all ``sky'' files, defined as those images when the target was centered in the other filter.
+\end{itemize}
+
+
+\end{document}

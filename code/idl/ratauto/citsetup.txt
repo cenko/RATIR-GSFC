@@ -1,0 +1,32 @@
+Instructions for use on a CIT astronomy cluster machine:
+
+For machines connected to the Caltech astronomy cluster, you can run the 
+latest release version of the lrisauto LRIS reduction pipeline without 
+having to actually install any software.  
+
+
+----- For IDL users:
+
+If a .idlenv file exists in your home directory, open it and add the following
+string to your IDL_PATH keyword:
+
+  :+/home/dperley/progs/idl/lrisauto:+/home/dperley/progs/idl/lrisauto/dependencies
+
+If you don't already have the GCFC IDLastro package installed, also add:
+
+  :+/home/dperley/progs/idl/gsfc/pro
+ 
+
+
+----- For non-IDL users:
+
+If you don't already have an .idlenv file in your home directory, then add the
+following line to your .cshrc file:
+
+   source ~/.idlenv
+
+Then create the file .idlenv in your home directory and add the following line:
+   
+   setenv IDL_PATH /home/dperley/progs/idl/lrisauto:+/home/dperley/progs/idl/lrisauto/dependencies:+/home/dperley/progs/idl/gsfc/pro
+
+

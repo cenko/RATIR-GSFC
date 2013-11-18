@@ -1,0 +1,48 @@
+------------ LRISAUTO (Perley's LRIS pipeline) QUICK START GUIDE --------------
+
+Setup information:
+
+   For use on a Caltech astronomy cluster machine, see citsetup.txt.
+
+   For custom installation, see lrisauto.txt and scroll down to "installation".
+
+
+Manual:
+  
+   See lrisauto.txt (or the header of lrisautoproc.pro) for full instructions
+   on use of the pipeline
+
+
+Quick start guide:
+
+   Typical reduction of an LRIS night will proceed as follows:
+
+   1. Create a reduction directory on a drive with plenty of free space.
+
+   2. Create a subdirectory for the raw data with a name such as "raw/".
+
+   3. Copy over the raw LRIS files you wish to reduce into the raw data
+      directory.
+
+   4. Delete any known bad files (such as focus images, mira output, broken 
+      shutter, wrong binning/windowing, arc lamps not warm, stuck grating, 
+      etc.) from the raw data directory.  This step is optional but may save
+      some processing time and reduce the risk of failure.
+
+   5. Start IDL by typing "idl".
+
+   6. Run the pipeline at the IDL prompt as follows: 
+        IDL>   lrisautoproc, datadir='raw/', chip='r'
+
+   7. Wait patiently for the results.  Final reduced spectra will be output as
+        ascii tables to the current directory as lris[name].spec  Reduced 
+        images will appear in imredux/ as coadd[name]_r.fits. (In the future,
+        these will appear in the current directory as well.)  Intermediate data
+        products are written to imredux/ and spredux/.
+
+   8. To make a summary plot of all the spectra, type:
+       IDL>   lrisplotall
+        And open the file lrisspectra.ps to view the plots.
+
+
+
