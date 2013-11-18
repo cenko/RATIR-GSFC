@@ -500,78 +500,6 @@
 ; cleanup of autoastrometry files - done
 
 ; -------------------------
-pro autolrisprepare, modestr=modestr, camstr=camstr, outpipevar=outpipevar, inpipevar=inpipevar
-
-	;Setup pipeline variables that carry throughout the pipeline
-	if keyword_set(inpipevar) then begin
-		pipevar = inpipevar
-		print, 'Using provided pipevar'
-	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
-					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:'' }
-	endelse
-
-  ; Prepare images for processing (debias, crop, fix)
-  ; Current version always merges the two sides together, leaving splitting to later tasks.
-
-  if n_elements(pipevar.modestr) gt 0 then begin
-     if pipevar.modestr eq 'is' or pipevar.modestr eq 'i,s' or pipevar.modestr eq 'im,sp'  then mode = ''
-     if pipevar.modestr eq 'si' or pipevar.modestr eq 's,i' or pipevar.modestr eq 'sp,im'  then mode = ''
-     if n_elements(mode) eq 0 then mode = strmid(pipevar.modestr,0,1)
-  endif else begin
-     mode = ''
-  endelse
-
-  prefchar = '2'
-
-  files = findfile(pipevar.datadir+prefchar+pipevar.wildchar+'.fits')
-  pfiles = [findfile(pipevar.imworkingdir+'p'+prefchar+pipevar.wildchar+'.fits')]
-
-  if pipevar.datadir ne '' then  begin
-     print, 'Looking for raw data at: ', pipevar.datadir+prefchar+pipevar.wildchar+'.fits'
-
-     if n_elements(files) gt 0 then begin
-        print, 'Found ', clip(n_elements(files)), ' files'
-     endif else begin
-        print, 'Did not find any files!  Check your data directory path!'
-     endelse
-  endif
-
-  namefixfiles = ['']
-  catalogfile = 'catalog.txt' ; current directory
-  if file_test(catalogfile) then namefixfiles = [namefixfiles, catalogfile]
-  landoltfieldposfile = pipevar.refdatapath+'/landoltpos.txt'
-  if file_test(landoltfieldposfile) then namefixfiles = [namefixfiles, landoltfieldposfile]
-  specstandardposfile = pipevar.refdatapath+'/specstandards.dat'
-  if file_test(specstandardposfile) then namefixfiles = [namefixfiles, specstandardposfile]
-  if n_elements(namefixfiles) gt 1 then namefixfiles = namefixfiles[1:*] else delvarx, namefixfiles
-
-  for f = 0, n_elements(files)-1 do begin
-     if files[f] eq '' then continue
-    
-     slashpos = strpos(files[f],'/',/reverse_search)    
-     fileroot = strmid(files[f],slashpos+1)
-     outnameim = pipevar.imworkingdir + 'p' + fileroot
-     matchi = where(outnameim eq pfiles, ct1)
-     ct = ct1
-
-     if ct eq 0 or pipevar.overwrite gt 0 then begin
-        filemode = 'i'          ;placeholder
-        outname=outnameim
-
-print,outname
-        lrisprepare, files[f], gain=[1,1,1,1], flag=flag, /merge, crop='auto', $
-          outname=outname, namefixfiles=namefixfiles
-     endif
-  endfor
-
-	outpipevar = pipevar
-
-end
-
-; -------------------------
 pro autolrismakeimflat, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
 
 	;Setup pipeline variables that carry throughout the pipeline
@@ -1621,7 +1549,7 @@ for istep = 0, nsteps-1 do begin
 
       if instep eq 'prepare' then begin
          ; the mode setting is passed on to the routine itself.
-         autolrisprepare, modestr=pipevar.modestr, camstr=ca, outpipevar=pipevar, inpipevar=pipevar
+         autopipeprepare, outpipevar=pipevar, inpipevar=pipevar
       endif
 
       for imode = 0, nmodes-1 do begin
