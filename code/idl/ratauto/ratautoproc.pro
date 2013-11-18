@@ -571,77 +571,7 @@ pro autolrismakesky, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=
 end
 
 ; -------------------------
-pro autolrisimflatten, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
 
-	;Setup pipeline variables that carry throughout the pipeline
-	if keyword_set(inpipevar) then begin
-		pipevar = inpipevar
-		print, 'Using provided pipevar'
-	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
-					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:'' }
-	endelse
-
-   prefchar = '2'
-   fchip = strmid(chip,0,1)
-
-   files = findfile(pipevar.imworkingdir+'p'+prefchar+pipevar.wildchar+fchip+'.fits')
-   ffiles = findfile(pipevar.imworkingdir+'fp'+prefchar+pipevar.wildchar+fchip+'.fits')
-   if n_elements(files) eq 1 and files[0] eq '' then return
-   flats = findfile(pipevar.imworkingdir+'*flat*.fits')
-   flatfilts = strarr(n_elements(flats))
-   flatchips = strarr(n_elements(flats))
-   flatdichs = strarr(n_elements(flats))
-   flatwins = strarr(n_elements(flats))
-   flatbins = strarr(n_elements(flats))
-   if flats[0] ne '' then begin
-     for f = 0, n_elements(flats)-1 do begin
-       h = headfits(flats[f], /silent)
-       filter = clip(sxpar(h, 'FILTER'))
-       flatfilts[f] = filter
-     endfor
-   endif else begin
-     nopflats = 1
-     ; Don't actually raise the error until we know flats were necessary.
-  endelse
-   
-    for f = 0, n_elements(files)-1 do begin
-      if files[f] eq '' then continue
-      outfile = fileappend(files[f], 'f')
-      match = where(outfile eq ffiles, ct) ; check if output file exists
-      if ct eq 0 or pipevar.overwrite then begin               
-         h = headfits(files[f], /silent)
-         counts = sxpar(h, 'SKYCTS') > sxpar(h,'COUNTS')
-         exptime = sxpar(h, 'ELAPTIME')
-         azimuth = sxpar(h,'AZ')
-         elevation = sxpar(h,'EL')
-         domeazimuth = sxpar(h,'DOMEPOSN')
-         target = sxpar(h,'TARGNAME')
-         filter = clip(sxpar(h, 'FILTER'))
-         binning='1'
-         flatfileno = where(flatfilts eq filter, ct) ;all we care about is the filter for RATIR
-
-         if ct eq 0 then begin
-            flatfilenoothbin = where(flatfilts eq filter,ctwobin) ;all we care about is the filter for RATIR
-            ; Currently doesn't support flat-fielding with a different binning until I can be sure the case where both windowing and binning
-            ; are wrong are dealt with
-            if ctwobin gt 0 then binstr = ', '+repstr(binning,',','x') else binstr = ''
-            print, 'Flat field not found for ', removepath(files[f]), ' (', filter+', '+'D'+binstr,')' ; , ' / ', win
-            pipevar.flatfail = pipevar.flatfail +' '+ files[f]
-            continue
-         endif
-         flatfile = flats[flatfileno[0]]
-         print, 'Flattening ', removepath(files[f]), ' using ', removepath(flatfile)
-         flatproc, files[f], flatfile, flatminval=0.3, crop='auto'  ; add autocropping of low-signal zones
-      endif
-    endfor
-    
-	outpipevar = pipevar
- end
-
-; -------------------------
 pro autolrisskysub, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
 
 	;Setup pipeline variables that carry throughout the pipeline
@@ -1365,7 +1295,7 @@ for istep = 0, nsteps-1 do begin
       for imode = 0, nmodes-1 do begin
          mo = strmid(modes[imode],0,2)
          if mo eq 'im' then begin   
-            if instep eq 'flatten'  then autolrisimflatten,  cam=camera, chip='', outpipevar=pipevar, inpipevar=pipevar
+            if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'makesky' then autolrismakesky,cam=camera, chip='', outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'skysub'  then autolrisskysub,  cam=camera, chip='', outpipevar=pipevar, inpipevar=pipevar
          endif
@@ -1443,5 +1373,3 @@ if file_test('det.*') gt 0 then spawn, 'rm -f det.*'
 if file_test('cat.*') gt 0 then spawn, 'rm -f cat.*'
 
 end
-
- 
