@@ -1,4 +1,4 @@
-autoastrocommand : python /Users/vickitoy/Research/ratirphoto/idl/autoastrometry.py
+autoastrocommand : python /Users/vickitoy/Research/RATIR-GSFC/code/idl/astrom/vlt_autoastrometry.py
 swarpcommand     : /opt/local/bin/swarp
 sexcommand       : /opt/local/bin/sex
 datadir          : 

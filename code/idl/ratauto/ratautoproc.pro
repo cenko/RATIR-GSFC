@@ -550,138 +550,6 @@ pro autolriscrcleanim, chip=chip, camera=camera, outpipevar=outpipevar, inpipeva
 
 end
 
-; -------------------------
-pro autolrisastrometry, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=inpipevar
-
-	;Setup pipeline variables that carry throughout the pipeline
-	if keyword_set(inpipevar) then begin
-		pipevar = inpipevar
-		print, 'Using provided pipevar'
-	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
-					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:'' }
-	endelse
-	
-    achip = strmid(chip,0,1)
-    prefchar = '2'
-    wildcharimg = '?????????????????_img_?'
-    zffiles = choosefiles(prefchar+wildcharimg+'.fits',pipevar.imworkingdir+'zisfp',pipevar.imworkingdir+'zsfp',$
-                                                          pipevar.imworkingdir+'isfp',pipevar.imworkingdir+'sfp')
-    
-    filetargets = strarr(n_elements(zffiles))
-    fileexposures = strarr(n_elements(zffiles))
-    filecounts = fltarr(n_elements(zffiles))
-    filefilt = strarr(n_elements(zffiles))
-
-    for f = 0, n_elements(zffiles)-1 do begin
-       if zffiles[f] eq '' then continue
-       h = headfits(zffiles[f], /silent)
-       filetargets[f] = repstr(repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_'),'/','_')  ; spaces cause barfing in filenames
-       filefilt[f] = sxpar(h,'FILTER')
-       fileexposures[f] = string(sxpar(h,'EXPTIME'))
-       filecounts[f] = sxpar(h,'COUNTS')
-    endfor
-
-    ; Make a reference catalog using a representative image out of an image block (several images of the same field)
-
-    targets = unique(filetargets)
-    filters = unique(filefilt)
-
-    for t = 0, n_elements(targets)-1 do begin
-       for f = 0, n_elements(filters)-1 do begin
-
-          targetfiles = where(zffiles eq targets[t])
-          refcatfile = strcompress(pipevar.imworkingdir+targets[t]+'.'+filters[f]+'.cat',/remove_all)
-
-          if file_test(refcatfile) and pipevar.overwrite eq 0 then continue
-          thistarget = where(filetargets eq targets[t] and filefilt eq filters[f])
-          maxexp = max(fileexposures(thistarget))
-          minctrate = min(filecounts[thistarget]/fileexposures[thistarget])
-          
-          if maxexp lt 5 or minctrate gt 5000 then begin
-             print, targets[t], ' is a shallow field (standard or sky): not making a reference catalog.'
-             continue
-          endif
-          
-          imagesthistarg = zffiles[thistarget]
-          refimagename = imagesthistarg[n_elements(imagesthistarg)/2]
-
-          print
-          print, 'Making reference catalog for ', targets[t], ' using ', refimagename
-          print, pipevar.autoastrocommand+' '+refimagename;+' -upa 2 -q'
-          spawn, pipevar.autoastrocommand+' '+refimagename;+' -upa 2 -q'
-
-          outfile = fileappend(refimagename,'a')
-          if file_test(outfile) eq 0 then begin
-             catastrofail = catastrofail +' '+ refimagename
-             print, 'WARNING - astrometry on the reference image was unsuccessful!'
-             print
-          endif else begin
-             print, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -x 55000 -q'
-             spawn, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -x 55000 -q'
-             print
-          endelse
-      ;   (respecifying px and pa should no longer be necessary with the new splitlrisred and splitlris blue which add astrometry.)
-       endfor
-    endfor
-
-    if pipevar.overwrite eq 0 then zffiles = unmatched(zffiles,'a')  ; catalogs should always be the same; only do this now
-
-    ; Use the reference catalog to do a more precise relative astrometric solution
-    for f = 0, n_elements(zffiles)-1 do begin
-       if zffiles[f] eq '' then continue
-       outfile = fileappend(zffiles[f],'a')
-       if file_test(outfile) and pipevar.overwrite eq 0 then continue
-       h = headfits(zffiles[f], /silent)
-       pa = strtrim(string((float(sxpar(h, 'ROTPOSN'))+0) MOD 360),2)
-       exptime = sxpar(h,'ELAPTIME')
-       counts = sxpar(h,'COUNTS')
-       filt = sxpar(h,'FILTER')
-       if counts/exptime gt 5000. or exptime lt 5 then begin 
-         ; only do catalog astrometry for short exposures (no catalog).
-          if counts gt 30000 and exptime lt 10 then begin
-             print, zffiles[f], ' is in bright twilight; not solving astrometry.'
-             continue
-          endif
-          print, zffiles[f], ' is a twilight/standard frame, solving astrometry directly against a catalog.'
-          print, pipevar.autoastrocommand+' '+zffiles[f];+' -upa 2 -q'
-          spawn, pipevar.autoastrocommand+' '+zffiles[f];+' -upa 2 -q'
-          print
-          if file_test(outfile) eq 0 then pipevar.fullastrofail = pipevar.fullastrofail +' '+ zffiles[f] 
-       endif else begin
-         ; use the short exposure first, but fall back on direct catalog.
-          targname = repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_') ; spaces cause barfing in filenames
-          if targname eq '' then continue
-          if strpos(targname,'flat') ge 0 then continue
-          refcatfile = strcompress(pipevar.imworkingdir+targname+'.'+filt+'.cat',/remove_all)
-          
-          if file_test(refcatfile) then begin
-             print, targname
-             print, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile;+' -upa 2' + ' -x 55000 -q' ;-upa 0.1
-             spawn, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile;+' -upa 2' + ' -x 55000 -q' ;-upa 0.1
-          endif else begin
-             print, 'No reference catalog '+refcatfile+' exists for this field.'
-          endelse
-          if file_test(outfile) eq 0 then begin
-             print, 'Refined astrometry of ', zffiles[f], ' was not successful.  Trying direct astrometry:'
-             print, pipevar.autoastrocommand+' '+zffiles[f];+' -upa 2 -q'
-             spawn, pipevar.autoastrocommand+' '+zffiles[f];+' -upa 2 -q'
-
-             if file_test(outfile) then pipevar.relastrofail  = pipevar.relastrofail +' '+ zffiles[f] $
-             else pipevar.fullastrofail = pipevar.fullastrofail +' '+ zffiles[f]
-          endif
-       endelse
-
-    endfor
-
-	outpipevar = pipevar
-	
-end
-
-
-
 ; ------------------------
 
 pro autolrisphotometry, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=inpipevar
@@ -975,7 +843,6 @@ end
 
 
 ; -------------------------
-
 ; need to restore the gain correction.
 ; need to do something about when crashes, leaves you in imredux (check if you are already in the imredux directory)
 
@@ -990,15 +857,13 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 ;   redo         - Overwrite any existing products
 ;   nocrclean    - Do not zap cosmic rays
 
-!quiet = 1
-
-; Load default parameters and interpret user arguments.
-
-close, /all
-
+	!quiet = 1
+	close, /all
+	
+	; Load default parameters and interpret user arguments.
 	;VLT REMOVE WILDCHAR and LRISVERSION WHEN FULLY COMPLETE
 	
-	pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
+	pipevar = {autoastrocommand:'vlt_autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
 					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'', wildchar: '?????????????????_???_?', lrisversion:3 }
@@ -1010,212 +875,225 @@ close, /all
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar
 	modes = pipevar.modestr
 	
-nocrclean = keyword_set(nocrclean)
+	nocrclean = keyword_set(nocrclean)
 
-cd, current=pwd
-dirtree = strsplit(pwd,'/',/extract,count=nd)
-lastdir = dirtree[nd-1]
-if lastdir ne '' then lastdir += '/'  ; whether or not a slash is on the end is very
+	cd, current=pwd
+	dirtree = strsplit(pwd,'/',/extract,count=nd)
+	lastdir = dirtree[nd-1]
+	if lastdir ne '' then lastdir += '/'  ; whether or not a slash is on the end is very
                                       ; confusing, need to rethink this.
-if lastdir eq 'imredux/' then begin
-     print, 'Currently in a reduction subdirectory.'
-     print, 'Type cd.. and rerun.'
-  ; could reinterpret this as run with the mode set to whatever this directory is...
-     return
-endif
+	if lastdir eq 'imredux/' then begin
+     	print, 'Currently in a reduction subdirectory.'
+     	print, 'Type cd.. and rerun.'
+  		; could reinterpret this as run with the mode set to whatever this directory is...
+    	return
+	endif
 
-cameras=['blue']                ;placeholder
+	cameras=['blue']                ;placeholder
 
-; --- Process chip options
-if n_elements(chipstr) eq 0 then chipstr = 'r'
-chipstr = strlowcase(chipstr)
-if chipstr eq 'lr' or chipstr eq 'l,r' then chips = ['l', 'r']
-if chipstr eq 'rl' or chipstr eq 'r,l' or chipstr eq 'both' or chipstr eq 'b' then chips = ['r', 'l']
-if n_elements(chips) eq 0 then begin  
-   if strmid(chipstr,0,1) eq 'l' then chips = ['l']
-   if strmid(chipstr,0,1) eq 'r' then chips = ['r']
-endif
-if n_elements(chips) eq 0 then begin
-  print, 'Cannot recognize chip request: ', chipstr
-  return
-endif
+	; --- Process chip options
+	if n_elements(chipstr) eq 0 then chipstr = 'r'
+	chipstr = strlowcase(chipstr)
+	if chipstr eq 'lr' or chipstr eq 'l,r' then chips = ['l', 'r']
+	if chipstr eq 'rl' or chipstr eq 'r,l' or chipstr eq 'both' or chipstr eq 'b' then chips = ['r', 'l']
+	
+	if n_elements(chips) eq 0 then begin  
+   		if strmid(chipstr,0,1) eq 'l' then chips = ['l']
+   		if strmid(chipstr,0,1) eq 'r' then chips = ['r']
+	endif
 
-; --- Process step options
-steps = ['prepare', 'makeflat', 'flatten', 'makesky', 'skysub', 'crclean', 'skysubtract', 'astrometry', 'photometry', 'stack']
-if n_elements(start) gt 0 then begin
-   w = (where(steps eq start, ct)) [0]
-   if ct eq 0 then begin
-      print, "Invalid starting step '", start, "
-      print, "Must be one of: ", steps
-      return
-   endif
-   steps = steps[w:*]
-endif
-if n_elements(stop) gt 0 then begin
-   w = (where(steps eq stop, ct)) [0]
-   if ct eq 0 then begin
-      print, "Invalid stopping step '", stop, "'
-      print, "Must be one of: ", steps
-      if n_elements(start) gt 0 then print, 'Note that start is also set.'
-      return
-   endif
-   steps = steps[0:w]
-endif
-if n_elements(step) gt 0 then only = step
-if n_elements(only) gt 0 then begin
-   w = (where(steps eq only, ct)) [0]
-   if ct eq 0 then begin
-      print, "Invalid step '", only, "'
-      print, "Must be one of: ", steps
-      if n_elements(start) gt 0 then print, 'Note that start is also set.'
-      if n_elements(stop)  gt 0 then print, 'Note that stop is also set.'
-      return
-   endif
-   steps = steps[w]
-endif
+	if n_elements(chips) eq 0 then begin
+  		print, 'Cannot recognize chip request: ', chipstr
+  		return
+	endif
 
-; For imaging, check if autoastrometry, sextractor, swarp are installed and functioning
+	; --- Process step options
+	steps = ['prepare', 'makeflat', 'flatten', 'makesky', 'skysub', 'crclean', 'skysubtract', 'astrometry', 'photometry', 'stack']
 
-if total(modes eq 'im') ge 1 then begin
-   if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
-      if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      cmd = getsexpath()+'sex -d '+' > temp.txt'
-      spawn, cmd
-      c = countlines('temp.txt')
-      if c eq 0 then begin
-         print, 'Error: Sextractor is not installed or not configured.'
-         print, '   Cannot run image alignment steps.'
-         print, "   Configure or set mode='s' or stop='crclean'"
-         return
-      endif
-   endif
+	if n_elements(start) gt 0 then begin
+   		w = (where(steps eq start, ct)) [0]
+   	
+   		if ct eq 0 then begin
+      		print, "Invalid starting step '", start, "
+      		print, "Must be one of: ", steps
+      		return
+   		endif
+   		
+   		steps = steps[w:*]
+	endif
+	
+	if n_elements(stop) gt 0 then begin
+   		w = (where(steps eq stop, ct)) [0]
+   		
+   		if ct eq 0 then begin
+      		print, "Invalid stopping step '", stop, "'
+      		print, "Must be one of: ", steps
+      		if n_elements(start) gt 0 then print, 'Note that start is also set.'
+      		return
+   		endif
+   		
+   		steps = steps[0:w]
+	endif
+	
+	if n_elements(step) gt 0 then only = step
 
-   if total(steps eq 'stack') gt 0 then begin
-      if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      cmd = pipevar.swarpcommand+' -d > temp.txt'
-      spawn, cmd
-      c = countlines('temp.txt')
-      if c eq 0 then begin
-         print, 'Error: Swarp is not installed or not configured.'
-         print, '   Cannot run image coadds.'
-         print, "   Configure or set mode='s' or stop='photometry'"
-         return
-      endif
-   endif
+	if n_elements(only) gt 0 then begin
+   		w = (where(steps eq only, ct)) [0]
+   		
+   		if ct eq 0 then begin
+      		print, "Invalid step '", only, "'
+      		print, "Must be one of: ", steps
+      		if n_elements(start) gt 0 then print, 'Note that start is also set.'
+      		if n_elements(stop)  gt 0 then print, 'Note that stop is also set.'
+      		return
+   		endif
+   		
+   		steps = steps[w]
+	endif
 
-   if total(steps eq 'astrometry') or total(steps eq 'stack') gt 0 then begin
-      if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      cmd = pipevar.autoastrocommand+' > temp.txt'
-      spawn, cmd
-      c = countlines('temp.txt')
-      if c eq 0 then begin
-         print, 'Error: Autoastrometry is not installed or not configured.'
-         print, '   Cannot run image alignment steps.'
-         print, "   Configure or set mode='s' or stop='crclean' "
-         return
-      endif
-   endif
-endif
+	; For imaging, check if autoastrometry, sextractor, swarp are installed and functioning
+	if total(modes eq 'im') ge 1 then begin
+	
+   		if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
+      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      		cmd = getsexpath()+'sex -d '+' > temp.txt'
+      		spawn, cmd
+      		c = countlines('temp.txt')
+      		
+      		if c eq 0 then begin
+         		print, 'Error: Sextractor is not installed or not configured.'
+         		print, '   Cannot run image alignment steps.'
+         		print, "   Configure or set mode='s' or stop='crclean'"
+         		return
+      		endif
+      		
+   		endif
 
-lrisversion = 3
+   		if total(steps eq 'stack') gt 0 then begin
+      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      		cmd = pipevar.swarpcommand+' -d > temp.txt'
+      		spawn, cmd
+      		c = countlines('temp.txt')
+      
+      		if c eq 0 then begin
+         		print, 'Error: Swarp is not installed or not configured.'
+         		print, '   Cannot run image coadds.'
+         		print, "   Configure or set mode='s' or stop='photometry'"
+         		return
+      		endif
+   		endif
 
-if keyword_set(nocrclean) eq 0 then flag = 1
+   		if total(steps eq 'astrometry') or total(steps eq 'stack') gt 0 then begin
+      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      		cmd = pipevar.autoastrocommand+' > temp.txt'
+      		spawn, cmd
+      		c = countlines('temp.txt')
+      
+      		if c eq 0 then begin
+         		print, 'Error: Autoastrometry is not installed or not configured.'
+         		print, '   Cannot run image alignment steps.'
+         		print, "   Configure or set mode='s' or stop='crclean' "
+         		return
+      		endif
+   		endif
+   		
+	endif
 
-nsteps = n_elements(steps)
-nmodes = n_elements(modes)
-ncameras = n_elements(cameras)
-nchips = n_elements(chips)
+	lrisversion = 3
 
-for istep = 0, nsteps-1 do begin
-   instep = steps[istep]
+	if keyword_set(nocrclean) eq 0 then flag = 1
 
-   for icam = 0, ncameras-1 do begin
-      camera = cameras[icam]
-      ca = strmid(cameras[icam],0,2)
+	nsteps = n_elements(steps)
+	nmodes = n_elements(modes)
+	ncameras = n_elements(cameras)
+	nchips = n_elements(chips)
 
-      if instep eq 'prepare' then begin
-         ; the mode setting is passed on to the routine itself.
-         autopipeprepare, outpipevar=pipevar, inpipevar=pipevar
-      endif
+	for istep = 0, nsteps-1 do begin
+   		instep = steps[istep]
 
-      for imode = 0, nmodes-1 do begin
-         mo = strmid(modes[imode],0,2)
-         if mo eq 'im' then begin   
+   		for icam = 0, ncameras-1 do begin
+      		camera = cameras[icam]
+      		ca = strmid(cameras[icam],0,2)
+
+      		if instep eq 'prepare' then begin
+         	; the mode setting is passed on to the routine itself.
+         		autopipeprepare, outpipevar=pipevar, inpipevar=pipevar
+      		endif
+         		 
             if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'makesky' then autopipemakesky,   outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'skysub'  then autopipeskysub,    outpipevar=pipevar, inpipevar=pipevar
-         endif
 
-         for ichip = 0, nchips-1 do begin
-            ch = strmid(chips[ichip],0,1)
+         	for ichip = 0, nchips-1 do begin
+            	ch = strmid(chips[ichip],0,1)
 
-            if nocrclean eq 0 and instep eq 'crclean' then begin
-               if mo eq 'im' then autolriscrcleanim,    cam=camera, chip=ch, outpipevar=pipevar, inpipevar=pipevar
-            endif 
+            	if nocrclean eq 0 and instep eq 'crclean' then begin
+               		autolriscrcleanim,    cam=camera, chip=ch, outpipevar=pipevar, inpipevar=pipevar
+            	endif 
+            		 
+               	if instep eq 'astrometry' then autopipeastrometry, outpipevar=pipevar, inpipevar=pipevar
+               	if camera eq 'blue' then bl = 1 else bl = 0
+        		if camera eq 'red' then  re = 1 else re = 0
+               			
+               	if n_elements(chips) eq 1 then begin
+             		if instep eq 'photometry' then autolrisphotometry, chip=ch, camera=camera, outpipevar=pipevar, inpipevar=pipevar
+           		endif else begin
+              		if instep eq 'photometry' and ichip eq 1 then autolrisphotometry, camera=camera, outpipevar=pipevar, inpipevar=pipevar
+           		endelse
+               		
+          		if instep eq 'stack' then autolrisstack, chip=ch, cam=camera, outpipevar=pipevar, inpipevar=pipevar
+            		
+         	endfor
+   		endfor ; camera
+	endfor ; step
 
-            if mo eq 'im' then begin   
-               if instep eq 'astrometry' then autolrisastrometry, chip=ch, cam=camera, outpipevar=pipevar, inpipevar=pipevar
-               if camera eq 'blue' then bl = 1 else bl = 0
-               if camera eq 'red' then  re = 1 else re = 0
-               if n_elements(chips) eq 1 then begin
-                  if instep eq 'photometry' then autolrisphotometry, chip=ch, camera=camera, outpipevar=pipevar, inpipevar=pipevar
-               endif else begin
-                  if instep eq 'photometry' and ichip eq 1 then autolrisphotometry, camera=camera, outpipevar=pipevar, inpipevar=pipevar
-               endelse
-               if instep eq 'stack' then autolrisstack, chip=ch, cam=camera, outpipevar=pipevar, inpipevar=pipevar
-            endif
-         endfor
-      endfor ; mode
-   endfor ; camera
-endfor ; step
-
-print
-
-if strlen(pipevar.flatfail) gt 0 then begin
 	print
-  	print, 'Unable to flat-field the following images:'
-  	ffailfile = strsplit(pipevar.flatfail, /extract)
-  	for f = 0, n_elements(ffailfile)-1 do begin
-  		print, ffailfile[f]
-  	endfor
-endif
 
-nafail = strlen(pipevar.relastrofail) + strlen(pipevar.fullastrofail) + strlen(pipevar.catastrofail)
-if nafail gt 0 then begin
-	print
+	if strlen(pipevar.flatfail) gt 0 then begin
+		print
+  		print, 'Unable to flat-field the following images:'
+  		ffailfile = strsplit(pipevar.flatfail, /extract)
+  		for f = 0, n_elements(ffailfile)-1 do begin
+  			print, ffailfile[f]
+  		endfor
+	endif
+
+	nafail = strlen(pipevar.relastrofail) + strlen(pipevar.fullastrofail) + strlen(pipevar.catastrofail)
+	if nafail gt 0 then begin
+		print
 	
-	if strlen(pipevar.catastrofail) gt 0 then begin
-		print, 'Unable to produce astrometric catalogs for the following reference images:'
-		cafailfile = strsplit(pipevar.catastrofail, /extract)
-		for f=0, n_elements(cafailfile)-1 do begin
-			print, cafailfile[f]
-		endfor
-	endif
+		if strlen(pipevar.catastrofail) gt 0 then begin
+			print, 'Unable to produce astrometric catalogs for the following reference images:'
+			cafailfile = strsplit(pipevar.catastrofail, /extract)
+			for f=0, n_elements(cafailfile)-1 do begin
+				print, cafailfile[f]
+			endfor
+		endif
 			
-	if strlen(pipevar.relastrofail) gt 0 then begin	
-		print, 'Relative astrometry failed for the following images, but absolute was successful:'
-		rafailfile = strsplit(pipevar.relastrofail, /extract)
-		for f=0, n_elements(rafailfile)-1 do begin
-			print, rafailfile[f]
-		endfor
-	endif
+		if strlen(pipevar.relastrofail) gt 0 then begin	
+			print, 'Relative astrometry failed for the following images, but absolute was successful:'
+			rafailfile = strsplit(pipevar.relastrofail, /extract)
+			for f=0, n_elements(rafailfile)-1 do begin
+				print, rafailfile[f]
+			endfor
+		endif
 			
-	if strlen(pipevar.fullastrofail) gt 0 then begin
-		print, 'All astrometry failed for the following images (not stacked):'
-		fafailfile = strsplit(pipevar.fullastrofail, /extract)
-		for f=0, n_elements(fafailfile)-1 do begin
-			print, fafailfile[f]
-		endfor
+		if strlen(pipevar.fullastrofail) gt 0 then begin
+			print, 'All astrometry failed for the following images (not stacked):'
+			fafailfile = strsplit(pipevar.fullastrofail, /extract)
+			for f=0, n_elements(fafailfile)-1 do begin
+				print, fafailfile[f]
+			endfor
+		endif	
 	endif	
-endif	
 
-print, 'Processing complete.'
-!quiet = 0
+	print, 'Processing complete.'
+	!quiet = 0
 
-; cleanup- should ultimately put these things in imredux
+	; cleanup- should ultimately put these things in imredux
 
-if file_test('temp*.*') gt 0 then spawn, 'rm -f temp*.*'
-if file_test('det.*') gt 0 then spawn, 'rm -f det.*'
-if file_test('cat.*') gt 0 then spawn, 'rm -f cat.*'
+	if file_test('temp*.*') gt 0 then spawn, 'rm -f temp*.*'
+	if file_test('det.*')   gt 0 then spawn, 'rm -f det.*'
+	if file_test('cat.*')   gt 0 then spawn, 'rm -f cat.*'
 
 end
