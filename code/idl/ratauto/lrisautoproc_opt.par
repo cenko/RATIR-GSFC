@@ -1,9 +1,0 @@
-autoastrocommand : python /Users/ofox/data/ratir/idl/autoastrometry.py
-swarpcommand     : /Volumes/Macintosh\ HD/opt/local/bin/swarp
-sexcommand       : /opt/local/bin/sex
-datadir          : 
-imworkingdir     : imredux_opt/
-spworkingdir     : spredux_opt/
-imfinaldir       : 
-spfinaldir       : 
-
