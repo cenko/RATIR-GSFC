@@ -27,7 +27,7 @@
 ;	IDL Astronomy User's Library routines (http://idlastro.gsfc.nasa.gov/) 
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 11/18/2013
+; Modified by Vicki Toy 11/20/2013
 ;
 ; FUTURE IMPROVEMENTS:
 ;	Need to check what additional keywords need to propagate, and check if values that are set with 
@@ -94,46 +94,30 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 	endif
 
 	;Add additional keywords and remove unnecessary ones
-	;These keywords may need to be changed for RIMAS CHANGE VLT
-	xbin = 1                        
-	ybin = 1                        
+	;These keywords may need to be changed for RIMAS CHANGE VLT                       
 	pxscale = 0.3
-	latitude = 30.7500	
+	latitude = sxpar(header, 'LATITUDE')	
 
-	sxaddpar, header, 'XBIN', xbin, after='BINNING'
-	sxaddpar, header, 'YBIN', ybin, after='BINNING'
 	sxaddpar, header, 'PXSCALE', pxscale, 'arcsec/pix'
 	sxaddpar, header, 'OBSERVAT',"SPM", before='TELESCOP'
 	sxaddpar, header, 'RDNOISE', 4, before='BINNING'
 	sxaddpar, header, 'AIRMASS', 1.
-	sxaddpar, header, 'LTM1_1', 1./xbin
-	sxaddpar, header, 'LTM2_2', 1./ybin
 	
 	;Sun/moon ephemeris
-	jd = sxpar(header, 'JD')
+	jd  = sxpar(header, 'JD')
 	lst = sxpar(header, 'LST')
 
-	;Calculate sun and moon altitude from start of exposure. The middle (or "worst") would be more useful.
-	sunpos, jd, sunra, sundec
-	hadec2altaz, lst-sunra, sundec, latitude, sunalt, sunaz
-
+	;Calculate moon altitude from start of exposure. The middle (or "worst") would be more useful.
 	moonpos, jd, moonra, moondec
 	hadec2altaz, lst-moonra, moondec, latitude, moonalt, moonaz
-	
-	;Target requested RA and DEC CHANGE for RIMAS VLT
-	radeg = sxpar(header,'ETRRQRA')
-	decdeg = sxpar(header,'ETRRQDE')
-
-	;Calculate separation between moon and target
-	gcirc, 2, radeg, decdeg, moonra, moondec, moondist
-	moonsep  = moondist/3600
-
-	sxaddpar, header, 'SUNELEV', sunalt, (sunalt>0.?'Above horizon':'Below horizon')
-	sxaddpar, header, 'MOONELEV', moonalt, (moonalt>0?'Above horizon':'Below horizon')
-	sxaddpar, header, 'MOONDIST', moonsep
+	sxaddpar, header, 'MOONELEV', moonalt, (moonalt>0?'Above horizon':'Below horizon'), after='SUN_ALT'
 
    	filter = strtrim(sxpar(header, 'FILTER'))
-
+   	
+	;Target requested RA and DEC CHANGE for RIMAS VLT
+	radeg  = sxpar(header,'ETRRQRA')
+	decdeg = sxpar(header,'ETRRQDE')
+	
 	;These keywords may need to be changed for RIMAS CHANGE VLT
    	IF strcmp(filter,'J') OR strcmp (filter,'Z') then begin
   		sxaddpar, header, 'CRPIX1', 700. 
@@ -170,13 +154,15 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 	mandatorykey = ['SIMPLE','BITPIX','NAXIS','NAXIS1','NAXIS2', $
  					'HISTORY','CTIME','USEC','JD','DATE-OBS','EXPOSURE', $
  					'EXPTIME','INSTRUME','OBSERVAT','TELESCOP','ORIGIN', $
- 					'FOC_NAME','SCRIPREP','SCRIPT','SCR_COMM','COMM_NUM', $
- 					'CCD_TYPE','CCD_SER','SATURATE','RDNOISE','BINNING', $
- 					'YBIN','XBIN','BINX','WAVELENG','TARGNAME','CAMERA', $
- 					'UTC','UT','ORIGOBJ','OBJECT','PXSCALE','SUNELEV','MOONELEV', $
- 					'MOONDIST','CD1_1','CD1_2','CD2_1','CD2_2','CRPIX1', $
- 					'CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
- 					'SOFTGAIN','LTM1_1','LTM2_2','FILTER']
+ 					'LATITUDE','LONGITUD','FOC_NAME','SCRIPREP','SCRIPT',$
+ 					'SCR_COMM','COMM_NUM','CCD_TYPE','CCD_SER','SATURATE',$
+ 					'RDNOISE','BINNING','BINY','BINX','WAVELENG','TARGNAME',$
+ 					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PXSCALE',$
+ 					'SUN_ALT','MOONELEV','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
+ 					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
+ 					'SOFTGAIN','FILTER','SCRA','SCRB','SCRC1','SCRC2','SCRC3','SCRC4',$
+ 					'SCRATR','SCRBTR','SCRC1TR','SCRC2TR','SCRC3TR','SCRC4TR',$
+ 					'AVERAGE','STDEV']
  
  	;Finds list of unnecessary keywords, then deletes entire list
 	unneckey = ''
