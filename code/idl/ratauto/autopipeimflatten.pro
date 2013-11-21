@@ -77,7 +77,7 @@ pro autopipeimflatten, outpipevar=outpipevar, inpipevar=inpipevar
          	if flct eq 0 then begin
 
             	print, 'Flat field not found for '+ removepath(files[f])+' (filter='+filter+')'
-            	pipevar.flatfail = [pipevar.flatfail, files[f]]
+            	pipevar.flatfail = pipevar.flatfail +' '+ files[f]
             	continue
             	
          	endif
