@@ -377,7 +377,6 @@
 ; archival response curves and airmass adjustment
 ; telluric correction
 ; gain correction
-; simplify matching by creating readlrisheaders.pro that creates a structure array
 ; check that USNO catalogs are loaded OK
 ; check for looking for "nickel" catalogs
 ; faster CR cleaner for blue (and old red): done?
@@ -386,20 +385,16 @@
 ; consistent aperture size for repeated observations?  Or, stack in 2D space?
 ; photometry table - need to be able to update on reruns, and deal with un-photometry-able fields
 ; automated halo removal for bright stars?
-; option to make flats that aren't needed if files exist (beginning of night, compare dome vs. sky, etc.)
-; during flux calibration:  re-normalize consistently for proper airmass interpolation/extrapolation.
 ; not sure if bpm is working, still a bad line on red side (when binned, anyway)
 ;  this appears to be due to movement of the weakened columns.  Make sure this isn't a crop problem and 
 ;  if not try to do something to detect this...
 ; interpolate standards in log space
-; need better sky subtraction for twilight blue spectra (try a poly model with lines removed)
 ; sky subtraction of galaxies still causes issues, see 120427_0114
 ; still some tracing issues, see 120427_0111
 ; matching of apertures for multiple reobservations and red/blue...?
-; simple median 'counts' from lrisprepare not appropriate for some gratings/dichroics
-; need a new method for the slit-averaged flats - maybe linear extrapolation fit
 ; ------------------------
 
+;REMOVE WHEN stack converted VLT
 pro autolrisphotometry, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=inpipevar
 
 	;Setup pipeline variables that carry throughout the pipeline
@@ -692,7 +687,6 @@ end
 
 ; -------------------------
 ; need to restore the gain correction.
-; need to do something about when crashes, leaves you in imredux (check if you are already in the imredux directory)
 
 pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=camerastr, chipstr=chipstr, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo
 ;   modestr      - Mode (imaging or spectroscopy)
@@ -709,7 +703,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 	close, /all
 	
 	; Load default parameters and interpret user arguments.
-	;VLT REMOVE WILDCHAR and LRISVERSION WHEN FULLY COMPLETE
+	;VLT REMOVE WILDCHAR and LRISVERSION WHEN FULLY CONVERTED (modestr too)
 	
 	pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
 					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
@@ -722,23 +716,11 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar
 	modes = pipevar.modestr
-	
-	nocrclean = keyword_set(nocrclean)
 
-	cd, current=pwd
-	dirtree = strsplit(pwd,'/',/extract,count=nd)
-	lastdir = dirtree[nd-1]
-	if lastdir ne '' then lastdir += '/'  ; whether or not a slash is on the end is very
-                                      ; confusing, need to rethink this.
-	if lastdir eq 'imredux/' then begin
-     	print, 'Currently in a reduction subdirectory.'
-     	print, 'Type cd.. and rerun.'
-  		; could reinterpret this as run with the mode set to whatever this directory is...
-    	return
-	endif
-
+	;REMOVE WHEN FULLY CONVERTED VLT
 	cameras=['blue']                ;placeholder
 
+	;REMOVE WHEN FULLY CONVERTED VLT
 	; --- Process chip options
 	if n_elements(chipstr) eq 0 then chipstr = 'r'
 	chipstr = strlowcase(chipstr)
@@ -755,36 +737,36 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
   		return
 	endif
 
-	; --- Process step options
-	steps = ['prepare', 'makeflat', 'flatten', 'makesky', 'skysub', 'crclean', 'skysubtract', 'astrometry', 'photometry', 'stack']
+	;Step options
+	steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'photometry', 'stack']
 
+	;If start is specified, truncate steps to start at specified step.  If invalid step end program with error
 	if n_elements(start) gt 0 then begin
-   		w = (where(steps eq start, ct)) [0]
-   	
+   		w = (where(steps eq start, ct)) [0] 	
    		if ct eq 0 then begin
       		print, "Invalid starting step '", start, "
       		print, "Must be one of: ", steps
       		return
-   		endif
-   		
+   		endif 		
    		steps = steps[w:*]
 	endif
 	
+	;If stop is specified, truncate steps to end at specified step.  If invalid step end program with error
 	if n_elements(stop) gt 0 then begin
    		w = (where(steps eq stop, ct)) [0]
-   		
    		if ct eq 0 then begin
       		print, "Invalid stopping step '", stop, "'
       		print, "Must be one of: ", steps
       		if n_elements(start) gt 0 then print, 'Note that start is also set.'
       		return
    		endif
-   		
    		steps = steps[0:w]
 	endif
 	
+	;If step specified set only to specified step
 	if n_elements(step) gt 0 then only = step
 
+	;If only specified (including step), set steps to run as specified step.  If invalid step end program with error
 	if n_elements(only) gt 0 then begin
    		w = (where(steps eq only, ct)) [0]
    		
@@ -798,79 +780,71 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
    		
    		steps = steps[w]
 	endif
-
-	; For imaging, check if autoastrometry, sextractor, swarp are installed and functioning
-	if total(modes eq 'im') ge 1 then begin
 	
-   		if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
-      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      		cmd = getsexpath()+'sex -d '+' > temp.txt'
-      		spawn, cmd
-      		c = countlines('temp.txt')
+	nocrclean = keyword_set(nocrclean)
+
+	
+	;Check if autoastrometry, sextractor, swarp are installed and functioning before running steps
+   	if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
+      	if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      	cmd = getsexpath()+'sex -d '+' > temp.txt'
+      	spawn, cmd
+		c = countlines('temp.txt')
       		
-      		if c eq 0 then begin
-         		print, 'Error: Sextractor is not installed or not configured.'
-         		print, '   Cannot run image alignment steps.'
-         		print, "   Configure or set mode='s' or stop='crclean'"
-         		return
-      		endif
+      	if c eq 0 then begin
+     		print, 'Error: Sextractor is not installed or not configured.'
+     		print, '   Cannot run image alignment steps.'
+         	print, "   Configure or stop='crclean'"
+         	return
+      	endif
       		
-   		endif
+   	endif
 
-   		if total(steps eq 'stack') gt 0 then begin
-      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      		cmd = pipevar.swarpcommand+' -d > temp.txt'
-      		spawn, cmd
-      		c = countlines('temp.txt')
+   	if total(steps eq 'stack') gt 0 then begin
+  		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      	cmd = pipevar.swarpcommand+' -d > temp.txt'
+      	spawn, cmd
+		c = countlines('temp.txt')
       
-      		if c eq 0 then begin
-         		print, 'Error: Swarp is not installed or not configured.'
-         		print, '   Cannot run image coadds.'
-         		print, "   Configure or set mode='s' or stop='photometry'"
-         		return
-      		endif
-   		endif
+      	if c eq 0 then begin
+         	print, 'Error: Swarp is not installed or not configured.'
+         	print, '   Cannot run image coadds.'
+         	print, "   Configure or stop='photometry'"
+         	return
+      	endif
+   	endif
 
-   		if total(steps eq 'astrometry') or total(steps eq 'stack') gt 0 then begin
-      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      		cmd = pipevar.autoastrocommand+' > temp.txt'
-      		spawn, cmd
-      		c = countlines('temp.txt')
+   	if total(steps eq 'astrometry') or total(steps eq 'stack') gt 0 then begin
+      	if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      	cmd = pipevar.autoastrocommand+' > temp.txt'
+      	spawn, cmd
+      	c = countlines('temp.txt')
       
-      		if c eq 0 then begin
-         		print, 'Error: Autoastrometry is not installed or not configured.'
-         		print, '   Cannot run image alignment steps.'
-         		print, "   Configure or set mode='s' or stop='crclean' "
-         		return
-      		endif
-   		endif
-   		
-	endif
+      	if c eq 0 then begin
+         	print, 'Error: Autoastrometry is not installed or not configured.'
+         	print, '   Cannot run image alignment steps.'
+         	print, "   Configure or stop='crclean' "
+         	return
+      	endif
+   	endif
 
-	lrisversion = 3
-
-	if keyword_set(nocrclean) eq 0 then flag = 1
-
-	nsteps = n_elements(steps)
-	nmodes = n_elements(modes)
+	;REMOVE WHEN FULLY CONVERTED VLT
 	ncameras = n_elements(cameras)
-	nchips = n_elements(chips)
+	nchips   = n_elements(chips)
 
-	for istep = 0, nsteps-1 do begin
+	;Runs each processing step specified in the correct order (crclean is optional)
+	for istep = 0, nelements(steps)-1 do begin
    		instep = steps[istep]
 
    		for icam = 0, ncameras-1 do begin
       		camera = cameras[icam]
-      		ca = strmid(cameras[icam],0,2)
 
-      		if instep eq 'prepare' then begin
-         		autopipeprepare, outpipevar=pipevar, inpipevar=pipevar
-      		endif
-         		 
+      		if instep eq 'prepare' then autopipeprepare, outpipevar=pipevar, inpipevar=pipevar      		 
             if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'makesky' then autopipemakesky,   outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'skysub'  then autopipeskysub,    outpipevar=pipevar, inpipevar=pipevar
 
+			;REMOVE surrounding for loop when converted VLT
          	for ichip = 0, nchips-1 do begin
             	ch = strmid(chips[ichip],0,1)
 
@@ -879,7 +853,8 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
             	endif 
             		 
                	if instep eq 'astrometry' then autopipeastrometry, outpipevar=pipevar, inpipevar=pipevar
-               			
+               	
+               	;REMOVE WHEN FULLY CONVERTED VLT		
                	if n_elements(chips) eq 1 then begin
              		if instep eq 'photometry' then autolrisphotometry, chip=ch, camera=camera, outpipevar=pipevar, inpipevar=pipevar
            		endif else begin
@@ -892,8 +867,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
    		endfor ; camera
 	endfor ; step
 
-	print
-
+	;Prints the files that were not flat fielded due to problems with file
 	if strlen(pipevar.flatfail) gt 0 then begin
 		print
   		print, 'Unable to flat-field the following images:'
@@ -903,6 +877,8 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
   		endfor
 	endif
 
+	;Prints the files that were not astrometry corrected due to problems with the file 
+	;(specifies catalog, relative, and absolute failures)
 	nafail = strlen(pipevar.relastrofail) + strlen(pipevar.fullastrofail) + strlen(pipevar.catastrofail)
 	if nafail gt 0 then begin
 		print
@@ -935,8 +911,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 	print, 'Processing complete.'
 	!quiet = 0
 
-	; cleanup- should ultimately put these things in imredux
-
+	;Remove any files that were created during the reduction process
 	if file_test('temp*.*') gt 0 then spawn, 'rm -f temp*.*'
 	if file_test('det.*')   gt 0 then spawn, 'rm -f det.*'
 	if file_test('cat.*')   gt 0 then spawn, 'rm -f cat.*'
