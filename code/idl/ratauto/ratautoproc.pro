@@ -24,34 +24,22 @@
 ;   If any of the following files are found in the directory where lrisautoproc
 ;   is run, it will change the default behavior.
 ;
-;   lrisautoproc.par - Contains various defaults (mainly directory paths)
+;   pipeautoproc.par - Contains various defaults (mainly directory paths)
 ;   catalog.txt - Source positional catalog.  Use to auto-correct the object
 ;        name in the header based on position (independent of TARGNAME.)
-;   brokenlamps.txt - List of arc lamps that are not functioning.
-;   tracepos.txt - List of y-coordinates for user-specified trace extraction
-;        of certain images.
 ;   seeing.txt - A file with only two numbers, the minimum and maximum seeing
 ;        experienced in arcseconds.
-;   badflattargets.txt - List of fields (TARGNAMEs) not to use when 
-;        constructing supersky flats.
-;   (backgrounds.txt) - Background size to subtract for each imaging field, or 
-;        a list of fields for which scalar background subtraction is needed.
 ;
-;
-;  (Options in parenthesis above are NOT YET ENABLED or have not been tested.)
 ;
 ;
 ; COMMENTS:
 ;   This code is meant to be fully automated, producing science-quality
 ;   output with a single command line with zero intervention.  Reduces
-;   both LRIS-B and LRIS-R 2/3 data (LRIS-R1 will be enabled soon) in
-;   either imaging or spectroscopy mode.
+;   RATIR data.
 ; 
 ;   The production of images is quite high-level and includes photometric 
 ;   calibration of the field (although the accuracy of this has not been
-;   robustly tested).  Full spectroscopic extraction and reduction has recently
-;   been added but has not been tested to the same extent as the imaging
-;   pipeline.
+;   robustly tested).
 ;
 ;   The program works in a series of steps following standard CCD reduction
 ;   techniques, automatically recognizing calibration files, matching
@@ -73,9 +61,8 @@
 ;   more information.
 ;
 ;   Filenames for the input raw images are expected to be in 
-;   [b|r]YYMMDD_NNNN.fits format for LRIS-B and LRIS-R, respectively.
-;   They can be either in the working directory or in a different directory
-;   specified by datadir.
+;   2*.fits format. They can be either in the working directory or 
+;	in a different directory specified by datadir.
 ; 
 ;   The code runs in a series of steps in the following order:
 ;
@@ -83,12 +70,11 @@
 ;      to a standard single frame, correcting/flagging known pixel defects,
 ;      cropping unused area of the chip, bias-subtracting using the overscan,
 ;      and adding extra information to the header.  The conversion/bias 
-;      correction employs a modified version of readmhdu.pro.  The X and Y axes
-;      for spectroscopic frames are transposed for easier viewing of traces on 
-;      standard monitors and to match 1D spectrum plots (wavelength=x-axis).
-;      Output: p[b|r]*.fits (written to ./imredux/ and ./spredux/ by default.)
+;      correction employs a modified version of readmhdu.pro.  
+;      Output: p[b|r]*.fits (written to ./imredux/ by default.)
 ;
-;   2. Create flat-fields.  The program searches through all science exposures
+;   2. (TAKEN OUT, assume that have master flat in format flat_(filter).fits in imredux/ folder)
+;	   Create flat-fields.  The program searches through all science exposures
 ;      and determines what flat fields are needed, then attempts to make the
 ;      best possible flat for each case (generally, the order of preference is
 ;      supersky > twilight > dome > internal halogen, but which type of flat
@@ -99,49 +85,38 @@
 ;
 ;   3. Flat-correct data.  Divide each image by the flatfield.  A more
 ;      refined cropping is also done at this stage, depending on the placement
-;      of the image area during the run (which is variable.)
-;   
-;      (Fringe correction routines are not needed for LRIS since 2009, but
-;      were available for earlier versions of this code and will be re-enabled
-;      in the near future.)
+;      of the image area during the run (which is variable.) Assumes master flat
+;	   (ex. flat_H.fits in imredux/ folder)
 ;
-;   4. Split the data into separate right and left chips.  (Because of the
-;      physical gap and rotation between the LRIS chips, they must be treated
-;      independently after this point.)
-;      Output:  fp[b|r]*[l|r].fits
-;
-;   5. Removes cosmic rays, using the independent routines pzap.pro and
+;   4. Removes cosmic rays, using the independent routines pzap.pro and
 ;      pzapspec.pro.  See those programs for more information.  
 ;      This can be a time-consuming process.
 ;      Output: zfp[b|r]*[l|r].fits
-;
-;   At this point different procedures are applied for imaging and spectroscopy.
-;   For imaging:
 ;  
-;   6. Solve astrometry of the field against the best available online catalog
-;      (SDSS or USNO-B1.0), using the independent autoastrometry.py code.
+;   5. Solve astrometry of the field against the best available online catalog
+;      (SDSS or USNO-B1.0), using the independent vlt_autoastrometry.py code.
 ;      (Also requires sextractor to be installed.)
 ;      One image is solved relative to a reference catalog, then the
 ;      remaining images are solved against the first.  NO distortion corrections
 ;      are currently applied.
 ;      Output: azfp[b|r]*[l|r].fits
 ;   
-;   7. Produce photometric solution of the field.  The GSFC IDLastro aper.pro
+;   6. (REMOVED) Produce photometric solution of the field.  The GSFC IDLastro aper.pro
 ;      program is used to measure photometry of point sources in each field
 ;      for comparison of different exposures (on the same target) to establish 
 ;      the relative zeropoints.  
 ;      Output: [object].cal.list and other text files
 ;  
-;   8. Stack exposures.  A weighted, masked median is performed for each field.
+;   7. Stack exposures.  A weighted, masked median is performed for each field.
 ;      Requires swarp to be installed and properly linked.
 ;      Output: coadd[object].[filter].[l|r|]fits
 ;
 ;
 ; 
 ; EXAMPLES:
-;   1.  In a directory containing a full night worth of LRIS data, enter
+;   1.  In a directory containing a full night worth of RATIR data, enter
 ;
-;       IDL> lrisautoproc
+;       IDL> ratautoproc
 ;
 ;       This will automatically execute all of the steps above.
 ;       Depending on the quantity of data from your run and the speed of your
@@ -149,28 +124,19 @@
 ;       up to about two hours.
 ;
 ;
-;   2.  Fully reduce only spectroscopy, and only the right half of the red CCD:
-;
-;       IDL> lrisautoproc, mode='s', camera='red', chip='r'
-;
-;
-;   3.  Run only the "prepare" step (bias subtraction/formatting), on data 
+;   2.  Run only the "prepare" step (bias subtraction/formatting), on data 
 ;       stored in a separate directory:
 ;
-;       IDL> lrisautoproc, step='prepare', datadir='/scr3/user/lris/20120501/'
+;       IDL> ratautoproc, mode='im', step='prepare', datadir='raw/'
 ;
 ;
-;   4.  For live-pipeline usage, I recommend placing all the data in a
-;       subdirectory 'raw/', then running lrisautoproc one step down as 
+;   3.  For live-pipeline usage, I recommend placing all the data in a
+;       subdirectory 'raw/', then running ratautoproc one step down as 
 ;       follows:
 ;
-;       IDL> lrisautoproc, datadir='raw/', chip='r'
+;       IDL> ratautoproc, datadir='raw/', mode='im'
 ;
-;       This will save some processing time that would otherwise be spent on
-;       e.g. cleaning cosmic rays from the left chip.  The left chip is
-;       marginally useful for imaging (more stars for calibration) but of
-;       no value for spectroscopy (except for rare cases of highly extended or
-;       widely separated objects.)
+;       This will save some processing time.
 ;
 ;
 ;
@@ -178,9 +144,9 @@
 ;
 ;   INSTALLATION:
 ;
-;   Create the subdirectory 'lrisauto' somewhere on your hard drive (probably
+;   Create the subdirectory 'ratauto' somewhere on your hard drive (probably
 ;   in your IDL directory), and unpack the contents of this installation file
-;   there (e.g.,  tar -xvf lrisauto.tar.gz).  You will need to tell IDL about
+;   there (e.g.,  tar -xvf ratauto.tar.gz).  You will need to tell IDL about
 ;   the existence of this new directory by editing your idl_startup file
 ;   (which in turn is specified by .idlenv or in your .bashrc or .cshrc file)
 ;   to add the string ":+/path/to/lrisauto:+/path/to/lrisauto/dependencies/"
@@ -192,7 +158,7 @@
 ;   swarp and sextractor installed (this requirement will eventually be removed
 ;   via a simplification of the astrometric solver method).  If the latter two
 ;   cannot simply be called via "swarp" and "sex", you will need to edit the 
-;   file lrisautoproc.par AND also edit the dependencies/autoastrometry.py file
+;   file ratautoproc.par AND also edit the dependencies/vlt_autoastrometry.py file
 ;   to indicate the actual commands to call these routines in the global
 ;   variables at the top of the code.  The standard UNIX routine wget is also 
 ;   used to download star catalogs.
@@ -361,50 +327,6 @@
 ;
 ;   OBSERVING TIPS:
 ;
-;   Spectroscopy -
-;
-;   Binning:  Do not bin the red side by more than 2x1 for low-resolution 
-;      spectroscopy.  Further binning causes severe saturation issues on bright
-;      arc lines needed for automated wavelength calibration, and makes 
-;      cosmic-ray identification more difficult.  If seeing conditions are
-;      very good, spatial binning is not recommended.  In either case, be sure
-;      to get calibrations in the same binning setting(s) as your science data
-;      for each setup.
-;
-;   Arcs:  Please turn the mercury lamp on during red-side arc exposures (in
-;      addition to the standard neon and argon lamps), and during setup tune 
-;      the central wavelength to be sure it appears on the red side.  Having 
-;      this line helps the wavelength solution across the D560 dichroic.
-;
-;   Flats:  Halogen flats are very poor: there is signficant spatial banding
-;      and a large overall gradient across the y-axis, and significant
-;      scattered red light reaches the blue camera.  The intensity of the lamp
-;      is also not constant between exposures.  Only in desparate straits
-;      should the halogen lamps be relied upon.  Spectroscopic dome flats are
-;      much superior:  turn on the spectral dome lamp and get flats as you 
-;      would for imaging.  Note that the UV cannot be pixel-calibrated with 
-;      either the halogen OR with dome flats - the lamp is not hot enough. 
-;      (In principle twilight spectroscopic flats can accomplish this, and 
-;      while not supported by the pipeline yet, this is recommended if precise
-;      flat-fielding is essential to your UV science.)
-;
-;   Standards:  The list of recognized spectrophotometric flux-calibration 
-;      standards can be viewed in the 'refdata' subdirectory as the file
-;      specstandards.dat, or online at:
-;      http://astro.caltech.edu/~dperley/programs/lrisauto/specstandards.txt
-;      Standards not on this list will not be recognized as standards (if you
-;      have a favorite standards not on this list, please suggest it.)  Ideally
-;      the same standard should be observed twice at significantly different 
-;      airmasses in each setup.
-;      It is recommended to take arcs alongside observations of bright 
-;      standards where a short integration time is employed.  This will ensure
-;      the standard has a good wavelength solution (no sky-line refinement is
-;      possible for the shortest exposures: those less than about 10 seconds in
-;      dark conditions, more in bright conditions or twilight).  This will help 
-;      ensure accurate flux-calibration and (once implemented) telluric-line
-;      removal.
-;
-;
 ;   Imaging -
 ;
 ;   Flats:  In general, twilight flats produce the most reliable results, so
@@ -451,107 +373,28 @@
 ;
 ;
 ; -----------------------------------------------------------------------------
-
-
-
-
-
 ; still to do:
 ; archival response curves and airmass adjustment
 ; telluric correction
 ; gain correction
-; simplify matching by creating readlrisheaders.pro that creates a structure array
 ; check that USNO catalogs are loaded OK
 ; check for looking for "nickel" catalogs
-; need an option for skipping spectroscopic flats entirely
-; use system variables to make life easier
 ; faster CR cleaner for blue (and old red): done?
-; old red side re-enable
 ; better text output; error/warning log written to disk
 ; background subtraction - if there is a neighbor it will be messed up.
 ; consistent aperture size for repeated observations?  Or, stack in 2D space?
 ; photometry table - need to be able to update on reruns, and deal with un-photometry-able fields
 ; automated halo removal for bright stars?
-; option to make flats that aren't needed if files exist (beginning of night, compare dome vs. sky, etc.)
-; during flux calibration:  re-normalize consistently for proper airmass interpolation/extrapolation.
-; split r and l into multi-extension files in prepare and enable ccd/ files to recognize this.
 ; not sure if bpm is working, still a bad line on red side (when binned, anyway)
 ;  this appears to be due to movement of the weakened columns.  Make sure this isn't a crop problem and 
 ;  if not try to do something to detect this...
 ; interpolate standards in log space
-; need better sky subtraction for twilight blue spectra (try a poly model with lines removed)
-; future options
-;  gratings=
-;  filters=
-;  files=
 ; sky subtraction of galaxies still causes issues, see 120427_0114
 ; still some tracing issues, see 120427_0111
 ; matching of apertures for multiple reobservations and red/blue...?
-; simple median 'counts' from lrisprepare not appropriate for some gratings/dichroics
-; need a new method for the slit-averaged flats - maybe linear extrapolation fit
-; specify files=100-102, or filter='B', or grating='400/8000', etc. - partially done
-; standard quality - red vs. blue, actual line recognition
-
-; probably want a global arc solution, rather than each exposure (more robust) - done
-; need sky-line refined wavelength solution - done
-; deal with flats taken in wrong binning mode - done
-; recognize mira files - done
-; need to recognize saturated standards - done
-; cleanup of autoastrometry files - done
-
-; -------------------------
-pro autolriscrcleanim, chip=chip, camera=camera, outpipevar=outpipevar, inpipevar=inpipevar
-
-	;Setup pipeline variables that carry throughout the pipeline
-	if keyword_set(inpipevar) then begin
-		pipevar = inpipevar
-		print, 'Using provided pipevar'
-	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
-					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:'' }
-	endelse
-
-   prefchar = '2'
-   chipchar = strmid(chip,0,1)
-
-   wildcharsky = '?????????????????_img_?'
-   files = choosefiles(prefchar+pipevar.wildchar+'.fits',pipevar.imworkingdir+'isfp',pipevar.imworkingdir+'sfp')
-   if pipevar.overwrite eq 0 then files = unmatched(files,'z')
-   for f = 0, n_elements(files)-1 do begin
-      if files[f] eq '' then continue
-      h = headfits(files[f])
-      counts = sxpar(h,'COUNTS')
-      exptime = sxpar(h,'ELAPTIME')
-      target = sxpar(h,'TARGNAME')
-      if counts gt 40000. then continue
-      if counts gt 30000. and exptime lt 10. then continue
-      if counts gt 20000. and exptime gt 5. and exptime lt 10. then continue
-      if target eq '' then continue   ; blank target is certainly not a science object.
-      if strpos(target,'flat') ge 0 then continue
-      if strpos(target,'sky') ge 0 then continue
-      if strpos(target,'twilight') ge 0 then continue
-
-      print, 'Cleaning cosmic rays from ', removepath(files[f])
-      zeal = 0.85
-      if camera eq 'blue' then zeal = 0.75
-      if (camera eq 'red' and pipevar.lrisversion eq 1) then usamp=1 else usamp=0
-      if camera eq 'red' and pipevar.lrisversion gt 1 then zeal = 0.6 ;evidently should be the new default
-      if n_elements(setzeal) eq 1 then zeal = setzeal
-      slashpos = strpos(files[f],'/')
-      dir = strmid(files[f],0,slashpos+1)
-      outname = dir + 'z' + strmid(files[f],slashpos+1)
-      if file_test(outname) and pipevar.overwrite eq 0 then continue
-      pzap_perley, files[f], /weight, zeal=zeal, usamp=usamp, /quiet
-   endfor
-
-	outpipevar = pipevar
-
-end
-
 ; ------------------------
 
+;REMOVE WHEN stack converted VLT
 pro autolrisphotometry, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=inpipevar
 
 	;Setup pipeline variables that carry throughout the pipeline
@@ -847,7 +690,6 @@ end
 
 ; -------------------------
 ; need to restore the gain correction.
-; need to do something about when crashes, leaves you in imredux (check if you are already in the imredux directory)
 
 pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=camerastr, chipstr=chipstr, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo
 ;   modestr      - Mode (imaging or spectroscopy)
@@ -864,9 +706,9 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 	close, /all
 	
 	; Load default parameters and interpret user arguments.
-	;VLT REMOVE WILDCHAR and LRISVERSION WHEN FULLY COMPLETE
+	;VLT REMOVE WILDCHAR and LRISVERSION WHEN FULLY CONVERTED (modestr too)
 	
-	pipevar = {autoastrocommand:'vlt_autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
+	pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
 					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'', wildchar: '?????????????????_???_?', lrisversion:3 }
@@ -877,23 +719,11 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar
 	modes = pipevar.modestr
-	
-	nocrclean = keyword_set(nocrclean)
 
-	cd, current=pwd
-	dirtree = strsplit(pwd,'/',/extract,count=nd)
-	lastdir = dirtree[nd-1]
-	if lastdir ne '' then lastdir += '/'  ; whether or not a slash is on the end is very
-                                      ; confusing, need to rethink this.
-	if lastdir eq 'imredux/' then begin
-     	print, 'Currently in a reduction subdirectory.'
-     	print, 'Type cd.. and rerun.'
-  		; could reinterpret this as run with the mode set to whatever this directory is...
-    	return
-	endif
-
+	;REMOVE WHEN FULLY CONVERTED VLT
 	cameras=['blue']                ;placeholder
 
+	;REMOVE WHEN FULLY CONVERTED VLT
 	; --- Process chip options
 	if n_elements(chipstr) eq 0 then chipstr = 'r'
 	chipstr = strlowcase(chipstr)
@@ -910,36 +740,36 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
   		return
 	endif
 
-	; --- Process step options
-	steps = ['prepare', 'makeflat', 'flatten', 'makesky', 'skysub', 'crclean', 'skysubtract', 'astrometry', 'photometry', 'stack']
+	;Step options
+	steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'photometry', 'stack']
 
+	;If start is specified, truncate steps to start at specified step.  If invalid step end program with error
 	if n_elements(start) gt 0 then begin
-   		w = (where(steps eq start, ct)) [0]
-   	
+   		w = (where(steps eq start, ct)) [0] 	
    		if ct eq 0 then begin
       		print, "Invalid starting step '", start, "
       		print, "Must be one of: ", steps
       		return
-   		endif
-   		
+   		endif 		
    		steps = steps[w:*]
 	endif
 	
+	;If stop is specified, truncate steps to end at specified step.  If invalid step end program with error
 	if n_elements(stop) gt 0 then begin
    		w = (where(steps eq stop, ct)) [0]
-   		
    		if ct eq 0 then begin
       		print, "Invalid stopping step '", stop, "'
       		print, "Must be one of: ", steps
       		if n_elements(start) gt 0 then print, 'Note that start is also set.'
       		return
    		endif
-   		
    		steps = steps[0:w]
 	endif
 	
+	;If step specified set only to specified step
 	if n_elements(step) gt 0 then only = step
 
+	;If only specified (including step), set steps to run as specified step.  If invalid step end program with error
 	if n_elements(only) gt 0 then begin
    		w = (where(steps eq only, ct)) [0]
    		
@@ -953,91 +783,81 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
    		
    		steps = steps[w]
 	endif
-
-	; For imaging, check if autoastrometry, sextractor, swarp are installed and functioning
-	if total(modes eq 'im') ge 1 then begin
 	
-   		if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
-      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      		cmd = getsexpath()+'sex -d '+' > temp.txt'
-      		spawn, cmd
-      		c = countlines('temp.txt')
+	nocrclean = keyword_set(nocrclean)
+
+	
+	;Check if autoastrometry, sextractor, swarp are installed and functioning before running steps
+   	if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
+      	if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      	cmd = getsexpath()+'sex -d '+' > temp.txt'
+      	spawn, cmd
+		c = countlines('temp.txt')
       		
-      		if c eq 0 then begin
-         		print, 'Error: Sextractor is not installed or not configured.'
-         		print, '   Cannot run image alignment steps.'
-         		print, "   Configure or set mode='s' or stop='crclean'"
-         		return
-      		endif
+      	if c eq 0 then begin
+     		print, 'Error: Sextractor is not installed or not configured.'
+     		print, '   Cannot run image alignment steps.'
+         	print, "   Configure or stop='crclean'"
+         	return
+      	endif
       		
-   		endif
+   	endif
 
-   		if total(steps eq 'stack') gt 0 then begin
-      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      		cmd = pipevar.swarpcommand+' -d > temp.txt'
-      		spawn, cmd
-      		c = countlines('temp.txt')
+   	if total(steps eq 'stack') gt 0 then begin
+  		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      	cmd = pipevar.swarpcommand+' -d > temp.txt'
+      	spawn, cmd
+		c = countlines('temp.txt')
       
-      		if c eq 0 then begin
-         		print, 'Error: Swarp is not installed or not configured.'
-         		print, '   Cannot run image coadds.'
-         		print, "   Configure or set mode='s' or stop='photometry'"
-         		return
-      		endif
-   		endif
+      	if c eq 0 then begin
+         	print, 'Error: Swarp is not installed or not configured.'
+         	print, '   Cannot run image coadds.'
+         	print, "   Configure or stop='photometry'"
+         	return
+      	endif
+   	endif
 
-   		if total(steps eq 'astrometry') or total(steps eq 'stack') gt 0 then begin
-      		if file_test('temp.txt') then spawn, 'rm -f temp.txt'
-      		cmd = pipevar.autoastrocommand+' > temp.txt'
-      		spawn, cmd
-      		c = countlines('temp.txt')
+   	if total(steps eq 'astrometry') or total(steps eq 'stack') gt 0 then begin
+      	if file_test('temp.txt') then spawn, 'rm -f temp.txt'
+      	cmd = pipevar.autoastrocommand+' > temp.txt'
+      	spawn, cmd
+      	c = countlines('temp.txt')
       
-      		if c eq 0 then begin
-         		print, 'Error: Autoastrometry is not installed or not configured.'
-         		print, '   Cannot run image alignment steps.'
-         		print, "   Configure or set mode='s' or stop='crclean' "
-         		return
-      		endif
-   		endif
-   		
-	endif
+      	if c eq 0 then begin
+         	print, 'Error: Autoastrometry is not installed or not configured.'
+         	print, '   Cannot run image alignment steps.'
+         	print, "   Configure or stop='crclean' "
+         	return
+      	endif
+   	endif
 
-	lrisversion = 3
-
-	if keyword_set(nocrclean) eq 0 then flag = 1
-
-	nsteps = n_elements(steps)
-	nmodes = n_elements(modes)
+	;REMOVE WHEN FULLY CONVERTED VLT
 	ncameras = n_elements(cameras)
-	nchips = n_elements(chips)
+	nchips   = n_elements(chips)
 
-	for istep = 0, nsteps-1 do begin
+	;Runs each processing step specified in the correct order (crclean is optional)
+	for istep = 0, nelements(steps)-1 do begin
    		instep = steps[istep]
 
    		for icam = 0, ncameras-1 do begin
       		camera = cameras[icam]
-      		ca = strmid(cameras[icam],0,2)
 
-      		if instep eq 'prepare' then begin
-         	; the mode setting is passed on to the routine itself.
-         		autopipeprepare, outpipevar=pipevar, inpipevar=pipevar
-      		endif
-         		 
+      		if instep eq 'prepare' then autopipeprepare, outpipevar=pipevar, inpipevar=pipevar      		 
             if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'makesky' then autopipemakesky,   outpipevar=pipevar, inpipevar=pipevar
             if instep eq 'skysub'  then autopipeskysub,    outpipevar=pipevar, inpipevar=pipevar
 
+			;REMOVE surrounding for loop when converted VLT
          	for ichip = 0, nchips-1 do begin
             	ch = strmid(chips[ichip],0,1)
 
             	if nocrclean eq 0 and instep eq 'crclean' then begin
-               		autolriscrcleanim,    cam=camera, chip=ch, outpipevar=pipevar, inpipevar=pipevar
+               		autopipecrcleanim, outpipevar=pipevar, inpipevar=pipevar
             	endif 
             		 
                	if instep eq 'astrometry' then autopipeastrometry, outpipevar=pipevar, inpipevar=pipevar
-               	if camera eq 'blue' then bl = 1 else bl = 0
-        		if camera eq 'red' then  re = 1 else re = 0
-               			
+               	
+               	;REMOVE WHEN FULLY CONVERTED VLT		
                	if n_elements(chips) eq 1 then begin
              		if instep eq 'photometry' then autolrisphotometry, chip=ch, camera=camera, outpipevar=pipevar, inpipevar=pipevar
            		endif else begin
@@ -1050,8 +870,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
    		endfor ; camera
 	endfor ; step
 
-	print
-
+	;Prints the files that were not flat fielded due to problems with file
 	if strlen(pipevar.flatfail) gt 0 then begin
 		print
   		print, 'Unable to flat-field the following images:'
@@ -1061,6 +880,8 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
   		endfor
 	endif
 
+	;Prints the files that were not astrometry corrected due to problems with the file 
+	;(specifies catalog, relative, and absolute failures)
 	nafail = strlen(pipevar.relastrofail) + strlen(pipevar.fullastrofail) + strlen(pipevar.catastrofail)
 	if nafail gt 0 then begin
 		print
@@ -1093,8 +914,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 	print, 'Processing complete.'
 	!quiet = 0
 
-	; cleanup- should ultimately put these things in imredux
-
+	;Remove any files that were created during the reduction process
 	if file_test('temp*.*') gt 0 then spawn, 'rm -f temp*.*'
 	if file_test('det.*')   gt 0 then spawn, 'rm -f det.*'
 	if file_test('cat.*')   gt 0 then spawn, 'rm -f cat.*'

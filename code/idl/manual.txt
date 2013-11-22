@@ -1,11 +1,11 @@
 ; NAME:
-;   lrisautoproc.pro                               (release version 2012.07.24)
+;   ratautoproc.pro                               (release version 2012.07.24)
 ;
 ; PURPOSE:
 ;   Fully-automated reduction of LRIS imaging and (2D) spectroscopy.
 ;
 ; CALLING SEQUENCE:
-;   lrisautoproc, [settings]
+;   ratautoproc, [settings]
 ;
 ; INPUTS (all optional):
 ;   datadir      - Location of raw data (current directory if unspecified)
@@ -19,40 +19,27 @@
 ;   chip         - Process only one chip (left or right)
 ;   redo         - Repeat step(s), overwriting any existing files
 ;   nocrclean    - Do not zap cosmic rays
-;   continuous   - Keep running, assimilating new data as it appears
 ;
 ; ADDITIONAL OPTIONS:
 ;   If any of the following files are found in the directory where lrisautoproc
 ;   is run, it will change the default behavior.
 ;
-;   lrisautoproc.par - Contains various defaults (mainly directory paths)
+;   pipeautoproc.par - Contains various defaults (mainly directory paths)
 ;   catalog.txt - Source positional catalog.  Use to auto-correct the object
 ;        name in the header based on position (independent of TARGNAME.)
-;   brokenlamps.txt - List of arc lamps that are not functioning.
-;   tracepos.txt - List of y-coordinates for user-specified trace extraction
-;        of certain images.
 ;   seeing.txt - A file with only two numbers, the minimum and maximum seeing
 ;        experienced in arcseconds.
-;   badflattargets.txt - List of fields (TARGNAMEs) not to use when 
-;        constructing supersky flats.
-;   (backgrounds.txt) - Background size to subtract for each imaging field, or 
-;        a list of fields for which scalar background subtraction is needed.
 ;
-;
-;  (Options in parenthesis above are NOT YET ENABLED or have not been tested.)
 ;
 ;
 ; COMMENTS:
 ;   This code is meant to be fully automated, producing science-quality
 ;   output with a single command line with zero intervention.  Reduces
-;   both LRIS-B and LRIS-R 2/3 data (LRIS-R1 will be enabled soon) in
-;   either imaging or spectroscopy mode.
+;   RATIR data.
 ; 
 ;   The production of images is quite high-level and includes photometric 
 ;   calibration of the field (although the accuracy of this has not been
-;   robustly tested).  Full spectroscopic extraction and reduction has recently
-;   been added but has not been tested to the same extent as the imaging
-;   pipeline.
+;   robustly tested).
 ;
 ;   The program works in a series of steps following standard CCD reduction
 ;   techniques, automatically recognizing calibration files, matching
@@ -74,9 +61,8 @@
 ;   more information.
 ;
 ;   Filenames for the input raw images are expected to be in 
-;   [b|r]YYMMDD_NNNN.fits format for LRIS-B and LRIS-R, respectively.
-;   They can be either in the working directory or in a different directory
-;   specified by datadir.
+;   2*.fits format. They can be either in the working directory or 
+;	in a different directory specified by datadir.
 ; 
 ;   The code runs in a series of steps in the following order:
 ;
@@ -84,91 +70,53 @@
 ;      to a standard single frame, correcting/flagging known pixel defects,
 ;      cropping unused area of the chip, bias-subtracting using the overscan,
 ;      and adding extra information to the header.  The conversion/bias 
-;      correction employs a modified version of readmhdu.pro.  The X and Y axes
-;      for spectroscopic frames are transposed for easier viewing of traces on 
-;      standard monitors and to match 1D spectrum plots (wavelength=x-axis).
-;      Output: p[b|r]*.fits (written to ./imredux/ and ./spredux/ by default.)
+;      correction employs a modified version of readmhdu.pro.  
+;      Output: p[b|r]*.fits (written to ./imredux/ by default.)
 ;
-;   2. Create flat-fields.  The program searches through all science exposures
+;   2. (TAKEN OUT, assume that have master flat in format flat_(filter).fits in imredux/ folder)
+;	   Create flat-fields.  The program searches through all science exposures
 ;      and determines what flat fields are needed, then attempts to make the
 ;      best possible flat for each case (generally, the order of preference is
 ;      supersky > twilight > dome > internal halogen, but which type of flat
 ;      is actually made depends on the number of frames available and their
 ;      quality.)  In the case of imaging flats, stars are identified and
-;      masked out.  For spectroscopic flats, a response correction is applied
-;      (these are pixel flats only).  Regions of a spectroscopic flat with low
-;      signal (common for LRIS-B in the UV) are not flat-fielded in the 
-;      wavelength direction (slit correction only).
+;      masked out.
 ;      Output:  fp[b|r]*.fits
 ;
 ;   3. Flat-correct data.  Divide each image by the flatfield.  A more
 ;      refined cropping is also done at this stage, depending on the placement
-;      of the image area during the run (which is variable.)
-;   
-;      (Fringe correction routines are not needed for LRIS since 2009, but
-;      were available for earlier versions of this code and will be re-enabled
-;      in the near future.)
+;      of the image area during the run (which is variable.) Assumes master flat
+;	   (ex. flat_H.fits in imredux/ folder)
 ;
-;   4. Split the data into separate right and left chips.  (Because of the
-;      physical gap and rotation between the LRIS chips, they must be treated
-;      independently after this point.)
-;      Output:  fp[b|r]*[l|r].fits
-;
-;   5. Removes cosmic rays, using the independent routines pzap.pro and
+;   4. Removes cosmic rays, using the independent routines pzap.pro and
 ;      pzapspec.pro.  See those programs for more information.  
 ;      This can be a time-consuming process.
 ;      Output: zfp[b|r]*[l|r].fits
-;
-;   At this point different procedures are applied for imaging and spectroscopy.
-;   For imaging:
 ;  
-;   6. Solve astrometry of the field against the best available online catalog
-;      (SDSS or USNO-B1.0), using the independent autoastrometry.py code.
+;   5. Solve astrometry of the field against the best available online catalog
+;      (SDSS or USNO-B1.0), using the independent vlt_autoastrometry.py code.
 ;      (Also requires sextractor to be installed.)
 ;      One image is solved relative to a reference catalog, then the
 ;      remaining images are solved against the first.  NO distortion corrections
 ;      are currently applied.
 ;      Output: azfp[b|r]*[l|r].fits
 ;   
-;   7. Produce photometric solution of the field.  The GSFC IDLastro aper.pro
+;   6. (REMOVED) Produce photometric solution of the field.  The GSFC IDLastro aper.pro
 ;      program is used to measure photometry of point sources in each field
 ;      for comparison of different exposures (on the same target) to establish 
 ;      the relative zeropoints.  
 ;      Output: [object].cal.list and other text files
 ;  
-;   8. Stack exposures.  A weighted, masked median is performed for each field.
+;   7. Stack exposures.  A weighted, masked median is performed for each field.
 ;      Requires swarp to be installed and properly linked.
 ;      Output: coadd[object].[filter].[l|r|]fits
-;
-;   For spectroscopy:
-;
-;   6. Subtract night-sky emission lines using subtractsky2, which fits
-;      low-order polynomials in blocks passing across the data.  Generally,
-;      the worse the seeing and the wider the slit, the better this procedure
-;      performs.  Can introduce artifacts in some situations.
-;      Output: szfp[b|r]*[l|r].fits
-;
-;   7. Extract trace to produce a 1D spectrum for the object of interest.
-;      The object is assumed to be very close to the standard location on the
-;      LRIS right chip.
-;      Output: eszfp[b|r]*r.spec
-;
-;   8. Flux-calibrate the 1D spectrum using observations of standard stars.
-;      Output: ceszfp[b|r]*r.spec
-;
-;   9. Combine all spectra of a single object in a single grating.
-;      This is a trivial step if only one observation was taken.
-;      Output: vc[object]_[b|r]grating.spec
-;
-;   10. Connect red and blue sides of an object to produce final spectrum.
-;      Output: lris[object].spec
 ;
 ;
 ; 
 ; EXAMPLES:
-;   1.  In a directory containing a full night worth of LRIS data, enter
+;   1.  In a directory containing a full night worth of RATIR data, enter
 ;
-;       IDL> lrisautoproc
+;       IDL> ratautoproc
 ;
 ;       This will automatically execute all of the steps above.
 ;       Depending on the quantity of data from your run and the speed of your
@@ -176,28 +124,19 @@
 ;       up to about two hours.
 ;
 ;
-;   2.  Fully reduce only spectroscopy, and only the right half of the red CCD:
-;
-;       IDL> lrisautoproc, mode='s', camera='red', chip='r'
-;
-;
-;   3.  Run only the "prepare" step (bias subtraction/formatting), on data 
+;   2.  Run only the "prepare" step (bias subtraction/formatting), on data 
 ;       stored in a separate directory:
 ;
-;       IDL> lrisautoproc, step='prepare', datadir='/scr3/user/lris/20120501/'
+;       IDL> ratautoproc, mode='im', step='prepare', datadir='raw/'
 ;
 ;
-;   4.  For live-pipeline usage, I recommend placing all the data in a
-;       subdirectory 'raw/', then running lrisautoproc one step down as 
+;   3.  For live-pipeline usage, I recommend placing all the data in a
+;       subdirectory 'raw/', then running ratautoproc one step down as 
 ;       follows:
 ;
-;       IDL> lrisautoproc, datadir='raw/', chip='r'
+;       IDL> ratautoproc, datadir='raw/', mode='im'
 ;
-;       This will save some processing time that would otherwise be spent on
-;       e.g. cleaning cosmic rays from the left chip.  The left chip is
-;       marginally useful for imaging (more stars for calibration) but of
-;       no value for spectroscopy (except for rare cases of highly extended or
-;       widely separated objects.)
+;       This will save some processing time.
 ;
 ;
 ;
@@ -205,9 +144,9 @@
 ;
 ;   INSTALLATION:
 ;
-;   Create the subdirectory 'lrisauto' somewhere on your hard drive (probably
+;   Create the subdirectory 'ratauto' somewhere on your hard drive (probably
 ;   in your IDL directory), and unpack the contents of this installation file
-;   there (e.g.,  tar -xvf lrisauto.tar.gz).  You will need to tell IDL about
+;   there (e.g.,  tar -xvf ratauto.tar.gz).  You will need to tell IDL about
 ;   the existence of this new directory by editing your idl_startup file
 ;   (which in turn is specified by .idlenv or in your .bashrc or .cshrc file)
 ;   to add the string ":+/path/to/lrisauto:+/path/to/lrisauto/dependencies/"
@@ -219,7 +158,7 @@
 ;   swarp and sextractor installed (this requirement will eventually be removed
 ;   via a simplification of the astrometric solver method).  If the latter two
 ;   cannot simply be called via "swarp" and "sex", you will need to edit the 
-;   file lrisautoproc.par AND also edit the dependencies/autoastrometry.py file
+;   file ratautoproc.par AND also edit the dependencies/vlt_autoastrometry.py file
 ;   to indicate the actual commands to call these routines in the global
 ;   variables at the top of the code.  The standard UNIX routine wget is also 
 ;   used to download star catalogs.
@@ -388,50 +327,6 @@
 ;
 ;   OBSERVING TIPS:
 ;
-;   Spectroscopy -
-;
-;   Binning:  Do not bin the red side by more than 2x1 for low-resolution 
-;      spectroscopy.  Further binning causes severe saturation issues on bright
-;      arc lines needed for automated wavelength calibration, and makes 
-;      cosmic-ray identification more difficult.  If seeing conditions are
-;      very good, spatial binning is not recommended.  In either case, be sure
-;      to get calibrations in the same binning setting(s) as your science data
-;      for each setup.
-;
-;   Arcs:  Please turn the mercury lamp on during red-side arc exposures (in
-;      addition to the standard neon and argon lamps), and during setup tune 
-;      the central wavelength to be sure it appears on the red side.  Having 
-;      this line helps the wavelength solution across the D560 dichroic.
-;
-;   Flats:  Halogen flats are very poor: there is signficant spatial banding
-;      and a large overall gradient across the y-axis, and significant
-;      scattered red light reaches the blue camera.  The intensity of the lamp
-;      is also not constant between exposures.  Only in desparate straits
-;      should the halogen lamps be relied upon.  Spectroscopic dome flats are
-;      much superior:  turn on the spectral dome lamp and get flats as you 
-;      would for imaging.  Note that the UV cannot be pixel-calibrated with 
-;      either the halogen OR with dome flats - the lamp is not hot enough. 
-;      (In principle twilight spectroscopic flats can accomplish this, and 
-;      while not supported by the pipeline yet, this is recommended if precise
-;      flat-fielding is essential to your UV science.)
-;
-;   Standards:  The list of recognized spectrophotometric flux-calibration 
-;      standards can be viewed in the 'refdata' subdirectory as the file
-;      specstandards.dat, or online at:
-;      http://astro.caltech.edu/~dperley/programs/lrisauto/specstandards.txt
-;      Standards not on this list will not be recognized as standards (if you
-;      have a favorite standards not on this list, please suggest it.)  Ideally
-;      the same standard should be observed twice at significantly different 
-;      airmasses in each setup.
-;      It is recommended to take arcs alongside observations of bright 
-;      standards where a short integration time is employed.  This will ensure
-;      the standard has a good wavelength solution (no sky-line refinement is
-;      possible for the shortest exposures: those less than about 10 seconds in
-;      dark conditions, more in bright conditions or twilight).  This will help 
-;      ensure accurate flux-calibration and (once implemented) telluric-line
-;      removal.
-;
-;
 ;   Imaging -
 ;
 ;   Flats:  In general, twilight flats produce the most reliable results, so
@@ -478,4 +373,3 @@
 ;
 ;
 ; -----------------------------------------------------------------------------
-
