@@ -566,13 +566,14 @@ pro autolrisphotometry, camera=camera, chip=chip, outpipevar=outpipevar, inpipev
 	endelse
 
   ; need to allow doing this on only one chip.
-   lrisautofieldphot,blue=bl,red=re,chip=ch
+  lrisautofieldphot,blue=bl,red=re,chip=ch
 
 	outpipevar = pipevar
 	
 end
 
 ; -------------------------
+; camera and chip are both lris
 pro autolrisstack, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=inpipevar
 
 	;Setup pipeline variables that carry throughout the pipeline
@@ -585,221 +586,223 @@ pro autolrisstack, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=in
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
-
+  
+  ; if swarp configuration file is not present as 'default.swarp', have swarp output default configuration to this file name
   if file_test('default.swarp') eq 0 then $
-     spawn, pipevar.swarpcommand+' -d > default.swarp'
+    spawn, pipevar.swarpcommand+' -d > default.swarp'
 
+  ; 
   if n_elements(chip) eq '' then chip = '*'
   chipchar = strmid(chip,0,1)
   prefchar = '2'
-  wildcharimg = '?????????????????_img_?'
+  wildcharimg = '*_img_?'
   azffiles = findfile(pipevar.imworkingdir+'a*'+prefchar+wildcharimg+'.fits')
   realfiles = where(azffiles ne '', ct)
-   if ct eq 0 then return ; can't stack if there are no astrometry files
-   if ct ge 1 then azffiles = azffiles[realfiles]
-   ;chipchar = 'lr'  ; this is a hack to combine both sides
+  if ct eq 0 then return ; can't stack if there are no astrometry files
+  if ct ge 1 then azffiles = azffiles[realfiles]
+  ;chipchar = 'lr'  ; this is a hack to combine both sides
 
-   camver = camera
-   if camver eq 'red' then camver = camver + clip(pipevar.lrisversion)
-   if file_test(pipevar.imworkingdir+'autophotsummaryflux.txt') then begin
-      readcol,pipevar.imworkingdir+'autophotsummaryflux.txt',pfile,pexp,pfilt,pair,dum,pdmag,pfluxratio,pseeing,format='a,i,a,f,a,f,f,f,f',/silent
-      photodata = replicate({filename:'',dmag:0.,fluxratio:0.,seeing:0.},n_elements(pfile))
-      photodata.filename = pfile
-      photodata.dmag = pdmag
-      photodata.fluxratio = pfluxratio
-      photodata.seeing = pseeing
-   endif
+  camver = camera
+  if camver eq 'red' then camver = camver + clip(pipevar.lrisversion)
+  if file_test(pipevar.imworkingdir+'autophotsummaryflux.txt') then begin
+    readcol,pipevar.imworkingdir+'autophotsummaryflux.txt',pfile,pexp,pfilt,pair,dum,pdmag,pfluxratio,pseeing,format='a,i,a,f,a,f,f,f,f',/silent
+    photodata = replicate({filename:'',dmag:0.,fluxratio:0.,seeing:0.},n_elements(pfile))
+    photodata.filename = pfile
+    photodata.dmag = pdmag
+    photodata.fluxratio = pfluxratio
+    photodata.seeing = pseeing
+  endif
 
-   filetargets = strarr(n_elements(azffiles))
-   fileexposures = fltarr(n_elements(azffiles))
-   filefilters = strarr(n_elements(azffiles))
-   filesatval = fltarr(n_elements(azffiles))
-   fileskyval = fltarr(n_elements(azffiles))
-   fileairval = fltarr(n_elements(azffiles))
-   fileseeingpix = fltarr(n_elements(azffiles))
-   filefluxratio = fltarr(n_elements(azffiles))
-   datestr = ''
+  filetargets = strarr(n_elements(azffiles))
+  fileexposures = fltarr(n_elements(azffiles))
+  filefilters = strarr(n_elements(azffiles))
+  filesatval = fltarr(n_elements(azffiles))
+  fileskyval = fltarr(n_elements(azffiles))
+  fileairval = fltarr(n_elements(azffiles))
+  fileseeingpix = fltarr(n_elements(azffiles))
+  filefluxratio = fltarr(n_elements(azffiles))
+  datestr = ''
 
-   for f = 0, n_elements(azffiles)-1 do begin
-     h = headfits(azffiles[f], /silent)
-     if f eq 0 then datestr = sxpar(h,'DATE')
-     filetargets[f] = repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_')  ; spaces cause barfing in filenames
-     fileexposures[f] = 60.
-     filefilters[f] = string(sxpar(h,'FILTER'))
-     filesatval[f] = sxpar(h,'SATURATE')
-     fileskyval[f] = sxpar(h,'COUNTS')
-     fileairval[f] = sxpar(h,'AIRMASS')
-     if n_elements(photodata) gt 0 then begin
-       pmatch = where(azffiles[f] eq photodata.filename, ct)
-       if ct gt 0 then begin
-         fileseeingpix[f] = photodata[pmatch].seeing
-         filefluxratio[f] = photodata[pmatch].fluxratio
-       endif
-     endif
-   endfor
-   targets = unique(filetargets)
+  for f = 0, n_elements(azffiles)-1 do begin
+    h = headfits(azffiles[f], /silent)
+    if f eq 0 then datestr = sxpar(h,'DATE')
+    filetargets[f] = repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_')  ; spaces cause barfing in filenames
+    fileexposures[f] = 60.
+    filefilters[f] = string(sxpar(h,'FILTER'))
+    filesatval[f] = sxpar(h,'SATURATE')
+    fileskyval[f] = sxpar(h,'COUNTS')
+    fileairval[f] = sxpar(h,'AIRMASS')
+    if n_elements(photodata) gt 0 then begin
+      pmatch = where(azffiles[f] eq photodata.filename, ct)
+      if ct gt 0 then begin
+        fileseeingpix[f] = photodata[pmatch].seeing
+        filefluxratio[f] = photodata[pmatch].fluxratio
+      endif
+    endif
+  endfor
+  targets = unique(filetargets)
 
-   for t = 0, n_elements(targets)-1 do begin
-     target = targets[t]
-     thistarget = where(filetargets eq target, cttarg)
-     if cttarg eq 0 then continue
-     thistargetfilts = unique(filefilters[thistarget])
-     for l = 0, n_elements(thistargetfilts)-1 do begin
-        filter = thistargetfilts[l]
-        thistargfilt = where(filetargets eq target and filefilters eq filter, cttargfilt)
-        if cttargfilt eq 0 then continue
-        expthresh = (median(fileexposures[thistargfilt]) * 0.5) > (max(fileexposures[thistargfilt]) * 0.19) ; formerly median*0.8
-        stacki = where(filetargets eq target and filefilters eq filter, ctstack)
-        if ctstack eq 0 then continue
-        stacklist = azffiles[stacki]
-        stackexps = fileexposures[stacki]
-        medianexp = median(stackexps)
-        medair = median(fileairval[stacki])
-        minair = min(fileairval[stacki])
-        maxair = max(fileairval[stacki])
-        minseeingpix = min(fileseeingpix[stacki])
-        maxseeingpix = max(fileseeingpix[stacki])
-        medseeingpix = median(fileseeingpix[stacki])
-        minfluxratio = min(filefluxratio[stacki])
-        maxfluxratio = max(filefluxratio[stacki])
-        medfluxratio = median(filefluxratio[stacki])
-        totalexp = total(stackexps)
-        nstack = n_elements(stacklist)
-        if nstack gt 1 then stdfluxratio = stdev(filefluxratio[stacki]) else stdfluxratio = 0
+  for t = 0, n_elements(targets)-1 do begin
+    target = targets[t]
+    thistarget = where(filetargets eq target, cttarg)
+    if cttarg eq 0 then continue
+    thistargetfilts = unique(filefilters[thistarget])
+    for l = 0, n_elements(thistargetfilts)-1 do begin
+      filter = thistargetfilts[l]
+      thistargfilt = where(filetargets eq target and filefilters eq filter, cttargfilt)
+      if cttargfilt eq 0 then continue
+      expthresh = (median(fileexposures[thistargfilt]) * 0.5) > (max(fileexposures[thistargfilt]) * 0.19) ; formerly median*0.8
+      stacki = where(filetargets eq target and filefilters eq filter, ctstack)
+      if ctstack eq 0 then continue
+      stacklist = azffiles[stacki]
+      stackexps = fileexposures[stacki]
+      medianexp = median(stackexps)
+      medair = median(fileairval[stacki])
+      minair = min(fileairval[stacki])
+      maxair = max(fileairval[stacki])
+      minseeingpix = min(fileseeingpix[stacki])
+      maxseeingpix = max(fileseeingpix[stacki])
+      medseeingpix = median(fileseeingpix[stacki])
+      minfluxratio = min(filefluxratio[stacki])
+      maxfluxratio = max(filefluxratio[stacki])
+      medfluxratio = median(filefluxratio[stacki])
+      totalexp = total(stackexps)
+      nstack = n_elements(stacklist)
+      if nstack gt 1 then stdfluxratio = stdev(filefluxratio[stacki]) else stdfluxratio = 0
 
-        outfile       = pipevar.imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.fits'
-        outweightfile = pipevar.imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.weight.fits'
-        stackcmd = pipevar.swarpcommand+' '    ;'swarp '
-        for s = 0, n_elements(stacklist)-1 do begin
-           if s eq 0 then stackcmd = stackcmd + stacklist[s] 
-           if s gt 0 then stackcmd = stackcmd + ',' + stacklist[s] 
-        endfor
-        for s = 0, n_elements(stacklist)-1 do begin
-           weightfilename = strmid(stacklist[s],0,strlen(stacklist[s])-5-0)  + '.weight.fits'
-           weightexists = file_test(weightfilename)
-           if weightexists eq 0 then begin
-              slashpos = strpos(weightfilename,'/',/reverse_search)
-              weightfilenameinit = pipevar.imworkingdir + strmid(weightfilename,slashpos+2)  
-              weightexists = file_test(weightfilenameinit)
-              if weightexists then begin
-                  print, 'mv '+weightfilenameinit+' '+weightfilename
-                  spawn, 'mv '+weightfilenameinit+' '+weightfilename
-              endif
-           endif
-        endfor
-
-        stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile
-        if nstack gt 1 then begin ; used to be 3...
-          stackcmd = stackcmd + ' -WEIGHT_TYPE MAP_WEIGHT'
-        endif else begin
-          stackcmd = stackcmd + ' -WEIGHT_TYPE BACKGROUND'
-        endelse
-        stackcmd = stackcmd + ' -FSCALE_DEFAULT '
-        for s = 0, n_elements(stacklist)-1 do stackcmd = stackcmd + strtrim(string(medianexp/stackexps[s]),2) + ','   ; multiplicative factor...
-        stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,DICHNAME,SLITNAME,'+$
-                               'GRISNAME,GRANAME,GRANGLE,INSTRUME,UT,UTC,MJD_OBS,MJD-OBS,ST,'+$
-                               'DATE,DATE-OBS,AIRMASS,AZ,RA,DEC,EL,HA,TELFOCUS,ROTPOSN,DOMEPOSN,CURRINST,OBSERVER,'+$
-                               'FLATFLD,FLATTYPE'
-
-        if (file_test(outfile) eq 0) or pipevar.overwrite then begin
-           if nstack eq 1 then $ ; used to be 3 for some bizarre reason?
-              print, 'Warning - only ', clip(nstack), ' exposures; not flagging bad pixels.'
-           print, 'Stacking ', target, ':'
-           for s = 0, n_elements(stacklist)-1 do print, stacklist[s], '  ', strtrim(string(stackexps[s]),2) + 's'
-           print, stackcmd
-           spawn, stackcmd  ; do the stack
-           data = mrdfits(outfile, 0, h, /silent)
-           sxaddpar, h, 'DATE', datestr
-           sxaddpar, h, 'NSTACK', nstack
-           sxaddpar, h, 'AIRMASS', medair, 'Median exposure airmass'
-           sxaddpar, h, 'AIRMIN', minair, 'Minimum exposure airmass'
-           sxaddpar, h, 'AIRMAX', maxair, 'Maximum exposure airmass'
-           sxaddpar, h, 'EXPOSURE', medianexp, 'Effective rescaled exposure time'
-           sxaddpar, h, 'TOTALEXP', totalexp, 'Total summed integration time'
-           sxaddpar, h, 'MAXEXP', max(stackexps), 'Length of longest exposure'
-           sxaddpar, h, 'MINEXP', min(stackexps), 'Length of shortest exposure'
-           sxaddpar, h, 'SATURATE', min(filesatval[stacki]-fileskyval[stacki])
-           sxaddpar, h, 'MEDSKY', median(fileskyval[stacki], /even)
-           if minseeingpix gt 0 then begin
-              sxaddpar, h, 'SEEING', medseeingpix, 'Median seeing in pixels'
-              sxaddpar, h, 'SEEMIN', minseeingpix
-              sxaddpar, h, 'SEEMAX', maxseeingpix
-              if camera eq 'red' and pipevar.lrisversion eq 1 then medseeingarcsec = medseeingpix*0.210 else medseeingarcsec = medseeingpix*0.135
-              sxaddpar, h, 'SEEARCSC', medseeingarcsec, 'Median seeing in arcsec'
-           endif
-           if minfluxratio gt 0 then begin
-              sxaddpar, h, 'TRANSRAT', maxfluxratio/minfluxratio, 'Transmission ratio of max/min images'
-              sxaddpar, h, 'TRANSSTD', stdfluxratio, 'Std. dev. of relative transmission'
-           endif
-           for s = 0, n_elements(stacklist)-1 do  sxaddpar, h, 'IMAGE'+strtrim(string(s),2), stacklist[s]
-           for s = 0, n_elements(stacklist)-1 do  sxaddpar, h, 'IMEXP'+strtrim(string(s),2), stackexps[s]
-           get_date, now
-           sxdelpar, h, ['SOFTNAME','SOFTVERS','SOFTDATE','SOFTAUTH','SOFTINST','AUTHOR']
-           hist = 'Processed by lrisautoproc '+now
-           sxaddhist, hist, h, /COMMENT
-           mwrfits, data, outfile, h, /create ; add this header info
-
-           ; In the future, there will be a final alignment step.
-
+      outfile       = pipevar.imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.fits'
+      outweightfile = pipevar.imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.weight.fits'
+      stackcmd = pipevar.swarpcommand+' '    ;'swarp '
+      for s = 0, n_elements(stacklist)-1 do begin
+        if s eq 0 then stackcmd = stackcmd + stacklist[s] 
+        if s gt 0 then stackcmd = stackcmd + ',' + stacklist[s] 
+      endfor
+      for s = 0, n_elements(stacklist)-1 do begin
+        weightfilename = strmid(stacklist[s],0,strlen(stacklist[s])-5-0)  + '.weight.fits'
+        weightexists = file_test(weightfilename)
+        if weightexists eq 0 then begin
+          slashpos = strpos(weightfilename,'/',/reverse_search)
+          weightfilenameinit = pipevar.imworkingdir + strmid(weightfilename,slashpos+2)  
+          weightexists = file_test(weightfilenameinit)
+          if weightexists then begin
+            print, 'mv '+weightfilenameinit+' '+weightfilename
+            spawn, 'mv '+weightfilenameinit+' '+weightfilename
+          endif
         endif
-     endfor
+      endfor
+
+      stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile
+      if nstack gt 1 then begin ; used to be 3...
+        stackcmd = stackcmd + ' -WEIGHT_TYPE MAP_WEIGHT'
+      endif else begin
+        stackcmd = stackcmd + ' -WEIGHT_TYPE BACKGROUND'
+      endelse
+      stackcmd = stackcmd + ' -FSCALE_DEFAULT '
+      for s = 0, n_elements(stacklist)-1 do stackcmd = stackcmd + strtrim(string(medianexp/stackexps[s]),2) + ','   ; multiplicative factor...
+      stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,DICHNAME,SLITNAME,'+$
+                             'GRISNAME,GRANAME,GRANGLE,INSTRUME,UT,UTC,MJD_OBS,MJD-OBS,ST,'+$
+                             'DATE,DATE-OBS,AIRMASS,AZ,RA,DEC,EL,HA,TELFOCUS,ROTPOSN,DOMEPOSN,CURRINST,OBSERVER,'+$
+                             'FLATFLD,FLATTYPE'
+
+      if (file_test(outfile) eq 0) or pipevar.overwrite then begin
+        if nstack eq 1 then $ ; used to be 3 for some bizarre reason?
+        print, 'Warning - only ', clip(nstack), ' exposures; not flagging bad pixels.'
+        print, 'Stacking ', target, ':'
+        for s = 0, n_elements(stacklist)-1 do print, stacklist[s], '  ', strtrim(string(stackexps[s]),2) + 's'
+        print, stackcmd
+        spawn, stackcmd  ; do the stack
+        data = mrdfits(outfile, 0, h, /silent)
+        sxaddpar, h, 'DATE', datestr
+        sxaddpar, h, 'NSTACK', nstack
+        sxaddpar, h, 'AIRMASS', medair, 'Median exposure airmass'
+        sxaddpar, h, 'AIRMIN', minair, 'Minimum exposure airmass'
+        sxaddpar, h, 'AIRMAX', maxair, 'Maximum exposure airmass'
+        sxaddpar, h, 'EXPOSURE', medianexp, 'Effective rescaled exposure time'
+        sxaddpar, h, 'TOTALEXP', totalexp, 'Total summed integration time'
+        sxaddpar, h, 'MAXEXP', max(stackexps), 'Length of longest exposure'
+        sxaddpar, h, 'MINEXP', min(stackexps), 'Length of shortest exposure'
+        sxaddpar, h, 'SATURATE', min(filesatval[stacki]-fileskyval[stacki])
+        sxaddpar, h, 'MEDSKY', median(fileskyval[stacki], /even)
+        if minseeingpix gt 0 then begin
+          sxaddpar, h, 'SEEING', medseeingpix, 'Median seeing in pixels'
+          sxaddpar, h, 'SEEMIN', minseeingpix
+          sxaddpar, h, 'SEEMAX', maxseeingpix
+          if camera eq 'red' and pipevar.lrisversion eq 1 then medseeingarcsec = medseeingpix*0.210 else medseeingarcsec = medseeingpix*0.135
+          sxaddpar, h, 'SEEARCSC', medseeingarcsec, 'Median seeing in arcsec'
+        endif
+        if minfluxratio gt 0 then begin
+          sxaddpar, h, 'TRANSRAT', maxfluxratio/minfluxratio, 'Transmission ratio of max/min images'
+          sxaddpar, h, 'TRANSSTD', stdfluxratio, 'Std. dev. of relative transmission'
+        endif
+        for s = 0, n_elements(stacklist)-1 do  sxaddpar, h, 'IMAGE'+strtrim(string(s),2), stacklist[s]
+        for s = 0, n_elements(stacklist)-1 do  sxaddpar, h, 'IMEXP'+strtrim(string(s),2), stackexps[s]
+        get_date, now
+        sxdelpar, h, ['SOFTNAME','SOFTVERS','SOFTDATE','SOFTAUTH','SOFTINST','AUTHOR']
+        hist = 'Processed by lrisautoproc '+now
+        sxaddhist, hist, h, /COMMENT
+        mwrfits, data, outfile, h, /create ; add this header info
+
+        ; In the future, there will be a final alignment step.
+
+      endif
+    endfor
   endfor
 
   qq = 0
   if qq eq 0 then begin; chip eq 'b' and (camera ne 'red' and lrisversion gt 1) then begin 
-     ; Combine left and right sides (or multiple exposure blocks, if necessary) for COADDS
+    ; Combine left and right sides (or multiple exposure blocks, if necessary) for COADDS
 
-     coaddfiles = findfile(pipevar.imworkingdir+'coadd*.fits')
+    coaddfiles = findfile(pipevar.imworkingdir+'coadd*.fits')
 
-     if coaddfiles ne [''] then coaddfiles = coaddfiles[where(coaddfiles ne '')] ;else continue
+    if coaddfiles ne [''] then coaddfiles = coaddfiles[where(coaddfiles ne '')] ;else continue
 
-     ; match every r with an l and coadd
-     for f = 0, n_elements(coaddfilesr)-1 do begin
-        filename = coaddfiles[f]
-        if ct eq 1 then begin
-           outfile = coaddfiles[f]
-           if file_test(outfile) eq 0 or pipevar.overwrite then begin
-              weightname = repstr(filename, '.fits','.weight.fits') 
-              print
-              stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile
-              stackcmd = stackcmd + ' -WEIGHT_TYPE MAP_WEIGHT'
-              stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,DICHNAME,'+$
-                                  'SLITNAME,GRISNAME,GRANAME,GRANGLE,INSTRUME,CAMERA,UTC,MJD_OBS,ST,'+$
-                                  'DATE,DATE-OBS,AIRMASS,AZ,RA,DEC,EL,HA,TELFOCUS,ROTPOSN,DOMEPOSN,CURRINST,OBSERVER,'+$
-                                  'DOMEPOSN,CURRINST,ADCWAVE0,ADCWAVE1,AMPMODE,CCDGAIN,CCDSPEED,NUMAMPS,'+$
-                                  'FLATFLD,FLATTYPE,EXPOSURE,TOTALEXP,MINEXP,MAXEXP'+$
-                                  'NSTACK,MEDSKY,AIRMASS,AIRMIN,AIRMAX,SEEING,SEEMIN,SEEMAX,SEEARCSEC,TRANSRAT,TRANSSTD'
-              print, stackcmd
-              spawn, stackcmd
-              data = mrdfits(outfile, 0, h)
-              hr = headfits(rfilename)
-              hl = headfits(lfilename)
-              for i = 0, 100 do begin
-                rimagekeyn = sxpar(hr,'IMAGE'+clip(i))
-                if clip(rimagekeyn) ne '0' then sxaddpar, h, 'RIMAGE'+clip(i), clip(rimagekeyn)
-              endfor
-              for i = 0, 100 do begin
-                limagekeyn = sxpar(hl,'IMAGE'+clip(i))
-                if clip(limagekeyn) ne '0' then sxaddpar, h, 'LIMAGE'+clip(i), clip(limagekeyn)
-              endfor
-              sxdelpar, h, ['SOFTNAME','SOFTVERS','SOFTDATE','SOFTAUTH','SOFTINST','AUTHOR']
-              get_date, now
-              hist = 'Processed by lrisautoproc '+now
-              sxaddhist, hist, h, /COMMENT
-              mwrfits, data, outfile, h, /create
-           endif
+    ; match every r with an l and coadd
+    for f = 0, n_elements(coaddfilesr)-1 do begin
+      filename = coaddfiles[f]
+      if ct eq 1 then begin
+        outfile = coaddfiles[f]
+        if file_test(outfile) eq 0 or pipevar.overwrite then begin
+          weightname = repstr(filename, '.fits','.weight.fits') 
+          print
+          stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile
+          stackcmd = stackcmd + ' -WEIGHT_TYPE MAP_WEIGHT'
+          stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,DICHNAME,'+$
+                                 'SLITNAME,GRISNAME,GRANAME,GRANGLE,INSTRUME,CAMERA,UTC,MJD_OBS,ST,'+$
+                                 'DATE,DATE-OBS,AIRMASS,AZ,RA,DEC,EL,HA,TELFOCUS,ROTPOSN,DOMEPOSN,CURRINST,OBSERVER,'+$
+                                 'DOMEPOSN,CURRINST,ADCWAVE0,ADCWAVE1,AMPMODE,CCDGAIN,CCDSPEED,NUMAMPS,'+$
+                                 'FLATFLD,FLATTYPE,EXPOSURE,TOTALEXP,MINEXP,MAXEXP'+$
+                                 'NSTACK,MEDSKY,AIRMASS,AIRMIN,AIRMAX,SEEING,SEEMIN,SEEMAX,SEEARCSEC,TRANSRAT,TRANSSTD'
+          print, stackcmd
+          spawn, stackcmd
+          data = mrdfits(outfile, 0, h)
+          hr = headfits(rfilename)
+          hl = headfits(lfilename)
+          for i = 0, 100 do begin
+            rimagekeyn = sxpar(hr,'IMAGE'+clip(i))
+            if clip(rimagekeyn) ne '0' then sxaddpar, h, 'RIMAGE'+clip(i), clip(rimagekeyn)
+          endfor
+          for i = 0, 100 do begin
+            limagekeyn = sxpar(hl,'IMAGE'+clip(i))
+            if clip(limagekeyn) ne '0' then sxaddpar, h, 'LIMAGE'+clip(i), clip(limagekeyn)
+          endfor
+          sxdelpar, h, ['SOFTNAME','SOFTVERS','SOFTDATE','SOFTAUTH','SOFTINST','AUTHOR']
+          get_date, now
+          hist = 'Processed by lrisautoproc '+now
+          sxaddhist, hist, h, /COMMENT
+          mwrfits, data, outfile, h, /create
         endif
-     endfor
+      endif
+    endfor
 
 
-     ; For individual images (standards, found if exptime < 30 sec)
+    ; For individual images (standards, found if exptime < 30 sec)
      
-     azffiles = findfile(pipevar.imworkingdir+'a*f*'+prefchar+pipevar.wildchar+'r.fits')
-     realfiles = where(azffiles ne '', ct)
+    azffiles = findfile(pipevar.imworkingdir+'a*f*'+prefchar+pipevar.wildchar+'r.fits')
+    realfiles = where(azffiles ne '', ct)
 
-     ; Combine l and r images.
-     doindlrcombine = 0
-     if doindlrcombine and (ct gt 0) then begin
+    ; Combine l and r images.
+    doindlrcombine = 0
+    if doindlrcombine and (ct gt 0) then begin
       for f = 0, n_elements(azffiles)-1 do begin
         infiler = azffiles[f]
         h = headfits(infiler)
@@ -807,35 +810,35 @@ pro autolrisstack, camera=camera, chip=chip, outpipevar=outpipevar, inpipevar=in
         filen = strmid(infiler,strpos(infiler,'r.fits')-4,4)
         target = repstr(clip(sxpar(h,'TARGNAME')),' ', '_')
         if exptime le 30 then begin
-           infilel = repstr(infiler,'r.','l.')
-           outfile = target + '_' + filen + 'o.fits'
-           if file_test(infilel) eq 0 then continue                    ; mate doesn't exist
-           if file_test(outfile) eq 1 and pipevar.overwrite eq 0 then continue  ; already stacked these two
+          infilel = repstr(infiler,'r.','l.')
+          outfile = target + '_' + filen + 'o.fits'
+          if file_test(infilel) eq 0 then continue                    ; mate doesn't exist
+          if file_test(outfile) eq 1 and pipevar.overwrite eq 0 then continue  ; already stacked these two
 
-           print
-           print, 'Preparing to combine ' + infiler + ' and ' + infilel
-           print, pipevar.autoastrocommand+' '+infiler+' -q'
-           spawn, pipevar.autoastrocommand+' '+infiler+' -q'
-           print, pipevar.autoastrocommand+' '+infilel+' -q'
-           spawn, pipevar.autoastrocommand+' '+infilel+' -q'
+          print
+          print, 'Preparing to combine ' + infiler + ' and ' + infilel
+          print, pipevar.autoastrocommand+' '+infiler+' -q'
+          spawn, pipevar.autoastrocommand+' '+infiler+' -q'
+          print, pipevar.autoastrocommand+' '+infilel+' -q'
+          spawn, pipevar.autoastrocommand+' '+infilel+' -q'
 
-           stackcmd = pipevar.swarpcommand+' ' + extractpath(infiler)+'a' + removepath(infiler) + ',' + extractpath(infilel) + 'a' + removepath(infilel)
-           print
-           print, 'Combining ' + extractpath(infiler)+'a'+removepath(infiler) + ' and a' + extractpath(infilel)+'a'+removepath(infilel)
-           stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile ; no weighting for this one
-           stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET' ; fast, so hide this
-           stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,'+filtkey+',DICHNAME,'+$
+          stackcmd = pipevar.swarpcommand+' ' + extractpath(infiler)+'a' + removepath(infiler) + ',' + extractpath(infilel) + 'a' + removepath(infilel)
+          print
+          print, 'Combining ' + extractpath(infiler)+'a'+removepath(infiler) + ' and a' + extractpath(infilel)+'a'+removepath(infilel)
+          stackcmd = stackcmd + ' -IMAGEOUT_NAME ' + outfile ; no weighting for this one
+          stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET' ; fast, so hide this
+          stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,'+filtkey+',DICHNAME,'+$
                                'SLITNAME,GRISNAME,GRANAME,GRANGLE,INSTRUME,CAMERA,UTC,MJD_OBS,ST,'+$
                                'DATE-OBS,AIRMASS,AZ,RA,DEC,EL,HA,TELFOCUS,ELAPTIME,'+$
                                'DOMEPOSN,CURRINST,ADCWAVE0,ADCWAVE1,AMPMODE,CCDGAIN,CCDSPEED,NUMAMPS,'
-           print, stackcmd
-           spawn, stackcmd
-           print, ' -> ', outfile
-           print
+          print, stackcmd
+          spawn, stackcmd
+          print, ' -> ', outfile
+          print
         endif
       endfor
-     endif
-   endif
+    endif
+  endif
 
 	outpipevar = pipevar
 	
