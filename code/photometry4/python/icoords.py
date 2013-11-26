@@ -81,98 +81,100 @@ def writefits( ofile, img, header ):
 		os.remove(ofile)
 	hdulist.writeto(ofile)
 
-# perform initial crop to remove noisy edges
-for i in range(np.size(zffiles)):
-	hdulist = pf.open(zffiles[i])
-	h = hdulist[0].header
-	img = hdulist[0].data
-	cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
-	x1 = x2 = y1 = y2 = 0
-	if cfilter == 'H' and False:	# case is commented out in IDL code --> always False here
-		x1 = 550.
-		x2 = 1250.
-		y1 = 1500.
-		y2 = 3100.
-	elif cfilter == 'i' and True:
-		x1 = 1103.
-		x2 = 2067.
-		y1 = 238.
-		y2 = 1160.
-	elif cfilter == 'r' and True:
-		x1 = 1090.
-		x2 = 2070.
-		y1 = 75.
-		y2 = 1020.
-	elif cfilter == 'J' and False:	# case is commented out in IDL code --> always False here
-		x1 = 700.
-		x2 = 1500.
-		y1 = 200.
-		y2 = 1800.
-	elif cfilter == 'Y' and False:	# case is commented out in IDL code --> always False here
-		x1 = 170.
-		x2 = 900.
-		y1 = 200.
-		y2 = 1800.
-	elif cfilter == 'Z' and False:	# case is commented out in IDL code --> always False here
-		x1 = 125.
-		x2 = 975.
-		y1 = 150.
-		y2 = 1950.
-	img, h = hextract( img, h, x1, x2, y1, y2 )
-	ofile = zffiles[i].split('.')[0] + '.crop.fits'
-	writefits( ofile, img, h )
-	hdulist = pf.open(weightfiles[i])
-	wh = hdulist[0].header
-	wimg = hdulist[0].data
-	wimg, wh = hextract( wimg, wh, x1, x2, y1, y2 )
-	ofile = weightfiles[i].split('.')[0] + '.crop.weight.fits'
-	writefits( ofile, wimg, wh )
+def icoords():
+	
+	# perform initial crop to remove noisy edges
+	for i in range(np.size(zffiles)):
+		hdulist = pf.open(zffiles[i])
+		h = hdulist[0].header
+		img = hdulist[0].data
+		cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
+		x1 = x2 = y1 = y2 = 0
+		if cfilter == 'H' and False:	# case is commented out in IDL code --> always False here
+			x1 = 550.
+			x2 = 1250.
+			y1 = 1500.
+			y2 = 3100.
+		elif cfilter == 'i' and True:
+			x1 = 1103.
+			x2 = 2067.
+			y1 = 238.
+			y2 = 1160.
+		elif cfilter == 'r' and True:
+			x1 = 1090.
+			x2 = 2070.
+			y1 = 75.
+			y2 = 1020.
+		elif cfilter == 'J' and False:	# case is commented out in IDL code --> always False here
+			x1 = 700.
+			x2 = 1500.
+			y1 = 200.
+			y2 = 1800.
+		elif cfilter == 'Y' and False:	# case is commented out in IDL code --> always False here
+			x1 = 170.
+			x2 = 900.
+			y1 = 200.
+			y2 = 1800.
+		elif cfilter == 'Z' and False:	# case is commented out in IDL code --> always False here
+			x1 = 125.
+			x2 = 975.
+			y1 = 150.
+			y2 = 1950.
+		img, h = hextract( img, h, x1, x2, y1, y2 )
+		ofile = zffiles[i].split('.')[0] + '.crop.fits'
+		writefits( ofile, img, h )
+		hdulist = pf.open(weightfiles[i])
+		wh = hdulist[0].header
+		wimg = hdulist[0].data
+		wimg, wh = hextract( wimg, wh, x1, x2, y1, y2 )
+		ofile = weightfiles[i].split('.')[0] + '.crop.weight.fits'
+		writefits( ofile, wimg, wh )
 
-# Resample all images using SWarp to a reference image called multicolor
-for i in range(np.size(zffiles)):
-	ifile = zffiles[i].split('.')[0] + '.crop.fits'
-	swarpstr = ''
-	if i == 0:
-		swarpstr = '"' + ifile + '"'
-	else:
-		swarpstr = swarpstr + ' "' + ifile + '"'
+	# Resample all images using SWarp to a reference image called multicolor
+	for i in range(np.size(zffiles)):
+		ifile = zffiles[i].split('.')[0] + '.crop.fits'
+		swarpstr = ''
+		if i == 0:
+			swarpstr = '"' + ifile + '"'
+		else:
+			swarpstr = swarpstr + ' "' + ifile + '"'
 
-stackcmd = 'swarp ' + swarpstr + ' -DELETE_TMPFILES N'
-stackcmd += ' -IMAGEOUT_NAME multicolor.fits -WEIGHTOUT_NAME multicolor.weight.fits'
-os.system( stackcmd )
+	stackcmd = 'swarp ' + swarpstr + ' -DELETE_TMPFILES N'
+	stackcmd += ' -IMAGEOUT_NAME multicolor.fits -WEIGHTOUT_NAME multicolor.weight.fits'
+	os.system( stackcmd )
 
-# Rename all the resampled files
-for i in range(np.size(zffiles)):
-	tmp = zffiles[i].split('.')[0]
-	ifile = tmp +'.crop.resamp.fits'
-	ofile = tmp + '.crop.fits'
-	mvcmd = 'mv -f ' + ifile + ' ' + ofile
-	os.system( mvcmd )
-	ifile = tmp + '.crop.resamp.weight.fits'
-	ofile = tmp + '.crop.weight.fits'
-	mvcmd = 'mv -f ' + ifile + ' ' + ofile
-	os.system( mvcmd )
+	# Rename all the resampled files
+	for i in range(np.size(zffiles)):
+		tmp = zffiles[i].split('.')[0]
+		ifile = tmp +'.crop.resamp.fits'
+		ofile = tmp + '.crop.fits'
+		mvcmd = 'mv -f ' + ifile + ' ' + ofile
+		os.system( mvcmd )
+		ifile = tmp + '.crop.resamp.weight.fits'
+		ofile = tmp + '.crop.weight.fits'
+		mvcmd = 'mv -f ' + ifile + ' ' + ofile
+		os.system( mvcmd )
 
-# run sextractor on pipeline reduced files to identify point sources
-for i in range(np.size(zffiles)):
-	cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
-	if cfilter == 'Z' or cfilter == 'Y':
-		cfilter = cfilter.lower()
-	# run SExtractor on each image
-	ifile = zffiles[i].split('.')[0] + '.crop.fits'
-	cmd = 'sex ' + ifile + ' -c "ratir_nir.sex"'
-	print cmd
-	os.system( cmd )
-	# read in results from sextractor and produce IRAF coordinate file
-	x,y,ra,dec,mag,magerr,e,fwhm = np.loadtxt( 'temp.cat', unpack=True )
-	f = open( 'coords' + cfilter, 'w' )
-	for j in range(np.size(ra)):
-		f.write( '{:15.6f}{:15.6f}'.format( ra[j], dec[j] ) )
-	f.close()
-	cmd = 'mv -f temp.cat fluxes1_' + cfilter + '.txt'
-	print cmd
-	os.system( cmd )
-	fwhm = np.median(fwhm)
-	f = open( cfilter + '.aannulus', 'w' )
-	f.write( '{:15.6f}'.format( fwhm ) )
-	f.close()
+	# run sextractor on pipeline reduced files to identify point sources
+	for i in range(np.size(zffiles)):
+		cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
+		if cfilter == 'Z' or cfilter == 'Y':
+			cfilter = cfilter.lower()
+		# run SExtractor on each image
+		ifile = zffiles[i].split('.')[0] + '.crop.fits'
+		cmd = 'sex ' + ifile + ' -c "ratir_nir.sex"'
+		print cmd
+		os.system( cmd )
+		# read in results from sextractor and produce IRAF coordinate file
+		x,y,ra,dec,mag,magerr,e,fwhm = np.loadtxt( 'temp.cat', unpack=True )
+		f = open( 'coords' + cfilter, 'w' )
+		for j in range(np.size(ra)):
+			f.write( '{:15.6f}{:15.6f}'.format( ra[j], dec[j] ) )
+		f.close()
+		cmd = 'mv -f temp.cat fluxes1_' + cfilter + '.txt'
+		print cmd
+		os.system( cmd )
+		fwhm = np.median(fwhm)
+		f = open( cfilter + '.aannulus', 'w' )
+		f.write( '{:15.6f}'.format( fwhm ) )
+		f.close()
