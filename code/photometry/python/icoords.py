@@ -1,43 +1,35 @@
 """
-Translated from icoords.pro by John Capone (jicapone@astro.umd.edu).
+NAME:
+	icoords
 
-Notes:
-	selection of x and y limits for differenct filters is a mess.  should automate
+PURPOSE:
+	Automatically crops coadded fits files using weighted files.  Can run crop manually, but
+	will have to alter script (default for manual crop is 10% off each side).
+	Then creates a stacked image with all filters (saved to multicolor.fits and multicolor.weight.fits).  
+	Then runs sextractor on each cropped image and saves the RA and DEC values to coords(FILTER) and 
+	the sextractor output to fluxes1_(FILTER).txt
+
+OPTIONAL KEYWORD INPUTS:
+	manualcrop - set to anything but None if don't want to use weight images to crop, 
+			     will have to go manually into program to change values for each filter
+
+OUTPUTS:
+	multicolor.fits, multicolor.weight.fits - files with all filter images stacked
+	coords(FILTER) - RA and DEC coordinates from sextractor from cropped images
+	fluxes1_(FILTER).txt - sextractor output from cropped images
+	
+Translated from icoords.pro by John Capone (jicapone@astro.umd.edu).
+Modified by Vicki Toy (vtoy@astro.umd.edu) to include automatic cropping using weight file
 """
 
 import numpy as np
 import os
+import sys
 import fnmatch
 import astropy.io.fits as pf
-import pylab as pl
-import scipy as sp
-from astropy import wcs
+from hextractlite import hextractlite
 
-# find index of xarr and yarr with minimum RSS distance from x and y
-#   Note: needs updated implementation optimized for numpy
-def nearest( x, y, xarr, yarr, mindist ):
-	index = -1
-	imindist = mindist
-	if np.shape(xarr) != np.shape(yarr):
-		raise plotratirError( "xarr and yarr must have equal dimensions" )	
-	for i in range( np.size(xarr) ):
-		dist = np.sqrt( (x - xarr[i])**2. + (y - yarr[i])**2. )
-		if dist < imindist:
-			imindist = dist
-			index = i
-	return index
-
-# make a circle for identifying sources in images
-def circle( xcenter, ycenter, radius ):
-	points = np.linspace( 0., 2.*np.pi, 100 )
-	x = xcenter + radius * np.cos(points)
-	y = ycenter + radius * np.sin(points)
-	return np.transpose([x,y])
-
-# Define a number of global variables
-filters = ['r','i','z','y','J','H']
-
-# returns files in directory "loc" which start with prefix and end with postfix
+#Returns files in directory "loc" which start with prefix and end with postfix
 def get_files( selection, loc='.' ):
 	matches = []
 	for files in os.listdir(loc):
@@ -45,136 +37,163 @@ def get_files( selection, loc='.' ):
 			matches.append(files)
 	return matches
 
-# Identify files
-prefchar = 'coadd'
-wildcharimg = '?????-????-?????_?'
-zffiles = get_files( prefchar + wildcharimg + '.fits' )
-weightfiles = get_files( prefchar + wildcharimg + '.weight.fits' )
-
-# hextract IDL function - Extract a subimage from an array and update astrometry in FITS header
-#	Note: fits xy convention opposite of python
-def hextract( oldim, oldhd, x0, x1, y0, y1 ):
-	newim = np.copy( oldim[y0:y1,x0:x1] )
-	newhd = oldhd.copy()
-	# new reference pixels are center pixels of sub-image
-	refpx1 = np.float(y0 + y1)/2.
-	refpx2 = np.float(x0 + x1)/2.
-	# Parse the WCS keywords in the primary HDU
-	w = wcs.WCS(newhd)
-	pixcrd = np.array( [[refpx1, refpx2]] )
-	world = w.wcs_pix2world( pixcrd, 1 )
-	# update header astrometry
-	newhd.update( 'CRPIX1', pixcrd[0,0] )
-	newhd.update( 'CRPIX2', pixcrd[0,1] )
-	newhd.update( 'CRVAL1', world[0,0] )
-	newhd.update( 'CRVAL2', world[0,1] )
-	# update header array size
-	newhd.update( 'NAXIS1', newim.shape[1] )
-	newhd.update( 'NAXIS2', newim.shape[0] )
-	return newim, newhd
-
-def writefits( ofile, img, header ):
-	hdu = pf.PrimaryHDU(img)
-	hdu.header = header
-	hdulist = pf.HDUList([hdu])
-	if os.path.exists(ofile):
-		os.remove(ofile)
-	hdulist.writeto(ofile)
-
-def icoords():
+"""
+NAME:
+	weightedge
 	
-	# perform initial crop to remove noisy edges
-	for i in range(np.size(zffiles)):
-		hdulist = pf.open(zffiles[i])
-		h = hdulist[0].header
-		img = hdulist[0].data
-		cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
-		x1 = x2 = y1 = y2 = 0
-		if cfilter == 'H' and False:	# case is commented out in IDL code --> always False here
-			x1 = 550.
-			x2 = 1250.
-			y1 = 1500.
-			y2 = 3100.
-		elif cfilter == 'i' and True:
-			x1 = 1103.
-			x2 = 2067.
-			y1 = 238.
-			y2 = 1160.
-		elif cfilter == 'r' and True:
-			x1 = 1090.
-			x2 = 2070.
-			y1 = 75.
-			y2 = 1020.
-		elif cfilter == 'J' and False:	# case is commented out in IDL code --> always False here
-			x1 = 700.
-			x2 = 1500.
-			y1 = 200.
-			y2 = 1800.
-		elif cfilter == 'Y' and False:	# case is commented out in IDL code --> always False here
-			x1 = 170.
-			x2 = 900.
-			y1 = 200.
-			y2 = 1800.
-		elif cfilter == 'Z' and False:	# case is commented out in IDL code --> always False here
-			x1 = 125.
-			x2 = 975.
-			y1 = 150.
-			y2 = 1950.
-		img, h = hextract( img, h, x1, x2, y1, y2 )
-		ofile = zffiles[i].split('.')[0] + '.crop.fits'
-		writefits( ofile, img, h )
-		hdulist = pf.open(weightfiles[i])
-		wh = hdulist[0].header
-		wimg = hdulist[0].data
-		wimg, wh = hextract( wimg, wh, x1, x2, y1, y2 )
-		ofile = weightfiles[i].split('.')[0] + '.crop.weight.fits'
-		writefits( ofile, wimg, wh )
+PURPOSE:
+	To find the innermost corner of a weighted image for a good crop
+	Looks for point where values are roughly constant between rows or columns
+	Can change this with scale keyword
+	
+INPUTS:
+	array - array to search
+	itarray - array of indices to search through
+	
+OPTIONAL KEYWORD INPUTS:
+	column - set True if iterating through x-axis
+	row    - set True if iterating through y-axis
+	scale  - set value to look for scaling to previous row or column
 
-	# Resample all images using SWarp to a reference image called multicolor
-	for i in range(np.size(zffiles)):
-		ifile = zffiles[i].split('.')[0] + '.crop.fits'
-		swarpstr = ''
-		if i == 0:
-			swarpstr = '"' + ifile + '"'
+OUTPUT:
+	Returns the column or row of "nonzero" component on weighted file
+
+EXAMPLE:
+	leftedge = weightedge(data, range(xaxis), column=1, scale=0.99)
+	
+"""
+def weightedge(array, itarray, scale=1, column=None, row=None):
+	oldsum = 0
+	for i in itarray:
+		if column is not None:
+			newsum = sum(array[:,i])
+		elif row is not None:
+			newsum = sum(array[i,:])
+			
+		if scale*newsum >= oldsum:
+			oldsum = newsum
 		else:
-			swarpstr = swarpstr + ' "' + ifile + '"'
+			return i-1		
 
-	stackcmd = 'swarp ' + swarpstr + ' -DELETE_TMPFILES N'
-	stackcmd += ' -IMAGEOUT_NAME multicolor.fits -WEIGHTOUT_NAME multicolor.weight.fits'
+def icoords(manualcrop=None):
+
+	#Identify files (must have same number of images files as weight files)
+	prefchar    = 'coadd'
+	zffiles     = get_files(prefchar + '*_?.fits')
+	weightfiles = get_files(prefchar + '*_?.weight.fits')
+	
+	if len(zffiles) > len(weightfiles):
+		print 'Must have matching weight file to each image file to run automatic crop.'
+		print 'To use manual crop user manualcrop keyword and change crop values by hand'
+		return -1
+		
+	numfiles = len(zffiles)
+
+	#Perform initial crop to remove noisy edges
+	for i in range(numfiles):
+	
+		whdulist = pf.open(weightfiles[i])
+		wh       = whdulist[0].header
+		wimg     = whdulist[0].data
+
+		xaxis = wh['NAXIS1']
+		yaxis = wh['NAXIS2']
+		
+		#Finds points to crop to using weight files 
+		#(99% level chosen after visual inspection, can be modified if not producing good crops)
+		scale = 0.99
+		x1 = weightedge(wimg, range(xaxis), scale=scale, column=1)
+		x2 = weightedge(wimg, reversed(range(xaxis)), scale=scale, column=1)
+		y1 = weightedge(wimg, range(yaxis), scale=scale, row=1)
+		y2 = weightedge(wimg, reversed(range(yaxis)), scale=scale, row=1)
+		
+		if manualcrop is not None:
+			hdulist = pf.open(zffiles[i])
+			h       = hdulist[0].header
+			img     = hdulist[0].data
+	
+			xaxis = h['NAXIS1']
+			yaxis = h['NAXIS2']
+			
+			x1 = 0.1*xaxis
+			x2 = 0.9*xaxis
+			y1 = 0.1*yaxis
+			y2 = 0.9*yaxis			
+
+		#Crops both the weight and image fits files and changes headers so
+		#center pixels are adjusted and adds information of crop
+		wofile = weightfiles[i].split('.')[0] + '.crop.weight.fits'
+		hextractlite(wofile, wimg, wh, x1, x2, y1, y2)
+
+		hdulist = pf.open(zffiles[i])
+		h       = hdulist[0].header
+		img     = hdulist[0].data
+		
+		ofile = zffiles[i].split('.')[0] + '.crop.fits'
+		hextractlite(ofile, img, h, x1, x2, y1, y2)
+		
+	#Resample all cropped images using SWarp to a reference image called multicolor
+	swarpstr = ''
+	for i in range(numfiles):
+		ifile = zffiles[i].split('.')[0] + '.crop.fits'	
+		swarpstr = swarpstr + ifile + ' '
+
+	stackcmd = 'swarp ' + swarpstr + '-DELETE_TMPFILES N -IMAGEOUT_NAME multicolor.fits -WEIGHTOUT_NAME multicolor.weight.fits'
 	os.system( stackcmd )
-
-	# Rename all the resampled files
-	for i in range(np.size(zffiles)):
+	
+	#Rename all the resampled files to overwrite crop files
+	for i in range(numfiles):
 		tmp = zffiles[i].split('.')[0]
 		ifile = tmp +'.crop.resamp.fits'
 		ofile = tmp + '.crop.fits'
 		mvcmd = 'mv -f ' + ifile + ' ' + ofile
-		os.system( mvcmd )
+		os.system(mvcmd)
+		
 		ifile = tmp + '.crop.resamp.weight.fits'
 		ofile = tmp + '.crop.weight.fits'
 		mvcmd = 'mv -f ' + ifile + ' ' + ofile
-		os.system( mvcmd )
+		os.system(mvcmd)
+	
+	#Find directory where this python code is located
+	propath = os.path.dirname(os.path.realpath(__file__))
+	
+	#Make sure configuration file is in current working directory, if not copy it from
+	#location where this code is stored
+	if not os.path.exists('ratir_nir.sex'): 
+		os.system('cp '+propath+'/defaults/ratir_nir.sex .')
+	
+	if not os.path.exists('temp.param'): 
+		os.system('cp '+propath+'/defaults/temp.param .')
+		
+	if not os.path.exists('sex.conv'): 
+		os.system('cp '+propath+'/defaults/sex.conv .')
 
-	# run sextractor on pipeline reduced files to identify point sources
-	for i in range(np.size(zffiles)):
+	#Run sextractor on pipeline reduced files to identify point sources
+	for i in range(numfiles):
 		cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
+		
 		if cfilter == 'Z' or cfilter == 'Y':
 			cfilter = cfilter.lower()
-		# run SExtractor on each image
+		
+		print 'LOOK AT FILTER'
+		print cfilter
+			
+		#Run SExtractor on each image
 		ifile = zffiles[i].split('.')[0] + '.crop.fits'
 		cmd = 'sex ' + ifile + ' -c "ratir_nir.sex"'
 		print cmd
-		os.system( cmd )
-		# read in results from sextractor and produce IRAF coordinate file
-		x,y,ra,dec,mag,magerr,e,fwhm = np.loadtxt( 'temp.cat', unpack=True )
-		f = open( 'coords' + cfilter, 'w' )
-		for j in range(np.size(ra)):
-			f.write( '{:15.6f}{:15.6f}'.format( ra[j], dec[j] ) )
+		os.system(cmd)
+		
+		#Read in results from sextractor and produce IRAF coordinate file save as coords(FILTER)
+		#Rename sextractor results to fluxes1_(FILTER).txt
+		#Removed FWHM aannulus files (all were 0...???)
+		x,y,ra,dec,mag,magerr,e,fwhm = np.loadtxt('temp.cat', unpack=True)
+		f = open('coords' + cfilter, 'w')
+		
+		for j in range(len(ra)):
+			f.write('{:15.6f}{:15.6f}\n'.format(ra[j], dec[j]))
 		f.close()
+		
 		cmd = 'mv -f temp.cat fluxes1_' + cfilter + '.txt'
 		print cmd
-		os.system( cmd )
-		fwhm = np.median(fwhm)
-		f = open( cfilter + '.aannulus', 'w' )
-		f.write( '{:15.6f}'.format( fwhm ) )
-		f.close()
+		os.system(cmd)
