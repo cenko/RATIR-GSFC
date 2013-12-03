@@ -836,7 +836,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 	nchips   = n_elements(chips)
 
 	;Runs each processing step specified in the correct order (crclean is optional)
-	for istep = 0, nelements(steps)-1 do begin
+	for istep = 0, n_elements(steps)-1 do begin
    		instep = steps[istep]
 
    		for icam = 0, ncameras-1 do begin
