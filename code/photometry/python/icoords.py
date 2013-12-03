@@ -174,9 +174,6 @@ def icoords(manualcrop=None):
 		
 		if cfilter == 'Z' or cfilter == 'Y':
 			cfilter = cfilter.lower()
-		
-		print 'LOOK AT FILTER'
-		print cfilter
 			
 		#Run SExtractor on each image
 		ifile = zffiles[i].split('.')[0] + '.crop.fits'
