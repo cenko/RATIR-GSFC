@@ -25,62 +25,16 @@ Modified by Vicki Toy (vtoy@astro.umd.edu) to include automatic cropping using w
 import numpy as np
 import os
 import sys
-import fnmatch
 import astropy.io.fits as pf
-from hextractlite import hextractlite
+import photprocesslibrary as pplib
 
-#Returns files in directory "loc" which start with prefix and end with postfix
-def get_files( selection, loc='.' ):
-	matches = []
-	for files in os.listdir(loc):
-		if fnmatch.fnmatch( files, selection ):
-			matches.append(files)
-	return matches
-
-"""
-NAME:
-	weightedge
-	
-PURPOSE:
-	To find the innermost corner of a weighted image for a good crop
-	Looks for point where values are roughly constant between rows or columns
-	Can change this with scale keyword
-	
-INPUTS:
-	array - array to search
-	itarray - array of indices to search through
-	
-OPTIONAL KEYWORD INPUTS:
-	column - set True if iterating through x-axis
-	row    - set True if iterating through y-axis
-	scale  - set value to look for scaling to previous row or column
-
-OUTPUT:
-	Returns the column or row of "nonzero" component on weighted file
-
-EXAMPLE:
-	leftedge = weightedge(data, range(xaxis), column=1, scale=0.99)
-	
-"""
-def weightedge(array, itarray, scale=1, column=None, row=None):
-	oldsum = 0
-	for i in itarray:
-		if column is not None:
-			newsum = sum(array[:,i])
-		elif row is not None:
-			newsum = sum(array[i,:])
-			
-		if scale*newsum >= oldsum:
-			oldsum = newsum
-		else:
-			return i-1		
 
 def icoords(manualcrop=None):
 
 	#Identify files (must have same number of images files as weight files)
 	prefchar    = 'coadd'
-	zffiles     = get_files(prefchar + '*_?.fits')
-	weightfiles = get_files(prefchar + '*_?.weight.fits')
+	zffiles     = pplib.choosefiles(prefchar + '*_?.fits')
+	weightfiles = pplib.choosefiles(prefchar + '*_?.weight.fits')
 	
 	if len(zffiles) > len(weightfiles):
 		print 'Must have matching weight file to each image file to run automatic crop.'
@@ -102,10 +56,10 @@ def icoords(manualcrop=None):
 		#Finds points to crop to using weight files 
 		#(99% level chosen after visual inspection, can be modified if not producing good crops)
 		scale = 0.99
-		x1 = weightedge(wimg, range(xaxis), scale=scale, column=1)
-		x2 = weightedge(wimg, reversed(range(xaxis)), scale=scale, column=1)
-		y1 = weightedge(wimg, range(yaxis), scale=scale, row=1)
-		y2 = weightedge(wimg, reversed(range(yaxis)), scale=scale, row=1)
+		x1 = pplib.weightedge(wimg, range(xaxis), scale=scale, column=1)
+		x2 = pplib.weightedge(wimg, reversed(range(xaxis)), scale=scale, column=1)
+		y1 = pplib.weightedge(wimg, range(yaxis), scale=scale, row=1)
+		y2 = pplib.weightedge(wimg, reversed(range(yaxis)), scale=scale, row=1)
 		
 		if manualcrop is not None:
 			hdulist = pf.open(zffiles[i])
@@ -123,14 +77,14 @@ def icoords(manualcrop=None):
 		#Crops both the weight and image fits files and changes headers so
 		#center pixels are adjusted and adds information of crop
 		wofile = weightfiles[i].split('.')[0] + '.crop.weight.fits'
-		hextractlite(wofile, wimg, wh, x1, x2, y1, y2)
+		pplib.hextractlite(wofile, wimg, wh, x1, x2, y1, y2)
 
 		hdulist = pf.open(zffiles[i])
 		h       = hdulist[0].header
 		img     = hdulist[0].data
 		
 		ofile = zffiles[i].split('.')[0] + '.crop.fits'
-		hextractlite(ofile, img, h, x1, x2, y1, y2)
+		pplib.hextractlite(ofile, img, h, x1, x2, y1, y2)
 		
 	#Resample all cropped images using SWarp to a reference image called multicolor
 	swarpstr = ''
