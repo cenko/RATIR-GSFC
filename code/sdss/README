@@ -1,0 +1,19 @@
+getsdss.pl - Perl command line script to retrieve SDSS photometry around
+a given RA/DEC
+
+1) Make sure the sdss_sql script is somewhere within your path
+2) Usage:
+[gs66-iniesta:~] scenko% getsdss.pl
+Usage:  getsdss.pl [-d <catalog>] [-r <radius/arcmin>] [-e <epoch>] [-s <savefile>] [-f <regfile>] [-m(ags)] [-n(umber)] [-c <color>] <ra> <dec> <outfile>
+
+3) Example:
+[gs66-iniesta:~] scenko% getsdss.pl -r 3.0 -f sdss.reg 12.0 0.0 sdss.txt
+# Setting search radius to 3.0 arcmin
+# Writing region file sdss.reg
+Retrieving SDSS catalog with command 'sdss_sql -q "select p.objID,p.ra,p.dec,p.psfMag_u,p.psfMagErr_u,p.psfMag_g,p.psfMagErr_g,p.psfMag_r,p.psfMagErr_r,p.psfMag_i,p.psfMagErr_i,p.psfMag_z,p.psfMagErr_z FROM fGetObjFromRect(11.95,12.05,-0.05,0.05) n,PhotoObj p WHERE n.objID=p.objID"'
+
+Resulting files:
+sdss.reg: ds9 region file (including photometry). Example line:
+fk5;ellipse(11.99513268,1.09767089E-3,0.2",0.2",0) # text={SDSS-002} color=green UMAG={23.504179} UMAGU={0.84534} GMAG={21.47784} GMAGU={0.043554} RMAG={20.265104} RMAGU={0.026155} IMAG={19.764978} IMAGU={0.025499} ZMAG={19.410202} ZMAGU={0.057192}
+
+sdss.txt: Ignore this
