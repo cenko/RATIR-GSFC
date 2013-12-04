@@ -17,6 +17,7 @@ OUTPUTS:
 	multicolor.fits, multicolor.weight.fits - files with all filter images stacked
 	coords(FILTER) - RA and DEC coordinates from sextractor from cropped images
 	fluxes1_(FILTER).txt - sextractor output from cropped images
+	imagelist(FILTER) - name of cropped file 
 	
 Translated from icoords.pro by John Capone (jicapone@astro.umd.edu).
 Modified by Vicki Toy (vtoy@astro.umd.edu) to include automatic cropping using weight file
@@ -27,7 +28,6 @@ import os
 import sys
 import astropy.io.fits as pf
 import photprocesslibrary as pplib
-
 
 def icoords(manualcrop=None):
 
@@ -125,6 +125,12 @@ def icoords(manualcrop=None):
 	#Run sextractor on pipeline reduced files to identify point sources
 	for i in range(numfiles):
 		cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
+		
+		#Create imagelist with cropped filename in it for each filter
+		ofile = 'imagelist'+cfilter
+		f = open(ofile, 'w')
+		f.write(zffiles[i].split('.')[0] + '.crop')
+		f.close
 		
 		if cfilter == 'Z' or cfilter == 'Y':
 			cfilter = cfilter.lower()
