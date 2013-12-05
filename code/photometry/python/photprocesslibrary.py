@@ -3,7 +3,29 @@
 import astropy.io.fits as pf
 import fnmatch
 import os
+from numpy import sqrt
 
+
+"""
+NAME:
+	nearest
+PURPOSE:
+	Find coordinates (Cartesian) that are within the specified distance of a reference coordinate
+INPUTS:
+	x, y      - reference coordinate
+	xarr,yarr - array of coordinates to compare to reference coordinate
+	mindist   - maximum distance that coordinates can be from reference coordinates
+OUTPUTS:
+	Returns mask of values that are within maximum distance from reference
+EXAMPLE:
+	match = nearest(ra[0]*cos(dec[0]*pi/180.),dec[0],refra*cos(refdec*pi/180.),refdec, 1./3600.)
+"""
+def nearest(x, y, xarr, yarr, maxdist):
+	
+	dist = sqrt( (x-xarr)**2 + (y-yarr)**2)
+	good = (dist < maxdist)
+	
+	return good
 
 """
 NAME:
@@ -63,7 +85,6 @@ def weightedge(array, itarray, scale=1, column=None, row=None):
 		else:
 			return i-1		
 
-
 '''
 Pared down version of hextract.pro from the IDL Astro Library
 Translated to python by Vicki Toy (vtoy@astro.umd.edu)
@@ -111,4 +132,130 @@ def hextractlite(newfile, data, fitsheader, x1, x2, y1, y2):
 	
 	#Saves new fits file and header to specified fits file name
 	pf.writeto(newfile, newdata, fitsheader, clobber=True)
-	
+
+##^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^Lance Simms, Stanford University 2009
+#NAME:
+#   Djs_Iterstat.py
+# 
+# PURPOSE:
+#   Compute the mean, median and/or sigma of data with iterative sigma clipping.
+#
+# CALLING SEQUENCE:
+#   djs_iterstat, image, [sigrej=, maxiter=, mean=, median=, sigma=, mask=]
+#
+# INPUTS:
+#   image:      Input data
+#
+# OPTIONAL INPUTS:
+#   SigRej:     Sigma for rejection# default to 3.0
+#   MaxIter:    Maximum number of sigma rejection iterations# default to 10
+#   Min:        The minimum data value to keep; default to min of array
+#   Max:        The maximum data value to keep; default to max of array
+#   RejVal:     A value that was used as a flag for bad data; ie. -1
+#   BinData:   1 to bin the data to find a mode; 0 to not 
+# OUTPUTS:
+#
+# OPTIONAL OUTPUTS:
+#   Mean:       Computed mean
+#   Median:     Computed median
+#   Sigma:      Computed sigma
+#   Mode:       Computed Mode
+#   Mask:       Mask set to 1 for good points, and 0 for rejected points
+#
+# PROCEDURES CALLED:
+#
+# COMMENTS:
+#   This routine is based upon Mark Dickinson's IRAF (!) script ITERSTAT.
+#   It iteratively rejects outliers as determined by SIGREJ.  It stops
+#   when one of the following conditions is met:
+#   (1) The maximum number of iterations, as set by MAXITER, is reached.
+#   (2) No new pixels are rejected, as compared to the previous iteration.
+#   (3) At least 2 pixels remain from which to compute statistics.  If not,
+#       then the returned values are based upon the previous iteration.
+# 
+# REVISION HISTORY:
+#   IDL 16-Jun-1999  Written by David Schlegel, Princeton
+#   IDL 11-Sep-2000  Speeded up by Hogg and Eisenstein
+#   IDL 18-Sep-2000  Note change in MASK values to =1 for good (unrejected) points.
+#   PYTHON 12-Jul-2008 Adapted to Scipy by Lance Simms, Stanford
+#
+#EXAMPLE:
+#from Djs_IterStat import *
+#FMean, FSig, FMedian, FMask = Djs_Iterstat(10+cos(frange(10000)/1000),RejVal=-1, SigRej=1.3)
+#mplot.plot(FMask)
+#
+############################################################
+from numpy import *
+#from FitGaussian import *
+#import histOutline 
+#import pdb
+
+def djs_iterstat(InputArr, SigRej=3.0, MaxIter=10, Mask=0,\
+                 Max='', Min='', RejVal='', BinData=0):
+ 
+  NGood    = InputArr.size  
+  ArrShape = InputArr.shape
+  if NGood == 0: 
+    print 'No data points given'
+    return 0, 0, 0, 0, 0
+  if NGood == 1:
+    print 'Only one data point; cannot compute stats'
+    return 0, 0, 0, 0, 0
+
+  #Determine Max and Min
+  if Max == '':
+    Max = InputArr.max()
+  if Min == '':
+    Min = InputArr.min()
+ 
+  if unique(InputArr).size == 1:
+    return 0, 0, 0, 0, 0
+ 
+  Mask  = zeros(ArrShape, dtype=byte)+1
+  #Reject those above Max and those below Min
+  Mask[InputArr > Max] = 0
+  Mask[InputArr < Min] = 0
+  if RejVal != '' :  Mask[InputArr == RejVal]=0
+  FMean = sum(1.*InputArr*Mask) / NGood
+  FSig  = sqrt(sum((1.*InputArr-FMean)**2*Mask) / (NGood-1))
+
+  NLast = -1
+  Iter  =  0
+  NGood = sum(Mask)
+  if NGood < 2:
+    return -1, -1, -1, -1, -1
+
+  while (Iter < MaxIter) and (NLast != NGood) and (NGood >= 2) :
+
+    LoVal = FMean - SigRej*FSig
+    HiVal = FMean + SigRej*FSig
+    NLast = NGood
+
+    Mask[InputArr < LoVal] = 0
+    Mask[InputArr > HiVal] = 0
+    NGood = sum(Mask)
+
+    if NGood >= 2:
+      FMean = sum(1.*InputArr*Mask) / NGood
+      FSig  = sqrt(sum((1.*InputArr-FMean)**2*Mask) / (NGood-1))
+      SaveMask = Mask.copy()
+    else:
+      SaveMask = Mask.copy()
+
+    Iter = Iter+1
+  if sum(SaveMask) > 2:
+    FMedian = median(InputArr[SaveMask == 1])
+    if BinData == 1:
+      HRange  = InputArr[SaveMask==1].max()-InputArr[SaveMask==1].min()
+      bins_In = arange(HRange)+InputArr[SaveMask==1].min()
+      Bins, N = histOutline.histOutline(InputArr[SaveMask == 1], binsIn = bins_In)
+      FMode   = Bins[(where(N == N.max()))[0]].mean()
+    else: 
+      FMode = 0
+  else:
+    FMedian = FMean
+    FMode   = FMean
+    
+
+  return FMean, FSig, FMedian, FMode, SaveMask 
+

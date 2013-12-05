@@ -129,7 +129,7 @@ def icoords(manualcrop=None):
 		#Create imagelist with cropped filename in it for each filter
 		ofile = 'imagelist'+cfilter
 		f = open(ofile, 'w')
-		f.write(zffiles[i].split('.')[0] + '.crop')
+		f.write(zffiles[i].split('.')[0] + '.crop.fits')
 		f.close
 		
 		if cfilter == 'Z' or cfilter == 'Y':

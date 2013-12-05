@@ -818,6 +818,7 @@ class catalog():
         results = pool.map( fit_sources, objects )
         #results = [fit_sources(obj) for obj in objects]
         pool.close()
+        pool.join()
         
         # now go through results and construct the final values
         for i,row in enumerate(results):
