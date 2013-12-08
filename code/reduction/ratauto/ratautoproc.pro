@@ -785,7 +785,6 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
 	endif
 	
 	nocrclean = keyword_set(nocrclean)
-
 	
 	;Check if autoastrometry, sextractor, swarp are installed and functioning before running steps
    	if total(steps eq 'astrometry') gt 0 or total(steps eq 'photometry') gt 0 or total(steps eq 'stack') gt 0 then begin
@@ -864,7 +863,7 @@ pro ratautoproc, datadirectory=datadirectory, modestr=modestr, camerastr=cameras
               		if instep eq 'photometry' and ichip eq 1 then autolrisphotometry, camera=camera, outpipevar=pipevar, inpipevar=pipevar
            		endelse
                		
-          		if instep eq 'stack' then autolrisstack, chip=ch, cam=camera, outpipevar=pipevar, inpipevar=pipevar
+          		if instep eq 'stack' then autopipestack, outpipevar=pipevar, inpipevar=pipevar
             		
          	endfor
    		endfor ; camera
