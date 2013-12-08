@@ -410,16 +410,14 @@ pro ratautoproc, datadirectory=datadirectory, start=start, stop=stop, only=only,
 	
 	; Load default parameters and interpret user arguments.
 	pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 ,modestr:'',$
+					datadir:'' , imworkingdir:'' , overwrite:0 ,$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:''}
-	pipevar.modestr='im'
 	
 	if keyword_set(redo) then pipevar.overwrite=1
 	if n_elements(datadirectory) gt 0 then pipevar.datadir = datadirectory		
 
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar
-	modes = pipevar.modestr
 
 	;Step options
 	steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']

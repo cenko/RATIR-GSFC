@@ -32,7 +32,7 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , modestr:'',$
+					datadir:'' , imworkingdir:'' , overwrite:0 ,$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse 	
@@ -81,8 +81,7 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 
      	if ct eq 0 or pipevar.overwrite gt 0 then begin
 
-     		if pipevar.modestr eq 'im' then outname = outnameim
-			
+     		outname = outnameim
 			pipeprepare, files[f], outname=outname, namefixfiles=namefixfiles
 			
      	endif
