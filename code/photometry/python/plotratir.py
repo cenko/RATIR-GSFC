@@ -1,243 +1,172 @@
 """
+NAME:
+	plotratir
+PURPOSE:
+	Read in coadd*(FILTER).crop.multi.fits and finalphot(FILTER).am.  Find number
+	of unique stars and saves each filter's magnitude and error to the same star. 
+	Saves this to finalmags.txt.  Creates color plot with all of the images overlaid
+	(red = J/H, green = z/y, blue = r/i) and creates plot of each filter field with
+	green circles around each object.  Saves as coadd*(FILTER).png
+	Calls printratirhtml which create HTML to view all information
+OUTPUTS:
+	finalmags.txt      - text file with all the magnitudes for each filter of each source
+	color.png          - overlay of all filters (red = J/H, green = z/y, blue = r/i)
+	coadd*(FILTER).png - images of each filter field with green circles over source
+	ratir.html         - html showing all information
+	
+Slowest part is saving image using pl.savefig, can't find a workaround
+
 Translated from plotratir.pro by John Capone (jicapone@astro.umd.edu).
+Modified on 12/10/2013 by Vicki Toy (vtoy@astro.umd.edu)
 """
 
 import numpy as np
-import os
-import fnmatch
 import astropy.io.fits as pf
 from scipy.ndimage.interpolation import zoom
 from scipy.misc import bytescale
 import pylab as pl
 import scipy as sp
 from astropy import wcs
-
 import time
 
+import photprocesslibrary as pplib
+import printratirhtml
+
 def plotratir():
-    ''' 
-    Save a Matplotlib figure as an image without borders or frames.
-       Args:
-            fileName (str): String that ends in .png etc.
 
-            fig (Matplotlib figure instance): figure you want to save as the image
-        Keyword Args:
-            orig_size (tuple): width, height of the original image used to maintain 
-            aspect ratio.
-    '''
-    def SaveFigureAsImage(fileName,fig=None,**kwargs):
-        fig_size = fig.get_size_inches()
-        w,h = fig_size[0], fig_size[1]
-        fig.patch.set_alpha(0)
-        if kwargs.has_key('orig_size'): # Aspect ratio scaling if required
-            w,h = kwargs['orig_size']
-            w2,h2 = fig_size[0],fig_size[1]
-            fig.set_size_inches([(w2/w)*w,(w2/w)*h])
-            fig.set_dpi((w2/w)*fig.get_dpi())
-        a=fig.gca()
-        a.set_frame_on(False)
-        a.set_xticks([]); a.set_yticks([])
-        pl.axis('off')
-        pl.xlim(0,h); pl.ylim(w,0)
-        fig.savefig(fileName, transparent=True, bbox_inches='tight', \
-                            pad_inches=0)
-
-    # general error to raise within plotratir.py
-    class plotratirError( Exception ):
-        def __init__(self, value):
-            self.value = value
-        def __str__(self):
-            return repr(self.value)
-
-    # find index of xarr and yarr with minimum RSS distance from x and y
-    #   Note: needs updated implementation optimized for numpy
-    def nearest( x, y, xarr, yarr, mindist ):
-        index = -1
-        imindist = mindist
-        if np.shape(xarr) != np.shape(yarr):
-            raise plotratirError( "xarr and yarr must have equal dimensions" )    
-        for i in range( np.size(xarr) ):
-            dist = np.sqrt( (x - xarr[i])**2. + (y - yarr[i])**2. )
-            if dist < imindist:
-                imindist = dist
-                index = i
-        return index
-
-    # make a circle for identifying sources in images
-    def circle( xcenter, ycenter, radius ):
-        points = np.linspace( 0., 2.*np.pi, 100 )
-        x = xcenter + radius * np.cos(points)
-        y = ycenter + radius * np.sin(points)
-        return np.transpose([x,y])
-
-    # arrays for plotting?
-    #   Note: clean up later
+	#Initialize arrays
     filters = ['r','i','z','y','J','H']
     arr_size = 10000
-    plotra = np.zeros(arr_size)
-    plotdec = np.zeros(arr_size)
-    plotrmag = np.zeros(arr_size)
-    plotrmagerr = np.zeros(arr_size)
-    plotimag = np.zeros(arr_size)
-    plotimagerr = np.zeros(arr_size)
-    plotzmag = np.zeros(arr_size)
-    plotzmagerr = np.zeros(arr_size)
-    plotymag = np.zeros(arr_size)
-    plotymagerr = np.zeros(arr_size)
-    plotJmag = np.zeros(arr_size)
-    plotJmagerr = np.zeros(arr_size)
-    plotHmag = np.zeros(arr_size)
-    plotHmagerr = np.zeros(arr_size)
-    plotcat = np.zeros(arr_size)
-    plotfilt = np.zeros(arr_size)
+    
+    #Creates a list of names: ['ra', 'dec', '(FILTER)mag', '(FILTER)magerr'] including
+    #all filters in filters list
+    #Also initializes filter index dictionary for use later
+    names = ['ra', 'dec']
+    ifiltdict = {}
+    for filter in filters:
+    	names.extend([filter+'mag', filter+'magerr'])
+    	ifiltdict[filter] = -1
 
-    # returns files in directory "loc" which start with prefix and end with postfix
-    def get_files( selection, loc='.' ):
-        matches = []
-        for files in os.listdir(loc):
-            if fnmatch.fnmatch( files, selection ):
-                matches.append(files)
-        return matches
+    #Create dictionary with keys from names list and all set to np.zeros(arr_size)
+    #easily changed for other filters
+    plotdict = {}
+    for name in names:
+    	plotdict[name] = np.zeros(arr_size)
 
     # retrieve detection files
-    prefchar = 'coadd'
-    wildcharimg = '?????-????-?????_?'
-    zffiles = get_files( prefchar + wildcharimg + '.crop.multi.fits' )
+    zffiles = pplib.choosefiles( 'coadd*_?.crop.multi.fits' )
 
-    time1 = time.clock()
+    #Save filter and data from each file into arrays and find overlapping stars
+    #between filter files using final photometry file (comparing distances from RA and DEC)
+    cfilterarr = []
+    imgarr = []
+    harr   = []
 
-    # find overlapping stars   ***   SLOW   ***
-    for i in range(np.size(zffiles)):
-        cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
+    for i in range(len(zffiles)):
+    
+    	#Find filter of each file and make sure that has the right capitalization
+        cfilter = zffiles[i].split('_')[1].split('.')[0]
         if cfilter == 'Z' or cfilter == 'Y':
             cfilter = cfilter.lower()
-        ifile = 'finalphot' + cfilter + '.am'
-        s_id, x, y, ra, dec, mag, magerr = np.loadtxt(ifile, unpack=True)
-        if i == 0:
-            plotra[0:np.size(ra)] = ra
-            plotdec[0:np.size(dec)] = dec
-            exec 'plot' + cfilter + 'mag[0:np.size(mag)] = mag'
-            exec 'plot' + cfilter + 'magerr[0:np.size(magerr)] = magerr'
-            # IDL ;plotcat(0:n_elements(cat)-1)=cat
-            nstars = np.size(ra)
-        else:
-            compra = ra
-            compdec = dec
-            compmag = mag
-            compmagerr = magerr
-            # IDL ;compcat=cat
-            
-            count = 0
-            for j in range(np.size(compra)):
-                smatch = nearest( compra[j]*np.cos(compdec[j]*np.pi/180.), compdec[j], plotra*np.cos(plotdec*np.pi/180.), plotdec, mindist=1./3600. )
-                if smatch >= 0:
-                    exec 'plot' + cfilter + 'mag[smatch] = compmag[j]'
-                    exec 'plot' + cfilter + 'magerr[smatch] = compmagerr[j]'
-                    # IDL ;plotcat(smatch(0))=1
-                    count += 1
-                else:
-                    plotra[nstars] = compra[j]
-                    plotdec[nstars] = compdec[j]
-                    # IDL ;IF compcat(k) EQ 1 THEN plotcat(nstars) = 1
-                    exec 'plot' + cfilter + 'mag[nstars] = compmag[j]'
-                    exec 'plot' + cfilter + 'magerr[nstars] = compmagerr[j]'
-                    nstars += 1
-                    count += 1
-
-    time2 = time.clock()
-    print (time2 - time1)
-
-    # output detections
-    np.savetxt( 'finalmags.txt', np.array([plotra, plotdec, plotrmag, plotrmagerr, plotimag, plotimagerr, plotzmag, plotzmagerr, plotymag, plotymagerr, plotJmag, plotJmagerr, plotHmag, plotHmagerr]).T ) # IDL ;plotcat
-
-    # plot each image with circles on star identification
-    realdetections = np.where( (plotrmagerr > 0) & (plotimagerr > 0) )[0]
-    imgarr = []
-    cfilterarr = []
-    for i in range(np.size(zffiles)):
+        cfilterarr.append(cfilter)
+        
+        #Save data scaled by scale factor to imgarr
         ifile = zffiles[i]
         hdulist = pf.open(ifile)
         h = hdulist[0].header
         img = hdulist[0].data
-        if i == 0:
-            refh = h
         im_size = np.shape(img)
         scalefactor = 1.
         img = zoom( img, 1./scalefactor, order=0 )
         imgarr.append(img)
-        cfilter = zffiles[i].split('_')[1].split('.')[0] # extract filter label from file name
-        if cfilter == 'Z' or cfilter == 'Y':
-            cfilter = cfilter.lower()
-        cfilterarr.append(cfilter)
-
-    imgarr = np.array(imgarr)
-    cfilterarr = np.array(cfilterarr)
-    def find_where( arr, val ):
-        arrc = np.copy(arr)
-        pos = []
-        while np.any( arrc == val ):
-            pos.append(np.argmax( arrc == val ))
-            arrc[pos[-1]] = '\0'
-        if np.size(pos) == 0:
-            return -1
-        elif np.size(pos) == 1:
-            return pos[0]
+        harr.append(h)
+        
+        #Read in finalphot[FILTER].am which has the instrument corrected photometry
+        pfile = 'finalphot' + cfilter + '.am'
+        s_id, x, y, ra, dec, mag, magerr = np.loadtxt(pfile, unpack=True)
+        
+        clen = len(s_id)
+        
+        #For first file initialize variables for following files, use temporary variables
+        #for comparison
+        if i == 0:
+            plotdict['ra'][0:clen]  = ra
+            plotdict['dec'][0:clen] = dec
+            
+            plotdict[cfilter+'mag'][0:clen]    = mag
+            plotdict[cfilter+'magerr'][0:clen] = magerr
+            nstars = clen
         else:
-            return np.array(pos)
+            compra     = ra
+            compdec    = dec
+            compmag    = mag
+            compmagerr = magerr
+            
+            #For each source in file find any sources that are within 1 arcsecond
+            #if these exist then stor information in same index but different filter's magnitude
+            #array.  If these don't exist, put on the end of filter's (and position) arrays
+            #to signify a new source
 
-    cr = find_where(cfilterarr, 'r')
-    ci = find_where(cfilterarr, 'i')
-    cz = find_where(cfilterarr, 'z')
-    cy = find_where(cfilterarr, 'y')
-    cH = find_where(cfilterarr, 'H')
-    cJ = find_where(cfilterarr, 'J')
+            for j in range(len(compra)):
+                smatch = pplib.nearest( compra[j]*np.cos(compdec[j]*np.pi/180.), compdec[j], 
+                						plotdict['ra']*np.cos(plotdict['dec']*np.pi/180.), plotdict['dec'], maxdist=1./3600. )
+                
+                if any(smatch):
+                	plotdict[cfilter+'mag'][smatch]    = compmag[j]
+                	plotdict[cfilter+'magerr'][smatch] = compmagerr[j]
+                else:
+                    plotdict['ra'][nstars]  = compra[j]
+                    plotdict['dec'][nstars] = compdec[j]
+                    plotdict[cfilter+'mag'][nstars]    = compmag[j]
+                    plotdict[cfilter+'magerr'][nstars] = compmagerr[j]
+                    nstars += 1
+                    
+    imgarr = np.array(imgarr)
+	
+	#Save stars to finalmags.txt with correct format and removes zeros
+    store = np.zeros(nstars)
+    for name in names:
+    	store = np.vstack( (store,plotdict[name][:nstars]) )
+    	
+    store = store[1:, :] #Removes 0's from initialization
+    np.savetxt('finalmags.txt', store.T, fmt='%12.6f')
+    
+    #Find the index of the file that corresponds to each filter and save 
+    #to ifiltdict (initialized to -1)
+    for item in ifiltdict:
+    	try:
+    		ifiltdict[item] = cfilterarr.index(item)
+    	except ValueError:
+    		pass
 
-    if cJ >= 0 and cH >= 0:
-        r = imgarr[cJ,:,:] * 0.5 + imgarr[cH,:,:] * 0.5
-    if cJ >= 0 and cH < 0:
-        r = imgarr[cJ,:,:]
-    if cH >= 0 and cJ < 0:
-        r = imgarr[cH,:,:]
-    if cH < 0 and cJ < 0:
-        r = 0
 
-    if cz >= 0 and cy >= 0:
-        g = imgarr[cz,:,:] * 0.5 + imgarr[cy,:,:] * 0.5
-    if cz >= 0 and cy < 0:
-        g = imgarr[cz,:,:]
-    if cy >= 0 and cz < 0:
-        g = imgarr[cy,:,:]
-    if cy < 0 and cz < 0:
-        g = 0
+	#Determines colors based on which filters are present.  
+	#Red = J/H, green = z/y, blue = r/i
+	#If neither filter present, set to 0, if one present, use imgarr of data from that filter
+	#if both present use half from imgarr of data from each filter
+	
+	def fcolor(filt1, filt2, ifiltdict, imgarr):
+	
+		if filt1 and filt2 in ifiltdict:
+			if ifiltdict[filt1] >= 0 and ifiltdict[filt2] >= 0:
+				x = imgarr[ifiltdict[filt1],:,:] * 0.5 + imgarr[ifiltdict[filt2],:,:] * 0.5
+			if ifiltdict[filt1] >= 0 and ifiltdict[filt2] < 0:
+				x = imgarr[ifiltdict[filt1],:,:]
+			if ifiltdict[filt2] >= 0 and ifiltdict[filt1] < 0:
+				x = imgarr[ifiltdict[filt2],:,:]
+			if ifiltdict[filt2] < 0 and ifiltdict[filt1] < 0:
+				x = 0
+		else:
+			print 'Valid filters were not supplied, set color to 0'
+			x = 0
+			
+		return x 
+        
+    red   = fcolor('J', 'H', ifiltdict, imgarr)    
+    green = fcolor('z', 'y', ifiltdict, imgarr) 
+    blue  = fcolor('r', 'i', ifiltdict, imgarr)
 
-    if cr >= 0 and ci >= 0:
-        b = imgarr[cr,:,:] * 0.5 + imgarr[ci,:,:] * 0.5
-    if cr >= 0 and ci < 0:
-        b = imgarr[cr,:,:]
-    if ci >= 0 and cr < 0:
-        b = imgarr[ci,:,:]
-    if ci < 0 and cr < 0:
-        b = 0
-
-    red = r
-    green = g
-    blue = b
-
-    mi = np.min(blue)
-    ma = np.max(blue) * 0.01 + mi
-    if np.size(blue) > 1:
-        blue = bytescale( blue, 0, 8, 250 )
-
-    mi = np.min(green)
-    ma = np.max(green) * 0.005 + mi
-    if np.size(green) > 1:
-        green = bytescale( green, 0, 8, 250 )
-
-    mi = np.min(red)
-    ma = np.max(red) * 0.004 + mi
-    if np.size(red) > 1:
-        red = bytescale( red, 0, 8, 250 )
-
+	#Determine image size base on if color filter exists (priority: red, green, blue in that order)
     if np.size(red) > 1:
         im_size = np.shape(red)
     elif np.size(green) > 1:
@@ -245,52 +174,67 @@ def plotratir():
     elif np.size(blue) > 1:
         im_size = np.shape(blue)
 
-    #height = 8 # height of figure in inches
-    #pl.figure( 0, figsize=((float(im_size[1])/float(im_size[0]))*height, height) )
-
     def bytearr( x, y, z ):
         return np.zeros((x,y,z)).astype(np.uint8)
-    color = bytearr( im_size[0], im_size[1], 3 )
-    if np.size(red) > 1:
-        color[:,:,0] = red * 0.5
-    if np.size(green) > 1:
-        color[:,:,1] = green * 0.5
+    
+    #Create color of image and save to color.png    
+    color = bytearr( im_size[0], im_size[1], 3 )     
+        
+    #Changes color into bytescale range and saves to color array
     if np.size(blue) > 1:
+        blue  = bytescale(blue,  0, 8, 250)
         color[:,:,2] = blue * 0.5
+    if np.size(green) > 1:
+        green = bytescale(green, 0, 8, 250)
+        color[:,:,1] = green * 0.5
+    if np.size(red) > 1:
+        red   = bytescale(red,   0, 8, 250)
+        color[:,:,0] = red * 0.5
+        
     color = color[::-1,:]
     fig = pl.figure('color image')
     pl.axis('off')
     pl.imshow( color, interpolation='None', origin='lower' )
     sp.misc.imsave( 'color.png', color )
-
-    for i in range(np.size(zffiles)):
-        ifile = zffiles[i]
-        hdulist = pf.open(ifile)
-        h = hdulist[0].header
-        img = hdulist[0].data
-        cfilter = cfilterarr[i]
-        scale = bytescale(img, 0, 10, 255)
-        dpi = 72. # px per inch
-        figsize = (np.array(img.shape)/dpi)[::-1]
-        fig = pl.figure(i)
-        pl.imshow( scale, interpolation='None', cmap=pl.cm.gray, origin='lower' )
-        xlims = pl.xlim()
-        ylims = pl.ylim()
-        # Parse the WCS keywords in the primary HDU
-        w = wcs.WCS(h)
-        world = np.transpose([plotra, plotdec])
-        pixcrd = w.wcs_world2pix(world, 1)
-        fs = 12
-        fw = 'normal'
-        lw = 1
-        for j in realdetections:
-            ctemp = circle( pixcrd[j][0]/scalefactor, pixcrd[j][1]/scalefactor, 10 ).T
-            pl.plot( ctemp[0], ctemp[1], c='#00ff00', lw=lw )
-            if pixcrd[j][0]/scalefactor+40 < xlims[1] and pixcrd[j][1]/scalefactor+20 < ylims[1]:
-                pl.text( pixcrd[j][0]/scalefactor+15, pixcrd[j][1]/scalefactor, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
-            else:
-                pl.text( pixcrd[j][0]/scalefactor-30, pixcrd[j][1]/scalefactor-10, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
-        pl.text( 0.2*xlims[1], 0.9*ylims[1], cfilter+'-Band', color='r', fontsize=fs, fontweight=fw )
+    
+    #Plot each image with circles on star identification
+    for i in range(len(zffiles)):
+    	ifile   = zffiles[i]
+    	img     = imgarr[i]
+    	h       = harr[i]
+    	cfilter = cfilterarr[i]
+    	
+    	scale   = bytescale(img, 0, 10, 255)
+    	dpi     = 72. # px per inch
+    	figsize = (np.array(img.shape)/dpi)[::-1]
+    	fig     = pl.figure(i)
+    	
+    	pl.imshow( scale, interpolation='None', cmap=pl.cm.gray, origin='lower' )
+    	xlims   = pl.xlim()
+    	ylims   = pl.ylim()
+    	
+    	# Parse the WCS keywords in the primary HDU    	
+    	w       = wcs.WCS(h)
+    	world   = np.transpose([plotdict['ra'], plotdict['dec']])
+    	pixcrd  = w.wcs_world2pix(world, 1)
+    	
+    	fs = 12
+    	fw = 'normal'
+    	lw = 1
+    	
+    	#For each star create a circle and plot in green
+    	#If pixel coordinates of star (from WCS conversion of RA and DEC) and within the 
+    	#x and y limits, then put text on right side, otherwise put on left
+    	for j in range(nstars):
+    		ctemp = pplib.circle( pixcrd[j][0]/scalefactor, pixcrd[j][1]/scalefactor, 10 ).T
+    		pl.plot( ctemp[0], ctemp[1], c='#00ff00', lw=lw )
+    		if pixcrd[j][0]/scalefactor+40 < xlims[1] and pixcrd[j][1]/scalefactor+20 < ylims[1]:
+    			pl.text( pixcrd[j][0]/scalefactor+15, pixcrd[j][1]/scalefactor, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
+    		else:
+    			pl.text( pixcrd[j][0]/scalefactor-30, pixcrd[j][1]/scalefactor-10, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
+    	
+    	#Label plot and remove axes, save to filename+.png
+    	pl.text( 0.2*xlims[1], 0.9*ylims[1], cfilter+'-Band', color='r', fontsize=fs, fontweight=fw )
         a = pl.gca()
         a.set_frame_on(False)
         a.set_xticks([]); a.set_yticks([])
@@ -300,3 +244,6 @@ def plotratir():
         fig.set_size_inches(figsize[0], figsize[1])
         ofile = ifile.split('.')[0] + '.png'
         pl.savefig( ofile, bbox_inches='tight', pad_inches=0, transparent=True, dpi=dpi )
+    
+    #Create HTML to do quick look at data
+    printratirhtml.printratirhtml()

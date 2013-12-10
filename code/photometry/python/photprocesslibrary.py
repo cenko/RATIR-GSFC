@@ -4,7 +4,30 @@ import astropy.io.fits as pf
 import fnmatch
 import os
 from numpy import sqrt
+import numpy as np
 
+
+
+    # make a circle for identifying sources in images
+    
+"""
+NAME:
+	cicle
+PURPOSE:
+	Create x and y array that represent circle coordinates given the center and radius of circle
+INPUTS:
+	xcenter, ycenter - Center coordinates of circle
+	radius			 - Radius in same units as center coordinates
+OUTPUTS:
+	Returns circle coordinates
+EXAMPLE:
+	cir = circle(0,0,12)
+"""
+def circle( xcenter, ycenter, radius ):
+    points = np.linspace( 0., 2.*np.pi, 100 )
+    x = xcenter + radius * np.cos(points)
+    y = ycenter + radius * np.sin(points)
+    return np.transpose([x,y])
 
 """
 NAME:
@@ -133,6 +156,7 @@ def hextractlite(newfile, data, fitsheader, x1, x2, y1, y2):
 	#Saves new fits file and header to specified fits file name
 	pf.writeto(newfile, newdata, fitsheader, clobber=True)
 
+"""
 ##^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^Lance Simms, Stanford University 2009
 #NAME:
 #   Djs_Iterstat.py
@@ -185,10 +209,8 @@ def hextractlite(newfile, data, fitsheader, x1, x2, y1, y2):
 #mplot.plot(FMask)
 #
 ############################################################
+"""
 from numpy import *
-#from FitGaussian import *
-#import histOutline 
-#import pdb
 
 def djs_iterstat(InputArr, SigRej=3.0, MaxIter=10, Mask=0,\
                  Max='', Min='', RejVal='', BinData=0):
