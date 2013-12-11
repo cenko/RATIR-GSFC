@@ -28,6 +28,26 @@ SKY_NAME = 'sky' # designator for sky frames
 FLAT_NAME = 'flat' # designator for flat frames
 
 """
+Purpose:		combine stack of frames
+				* currently no outlier rejection
+Input:
+	indata:		stack of frames to be combined
+	type:		function used to combine the stack.  currently only mean or median
+Output:
+	combined:	combined stack
+	sigma:		standard deviation of each pixel
+"""
+def imcombine( indata, type='median' ):
+	if indata.ndim != 3:
+		print "Warning: data should be 3D stack of frames."
+	if type is 'mean':
+			combined = np.mean( indata, axis=0 )
+		else:
+			combined = np.median( indata, axis=0 )
+		sigma = np.std( indata, axis=0 )
+	return combined, sigma
+
+"""
 * converted from IDL ROBUST_SIGMA function
 Purpose:		Calculate a resistant estimate of the dispersion of a distribution. For an uncontaminated distribution, this is identical to the standard deviation.
 Input:
