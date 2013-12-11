@@ -1,1 +1,7 @@
+# sandbox directory
 sandbox
+
+# Compiled source #
+###################
+
+*.pyc

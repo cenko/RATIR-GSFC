@@ -33,19 +33,23 @@ Purpose:		combine stack of frames
 Input:
 	indata:		stack of frames to be combined
 	type:		function used to combine the stack.  currently only mean or median
+	ret_std:	if set to true, return the standard deviation of each pixel.  default is false
 Output:
 	combined:	combined stack
-	sigma:		standard deviation of each pixel
+	sigma:		standard deviation of each pixel (optional)
 """
-def imcombine( indata, type='median' ):
+def imcombine( indata, type='median', ret_std=False ):
 	if indata.ndim != 3:
 		print "Warning: data should be 3D stack of frames."
 	if type is 'mean':
-			combined = np.mean( indata, axis=0 )
-		else:
-			combined = np.median( indata, axis=0 )
+		combined = np.mean( indata, axis=0 )
+	else:
+		combined = np.median( indata, axis=0 )
+	if ret_std:
 		sigma = np.std( indata, axis=0 )
-	return combined, sigma
+		return combined, sigma
+	else:
+		return combined
 
 """
 * converted from IDL ROBUST_SIGMA function
