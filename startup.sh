@@ -8,4 +8,4 @@ PROJECT_ROOT="$(cd $(dirname "."); pwd)"
 IDL_PATH=+$IDL_DIR/lib:+$PROJECT_ROOT/code/reduction:+$PROJECT_ROOT/code/photometry
 export IDL_PATH
 
-export PYTHONPATH=$PYTHONPATH:$PROJECT_ROOT/code/photometry:$PROJECT_ROOT/code/photometry/dependencies
+export PYTHONPATH=$PYTHONPATH:$PROJECT_ROOT/code/photometry:$PROJECT_ROOT/code/photometry/dependencies:$PROJECT_ROOT/code/:$PROJECT_ROOT/code/reduction/
