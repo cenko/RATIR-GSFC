@@ -26,6 +26,7 @@ H2RG_SLICES = [ Z_SLICE, J_SLICE, Y_SLICE, H_SLICE ] # same order as H2RG_FILTER
 OBJ_NAME = 'img' # designator for object frames
 SKY_NAME = 'sky' # designator for sky frames
 FLAT_NAME = 'flat' # designator for flat frames
+BIAS_NAME = 'bias' # designator for bias frames
 
 """
 Purpose:		combine stack of frames
