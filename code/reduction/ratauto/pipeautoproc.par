@@ -3,7 +3,5 @@ swarpcommand     : /opt/local/bin/swarp
 sexcommand       : /opt/local/bin/sex
 datadir          : 
 imworkingdir     : imredux/
-spworkingdir     : spredux/
 imfinaldir       : 
-spfinaldir       : 
 
