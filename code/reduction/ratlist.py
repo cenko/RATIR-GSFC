@@ -15,12 +15,13 @@ Input:
 	cams:			lists created for specified camera numbers
 """
 def ratlist( workdir='.', cams=[0,1,2,3] ):
-	
+
 	# move to working directory
 	start_dir = os.getcwd()
 	os.chdir( workdir ) # move into working dir
 	
 	d = os.getcwd().split('/')[-1] # name of current directory
+	print "* * * creating lists of frames in {} * * *".format(d)
 	fns = []
 	for i in cams:
 		fns.append( open( 'C{}_{}.list'.format( i, d ), 'w' ) ) # create list file for each camera
