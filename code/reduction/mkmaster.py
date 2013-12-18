@@ -72,7 +72,11 @@ def mkmaster( mtype, workdir='.', bands=['0','1']+af.H2RG_FILTERS ):
 		data_arr = np.array( data_arr )
 		master = af.imcombine( data_arr, type='median' )
 		dtemp = master.astype(np.float)
-		hdu.data = dtemp/np.median(dtemp) # scale is median
+		
+		if mtype is af.BIAS_NAME:
+			hdu.data = dtemp
+		else:
+			hdu.data = dtemp/np.median(dtemp) # scale is median
 		hdulist = pf.HDUList( [hdu] )
 
 		hdulist.writeto( '{}_{}.fits'.format( mtype, band ), clobber=True )
