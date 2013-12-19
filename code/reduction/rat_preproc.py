@@ -22,6 +22,7 @@ import matplotlib.pylab as pl
 from scipy.ndimage.interpolation import zoom
 import shutil
 from glob import glob
+import gc
 
 import astro_functs as af # contains basic functions and RATIR constants
 
@@ -64,7 +65,7 @@ def ratlist( workdir='.', cams=[0,1,2,3] ):
 		fns.append( open( 'C{}_{}.list'.format( i, d ), 'w' ) ) # create list file for each camera
 	for f in os.listdir( '.' ):
 		for i in range(len(cams)):
-                        if fnmatch( f, '*C{}*.fits'.format(cams[i]) ):
+			if fnmatch( f, '*C{}*.fits'.format(cams[i]) ):
 				fns[i].write( f + '\n' ) # add detected file to correct list file
 	os.chdir( start_dir ) # move back to starting dir
 
@@ -91,7 +92,7 @@ def ratlist( workdir='.', cams=[0,1,2,3] ):
 		- added option to specify working directory
 		- added error handling for if a camera list is missing
 		- camera argument can now be int
-                - ccd lists are now by filter rather than camera number
+				- ccd lists are now by filter rather than camera number
 
 	Future Improvements:
 		- option of automated frame selection
@@ -113,9 +114,9 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 	d = os.getcwd().split('/')[-1] # name of current directory
 	print "* * * displaying {} frames in {} for selection * * *".format(ftype, d)
 
-        # delete existing calibration lists
-        fntemp = glob( ftype+'*.list' )
-        for fn in fntemp: os.remove( fn )
+	# delete existing calibration lists
+	fntemp = glob( ftype+'*.list' )
+	for fn in fntemp: os.remove( fn )
 
 	# work on FITs files for specified cameras
 	for cam_i in cams:
@@ -135,7 +136,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
-                                        print '\n{}'.format( fits_fn )
+					print '\n{}'.format( fits_fn )
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
@@ -147,10 +148,10 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					implot = zoom( im, ZOOM_LVL ) # change image size for display
 					m = np.median( im )
 					s = af.robust_sigma( im )
-                                        print '\t* Median is {} counts.'.format( m )
+					print '\t* Median is {} counts.'.format( m )
 					
-                                        # print filter name
-                                        print '\t* Filter used: {}'.format( h['FILTER'] )
+					# print filter name
+					print '\t* Filter used: {}'.format( h['FILTER'] )
 
 					# display image and prompt user
 					axim = pl.imshow( implot, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
@@ -159,18 +160,18 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					# query user until valid response is provided
 					valid_entry = False
 					while not valid_entry:
-						
-                                                direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+						direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
 						
 						if direction.lower() == 'y':
-                                                        fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
+							fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
 							fout.write( fits_id + '\n' ) # write new file name to list
-                                                        fout.close()
+							fout.close()
 							valid_entry = True
 						
 						elif direction.lower() == 'q': # exit function
 							print "Exiting..."
 							os.chdir( start_dir ) # move back to starting directory
+							pl.close('all') # close image to free memory
 							return
 						
 						elif direction.lower() != 'n': # invalid case
@@ -179,8 +180,8 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 						else: # 'N' selected, skip
 							valid_entry = True
 
-                                        hdulist.close() # close FITs file
-
+					hdulist.close() # close FITs file
+					pl.close('all') # close image to free memory
 
 				# close files
 				fin.close()
@@ -201,7 +202,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
-                                        print '\n{}'.format( fits_fn )
+					print '\n{}'.format( fits_fn )
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
@@ -219,8 +220,8 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					imright = im[af.H2RG_SLICES[cam_i]]
 					mright = np.median( imright )
 					sright = af.robust_sigma( imright )
-                                        print '\t* Median of left side is {} counts'.format( mleft )
-                                        print '\t* Median of right side is {} counts'.format( mright )
+					print '\t* Median of left side is {} counts'.format( mleft )
+					print '\t* Median of right side is {} counts'.format( mright )
 					
 					# display image and prompt user			***** use subplots to display filter windows *****
 					pl.subplot(121)
@@ -241,8 +242,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					# query user until valid response is provided, Z & J face the EASTERN part of the field
 					valid_entry = False
 					while not valid_entry:
-						
-                                                direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+						direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
 						
 						if direction.lower() == 'y':
 							
@@ -263,6 +263,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 						elif direction.lower() == 'q': # exit function
 							print "Exiting..."
 							os.chdir( start_dir ) # move back to starting directory
+							pl.close('all') # close image to free memory
 							return
 						
 						elif direction.lower() != 'n': # invalid case
@@ -271,7 +272,8 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 						else: # 'N' selected, skip
 							valid_entry = True
 
-                                        hdulist.close() # close FITs file
+					hdulist.close() # close FITs file
+					pl.close('all') # close image to free memory
 
 				# close files
 				fin.close()
@@ -304,7 +306,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 		- camera argument can now be int
 		- added target directory option.  sky and object frames are written to the same dir.
 		- prompts user for overwrite
-                - ccd lists are now by filter rather than camera number
+				- ccd lists are now by filter rather than camera number
 
 	Future Improvements:
 		- automation of frame selection
@@ -344,11 +346,11 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 	if targetdir[-1] == '/':
 		targetdir = targetdir[:-1]
 
-        # delete existing object and sky lists
-        fntemp = glob( '{}/{}*.list'.format( targetdir, af.OBJ_NAME ) )
-        for fn in fntemp: os.remove( fn )
-        fntemp = glob( '{}/{}*.list'.format( targetdir, af.SKY_NAME ) )
-        for fn in fntemp: os.remove( fn )
+	# delete existing object and sky lists
+	fntemp = glob( '{}/{}*.list'.format( targetdir, af.OBJ_NAME ) )
+	for fn in fntemp: os.remove( fn )
+	fntemp = glob( '{}/{}*.list'.format( targetdir, af.SKY_NAME ) )
+	for fn in fntemp: os.remove( fn )
 
 	# work on FITs files for specified cameras
 	for cam_i in cams:
@@ -366,7 +368,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 				for line in fin:
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
-                                        print '\n{}'.format( fits_fn )
+					print '\n{}'.format( fits_fn )
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
@@ -375,12 +377,14 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					else:
 						"ERROR: ratdisp - PRPSLID not found in fits header."
 						os.chdir( start_dir ) # move back to starting directory
+						pl.close('all') # close image to free memory
 						return
 					if 'VSTID' in h:
 						vstid = h['VSTID']
 					else:
 						"ERROR: ratdisp - VSTID keywork not found in fits header."
 						os.chdir( start_dir ) # move back to starting directory
+						pl.close('all') # close image to free memory
 						return
 					targname = '{}-vis{}'.format( prpslid, vstid )
 					targname_sky = '{}-sky'.format( targname )
@@ -401,37 +405,39 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					axim.axes.set_yticklabels(['S','N'])
 					pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m), s ) )
 
-                                        # print filter name
-                                        print '\t* Filter used: {}'.format( h['FILTER'] )
+					# print filter name
+					print '\t* Filter used: {}'.format( h['FILTER'] )
 
 					# query user until valid response is provided
 					valid_entry = False
 					while not valid_entry:
-                                                direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+						direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+						
 						if direction.lower() == 'y':
-                                                        h['WAVELENG'] = 'OPT'
+							h['WAVELENG'] = 'OPT'
 							
 							# object frame
 							imfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, cam_i )
 							h['TARGNAME'] = targname
 							hdulist.writeto( imfits, clobber=True ) # save object frame
-                                                        fout = open( '{}/{}_{}.list'.format( targetdir, af.OBJ_NAME, h['FILTER'] ), 'a' ) # append if this filter's list exists
-                                                        fout.write( fits_id + '\n' ) # write new file name to list
-                                                        fout.close()
+							fout = open( '{}/{}_{}.list'.format( targetdir, af.OBJ_NAME, h['FILTER'] ), 'a' ) # append if this filter's list exists
+							fout.write( fits_id + '\n' ) # write new file name to list
+							fout.close()
 
 							# sky frame
 							skyfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.SKY_NAME, cam_i )
 							h['TARGNAME'] = targname_sky
 							hdulist.writeto( skyfits, clobber=True ) # save sky frame
-                                                        fout = open( '{}/{}_{}.list'.format( targetdir, af.SKY_NAME, h['FILTER'] ), 'a' ) # append if this filter's list exists
-                                                        fout.write( fits_id + '\n' ) # write new file name to list
-                                                        fout.close()
+							fout = open( '{}/{}_{}.list'.format( targetdir, af.SKY_NAME, h['FILTER'] ), 'a' ) # append if this filter's list exists
+							fout.write( fits_id + '\n' ) # write new file name to list
+							fout.close()
 							
 							valid_entry = True
 						
 						elif direction.lower() == 'q': # exit function
 							print "Exiting..."
 							os.chdir( start_dir ) # move back to starting directory
+							pl.close('all') # close image to free memory
 							return
 						
 						elif direction.lower() != 'n': # invalid case
@@ -440,7 +446,8 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 						else: # 'N' selected, skip
 							valid_entry = True
 
-                                        hdulist.close() # close FITs file
+					hdulist.close() # close FITs file
+					pl.close('all') # close image to free memory
 
 				# close files
 				fin.close()
@@ -460,7 +467,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 				for line in fin:
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
-                                        print '\n{}'.format( fits_fn )
+					print '\n{}'.format( fits_fn )
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
@@ -469,12 +476,14 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					else:
 						"ERROR: ratdisp - PRPSLID not found in fits header."
 						os.chdir( start_dir ) # move back to starting directory
+						pl.close('all') # close image to free memory
 						return
 					if 'VSTID' in h:
 						vstid = h['VSTID']
 					else:
 						"ERROR: ratdisp - VSTID keywork not found in fits header."
 						os.chdir( start_dir ) # move back to starting directory
+						pl.close('all') # close image to free memory
 						return
 					targname = '{}-vis{}'.format( prpslid, vstid )
 					targname_sky = '{}-sky'.format( targname )
@@ -512,9 +521,10 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					# query user until valid response is provided
 					valid_entry = False
 					while not valid_entry:
-                                                direction = raw_input("\nType E for EAST, W for WEST, N for NEXT, Q for QUIT: ")
+						direction = raw_input("\nType E for EAST, W for WEST, N for NEXT, Q for QUIT: ")
+
 						if direction.lower() == 'e' or direction.lower() == 'w': # selected
-                                                        h['WAVELENG'] = 'IR'
+							h['WAVELENG'] = 'IR'
 							
 							if direction.lower() == 'e':
 								f_img = cam_i-2
@@ -548,6 +558,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 						elif direction.lower() == 'q': # exit function
 							print "Exiting..."
 							os.chdir( start_dir ) # move back to starting directory
+							pl.close('all') # close image to free memory
 							return
 						
 						elif direction.lower() != 'n': # invalid case
@@ -556,7 +567,8 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 						else: # 'N' selected, skip
 							valid_entry = True
 
-                                        hdulist.close() # close FITs file
+					hdulist.close() # close FITs file
+					pl.close('all') # close image to free memory
 
 				# close files
 				fin.close()
@@ -615,7 +627,7 @@ def _prep_bias_list( cams, workdir='.' ):
 
 	Input:
 		mtype:		type of master frame. should be either af.FLAT_NAME or af.BIAS_NAME
-                bands:		photometric bands
+				bands:		photometric bands
 		workdir:	directory where function is to be executed
 
 	Usage:
@@ -652,7 +664,7 @@ def mkmaster( mtype, bands, workdir='.' ):
 	d = os.getcwd().split('/')[-1] # name of current directory
 	print "* * * making master {} frame in {} * * *".format( mtype, d )
 
-        # work on FITs files for specified photometric bands
+		# work on FITs files for specified photometric bands
 	for band in bands:
 		flist = open( '{}_{}.list'.format( mtype, band ), 'r' )
 		hdu = pf.PrimaryHDU()
