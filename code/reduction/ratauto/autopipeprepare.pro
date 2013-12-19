@@ -3,7 +3,9 @@
 ;	autopipeprepare
 ;
 ; PURPOSE:
-;	Runs pipeprepare on every valid file and saves files with prefix 'p'
+;	Runs pipeprepare on every valid file and saves files with prefix 'p'.  Changes header
+;	with more manageable keywords and does bias subtraction if bias master exists (compares
+;	filter names in FILENAMEs of files and bias master)
 ;
 ; OPTIONAL KEYWORDS:
 ;	outpipevar - output pipeline parameters
@@ -22,6 +24,7 @@
 ;	MOST REFER TO pipeprepare.pro: Need to check what additional keywords need to propagate, and check if values that are set with 
 ;	magic numbers can be set from existing keywords.  Possibly include prefix character into variable structure?
 ;	Check pipeprepare for RIMAS, RATIR, or VLT/VT to see changes that need to be made for RIMAS pipeline
+;	Bias subtraction based on parameter file?
 ;-
 
 pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
@@ -44,7 +47,7 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 	
   	files  = findfile(pipevar.datadir+prefchar+'*.fits')
   	pfiles = findfile(pipevar.imworkingdir+'p'+prefchar+'*.fits')
-
+  	
   	if pipevar.datadir ne '' then  begin
   	
      	print, 'Looking for raw data at: ', pipevar.datadir+prefchar+'*.fits'
@@ -67,9 +70,25 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
   	if file_test(specstandardposfile) then namefixfiles = [namefixfiles, specstandardposfile]
   	if n_elements(namefixfiles) gt 1 then namefixfiles = namefixfiles[1:*] else delvarx, namefixfiles
 	
-	;For each file (that doesn't have an existing p file or can be overwritten), run pipeprepare on it with
-	;output file being saved into the imworkingdir
 	
+	;Finds any master bias files
+	biasfiles = findfile(pipevar.imworkingdir+'bias*', count=bct)
+	biasfilter = []
+	if bct gt 0 then begin
+	
+		for i = 0, n_elements(biasfiles)-1 do begin
+			;Find filter name from character after bias_ in bias name
+			cbiasfile  = biasfiles[i]
+			pos        = strpos(cbiasfile, 'bias_')
+			filter     = strmid(cbiasfile, pos+5,1)
+			biasfilter = [biasfilter,filter]
+		endfor
+		
+	endif
+
+	;For each file (that doesn't have an existing p file or can be overwritten), run pipeprepare on it with
+	;output file being saved into the imworkingdir, will run bias subtraction if bias master available (checks
+	;based on how bias file and data file are named (ASSUMES THAT FILTER NAME IS 1 CHARACTER BEFORE *.fits or after bias_*
   	for f = 0, n_elements(files)-1 do begin
   	
      	if files[f] eq '' then continue
@@ -78,15 +97,17 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
      	fileroot = strmid(files[f],slashpos+1)
      	outnameim = pipevar.imworkingdir + 'p' + fileroot
      	matchi = where(outnameim eq pfiles, ct)
+     	
+		filter = strmid(files[f], strpos(files[f], '.', /reverse_search)-1,1)
+		filloc = where(filter eq biasfilter, realfil)
+		
+		if realfil gt 0 then biasfile = biasfiles[filloc] else biasfile=''
 
      	if ct eq 0 or pipevar.overwrite gt 0 then begin
-
-     		outname = outnameim
-			pipeprepare, files[f], outname=outname, namefixfiles=namefixfiles
-			
+			pipeprepare, files[f], outname=outnameim, namefixfiles=namefixfiles, biasfile=biasfile
      	endif
      	
   	endfor
-  	
+  		
 	outpipevar = pipevar
 end

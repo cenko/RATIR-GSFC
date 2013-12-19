@@ -5,7 +5,8 @@
 ; PURPOSE: 
 ;	Adds additional header keywords needed later on in the pipeline
 ;   and removes unnecessary header keywords by looking through a list
-;   of mandatory keywords.
+;   of mandatory keywords.  Also runs bias subtraction for filters with
+;	an existing master bias (CCDs).  
 ;
 ; INPUTS:
 ;	filename - name of the FITS file to prepare, or array of filenames, or file w/list of filenames
@@ -13,6 +14,7 @@
 ; OPTIONAL INPUT KEYWORD PARAMETERS:
 ;	outname  - specify output file to write to disk
 ;   namefix  - correct names using a catalog
+;	biasfile - full name (including path) of master bias
 ;
 ; OPTIONAL OUTPUT KEYWORD PARAMETERS:
 ;   header
@@ -32,11 +34,11 @@
 ; FUTURE IMPROVEMENTS:
 ;	Need to check what additional keywords need to propagate, and check if values that are set with 
 ;	magic numbers can be set from existing keywords.  Possibly include prefix character into variable structure?
-;	Check pipeprepare for RIMAS, RATIR, or VLT/VT to see changes that need to be made for RIMAS pipeline
+;	Master bias list in parameter file?
 ;-
 
 ;----------------------------------------------------------------------------------------
-pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=header
+pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=header, biasfile=biasfile
 
 ; ---------- Process input filename(s), call recursively if necessary----------
 
@@ -48,21 +50,21 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 
 	;Check for array input	
 	if n_elements(filename) gt 1 then begin
-   		files = filename
+   		files    = filename
 	endif
 
 	;Check for list input, if so read in filenames from file then check for wildcard input	
 	if n_elements(filename) eq 1 then begin
-   		filearr = strsplit(filename,'.', /extract)
+   		filearr  = strsplit(filename,'.', /extract)
    		fileroot = filearr[0]
-   		fileext = filearr[1]
+   		fileext  = filearr[1]
    		
    		if fileext eq 'cat' or fileext eq 'lis' or fileext eq 'list' or fileext eq 'txt' then begin
      		readcol, filename, files, format='a'
    		endif
 	
-   		starpos = strpos(filename,'*')
-   		qpos = strpos(filename,'?')
+   		starpos  = strpos(filename,'*')
+   		qpos     = strpos(filename,'?')
    		
    		if starpos ge 0 or qpos ge 0 then begin
       		files = findfile(filename)
@@ -82,6 +84,7 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 	endif
 	
 	print, filename, format='($,A)'
+	
 
 ; ---------- Read data and process header information ----------
 
@@ -183,9 +186,25 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 
 	sxdelpar, newheader, unneckey
 
+	;If biasfile keyword set subtract master bias from current file with given master bias file
+	;If they are not the same size, quick program without saving with preparation prefix (will not move
+	;on in following processing steps)
+	if keyword_set(biasfile) then begin
+		bias = readfits(biasfile)
+		if n_elements(array) ne n_elements(bias) then begin
+			print, filename + ' could not be bias subtracted because it is not the same size as the master bias, remove file to avoid confusion'
+			return
+		endif
+		print, ' '
+		print, '   bias subtracting'
+		newdata = array-bias
+	endif else begin
+		newdata = array
+	endelse
+
 	;Write changes to disk
 	outfilename = outname
-	mwrfits, array, outfilename, newheader, /create
+	mwrfits, newdata, outfilename, newheader, /create
 	print, ' -> ', outfilename
 
 end
