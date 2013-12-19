@@ -27,7 +27,6 @@ OBJ_NAME = 'img' # designator for object frames
 SKY_NAME = 'sky' # designator for sky frames
 FLAT_NAME = 'flat' # designator for flat frames
 BIAS_NAME = 'bias' # designator for bias frames
-CONFIG_LOCATION = 'astro_functs.py' # name of file containing configuration information, currently this file.
 
 """
 Purpose:		combine stack of frames
