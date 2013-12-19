@@ -8,7 +8,7 @@
 			- "import rat_preproc as rp" if you want to call functions using rp.function_name( args )
 
 	Notes:
-		-
+		* memory leak in ratdisp and ratdisp_calib of ~4 MB per checked frame
 
 	Future Improvements:
 		-
@@ -20,9 +20,10 @@ import astropy.io.fits as pf
 import numpy as np
 import matplotlib.pylab as pl
 from scipy.ndimage.interpolation import zoom
-import astro_functs as af # contains basic functions and RATIR constants
 import shutil
 from glob import glob
+
+import astro_functs as af # contains basic functions and RATIR constants
 
 # Preprocessing constants
 ZOOM_LVL = 0.5 # image zoom for display to user in ratdisp() and ratdisp_calib()
@@ -179,6 +180,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 							valid_entry = True
 					
 					hdulist.close() # close FITs file
+
 
 				# close files
 				fin.close()
