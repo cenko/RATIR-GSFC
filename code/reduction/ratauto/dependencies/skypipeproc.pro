@@ -4,8 +4,7 @@
 ;
 ; PURPOSE:
 ;	Subtracts sky flat from data and then subtracts median of that from remaining data.  
-;	Adds 1000 offset afterwards.  Then crops and saves new fits file. NOTE: crop is specific
-;	to RATIR
+;	Then crops and saves new fits file. NOTE: crop is specific to RATIR
 ;
 ; INPUTS:
 ;	filename - file or list of files to be sky subtracted
@@ -53,7 +52,7 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
 	;For each input file, read in as fits and check if same size as flats (if it isn't program will
 	;stop, must be same dimensions).  If there is a minimum or maximum flat value set, forces values
 	;outside of that range to NaN.  Use finite values above 0.1 to determine skycounts, and subtract out
-	;flat along with median of flattened data (add 1000 offset).  Crops data based on hand chosen datapoints
+	;flat along with median of flattened data.  Crops data based on hand chosen datapoints
 	;NEEDS TO BE CHANGED FOR RIMAS VLT
 	;Then saves to new fits file
 	for f = 0, nfile-1 do begin
@@ -78,12 +77,10 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
    		endif
    		
    		;Subtract out skyflat, and subtract the median of the subsequent flat subtracted data
-   		;Add 1000 so no negative data? (unclear from original program, but just an offset so not crucial)
    		;Then calculate skycounts from data (above a minimum, or by default above 0.1)
    		fdata  = data  - flat 
    		tmp    = median(fdata)
    		fdata  = fdata - tmp
-   		fdata  = fdata + 1000.
    		skycts = median(fdata[goodsignal])
    
    
@@ -116,7 +113,7 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
    		if camera eq 'OPT' then begin
    			hextract,fdata,h,fdata,h,50,975,50,975
    		endif else begin
-   			hextract,fdata,h,fdata,h,75,899,0,s(2)-1
+   			hextract,fdata,h,fdata,h,75,s(1)-1,0,s(2)-1
    		endelse
 
    		mwrfits, fdata, outname, h, /create

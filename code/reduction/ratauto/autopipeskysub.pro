@@ -4,8 +4,7 @@
 ;
 ; PURPOSE:
 ;	Flatten data using sky flat with matching filter name.  (subfunction subtracts sky flat from data 
-;	and then subtracts median of that from remaining data.  Adds 1000 offset afterwards.  
-;	Then crops and saves new fits file. <- manual crop)
+;	and then subtracts median of that from remaining data. Then crops and saves new fits file. <- manual crop)
 ;
 ; OPTIONAL KEYWORDS:
 ;	outpipevar - output pipeline parameters

@@ -3,7 +3,8 @@
 ;	autopipemakesky
 ;
 ; PURPOSE:
-;	Combine sky flats based on filter type
+;	Combine sky flats based on filter type (uses sextractor source identification
+;	for 'r' and 'i' - 2x 100% flux fraction radius - and uses sigma clipping for sources for rest of filters)
 ;
 ; OPTIONAL KEYWORDS:
 ;	outpipevar - output pipeline parameters
@@ -20,9 +21,11 @@
 ;
 ; FUTURE IMPROVEMENTS:
 ;	prefchar in variable structure?, change max iteration for sigma clipping? change default values of skypipecombine?
+;	Change source identification to be user modified?
 ;-
 
 pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
+
 
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
@@ -35,6 +38,10 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
 	
+	
+	;Copies necessary parameter file for sextractor if not in current working directory
+	if file_test('source.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/source.param .'
+
 	;Finds files with given prefix CHANGE FOR RIMAS VLT
 	prefchar = '2'
 
@@ -66,7 +73,10 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
             
             print, files[skyflats]
             
-            skypipecombine, files[skyflats], outflatname, /removeobjects, type='sky'
+            ;COMMENTED OUT 12/30
+            ;skypipecombine, files[skyflats], outflatname, /removeobjects, type='sky'
+            
+            skypipecombine_altsex, files[skyflats], outflatname, filt, pipevar,/removeobjects, type='sky'
 
         endif else begin
         

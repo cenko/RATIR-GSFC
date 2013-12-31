@@ -132,7 +132,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       		endelse
       		
       		;Sets flux scale to the median exposure divided by the file's exposure (should be 1 since most files have same exposure time)
-      		stackcmd = stackcmd + ' -FSCALE_DEFAULT '
+      		stackcmd = stackcmd + ' -SUBTRACT_BACK N -FSCALE_DEFAULT '
       		for s = 0, n_elements(stacklist)-1 do stackcmd = stackcmd + strtrim(string(medianexp/stackexps[s]),2) + ','
       
       		;Keywords to keep CHANGE FOR RIMAS ALTER
