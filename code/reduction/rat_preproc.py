@@ -76,6 +76,7 @@ def ratlist( workdir='.', cams=[0,1,2,3] ):
 
 	Input:
 		ftype:		type of frames. defaults for af.FLAT_NAME
+		auto:		*incomplete* automated selection of frames.  if ftype is af.BIAS_NAME, select all.  if ftype is af.FLAT_NAME, select non-saturated frames with sufficient counts.
 		workdir:	directory where function is to be executed
 		cams:		camera numbers.  all by default
 
@@ -93,13 +94,14 @@ def ratlist( workdir='.', cams=[0,1,2,3] ):
 		- added error handling for if a camera list is missing
 		- camera argument can now be int
 				- ccd lists are now by filter rather than camera number
+		* automated selection incomplete
 
 	Future Improvements:
 		- option of automated frame selection
 			- save order for future automation
 		- put preprocessing functions in single script
 """
-def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
+def ratdisp_calib( ftype=af.FLAT_NAME, auto=False, workdir='.', cams=[0,1,2,3] ):
 
 	# check for non-list camera argument
 	if type(cams) is not list:
@@ -112,7 +114,10 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 	os.chdir( workdir )
 	
 	d = os.getcwd().split('/')[-1] # name of current directory
-	print "* * * displaying {} frames in {} for selection * * *".format(ftype, d)
+	if not auto:
+		print "* * * displaying {} frames in {} for selection * * *".format(ftype, d)
+	else:
+		print "* * * automatically selecting {} frames in {} * * *".format(ftype, d)
 
 	# delete existing calibration lists
 	fntemp = glob( ftype+'*.list' )
@@ -137,51 +142,63 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
 					print '\n{}'.format( fits_fn )
-					hdulist = pf.open( fits_fn )
-					im = hdulist[0].data
-					h = hdulist[0].header
-					
-					# no rotation needed (why is C0 rotated by 270 deg in IDL code?)
-					im = np.rot90( im, af.CAM_ROTAT[cam_i] )
-					
-					# Let user determine if the image is good or not
-					implot = zoom( im, ZOOM_LVL ) # change image size for display
-					m = np.median( im )
-					s = af.robust_sigma( im )
-					print '\t* Median is {} counts.'.format( m )
-					
-					# print filter name
-					print '\t* Filter used: {}'.format( h['FILTER'] )
 
-					# display image and prompt user
-					axim = pl.imshow( implot, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
-					pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m), s ) )
-					
-					# query user until valid response is provided
-					valid_entry = False
-					while not valid_entry:
-						direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
-						
-						if direction.lower() == 'y':
-							fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
-							fout.write( fits_id + '\n' ) # write new file name to list
-							fout.close()
-							valid_entry = True
-						
-						elif direction.lower() == 'q': # exit function
-							print "Exiting..."
-							os.chdir( start_dir ) # move back to starting directory
-							pl.close('all') # close image to free memory
-							return
-						
-						elif direction.lower() != 'n': # invalid case
-							print "'{}' is not a valid entry.".format( direction )
-						
-						else: # 'N' selected, skip
-							valid_entry = True
+					# all bias frames are selected
+					if auto and ftype is af.BIAS_NAME:
+						fout.write( fits_id + '\n' ) # write new file name to list
 
-					hdulist.close() # close FITs file
-					pl.close('all') # close image to free memory
+					else:
+
+						# open data
+						hdulist = pf.open( fits_fn )
+						im = hdulist[0].data
+						h = hdulist[0].header
+						
+						# select non-saturated flat frames with sufficient counts
+#						if auto and ftype is af.FLAT_NAME:
+
+
+						# no rotation needed (why is C0 rotated by 270 deg in IDL code?)
+						im = np.rot90( im, af.CAM_ROTAT[cam_i] )
+						
+						# Let user determine if the image is good or not
+						implot = zoom( im, ZOOM_LVL ) # change image size for display
+						m = np.median( im )
+						s = af.robust_sigma( im )
+						print '\t* Median is {} counts.'.format( m )
+						
+						# print filter name
+						print '\t* Filter used: {}'.format( h['FILTER'] )
+
+						# display image and prompt user
+						axim = pl.imshow( implot, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
+						pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m), s ) )
+						
+						# query user until valid response is provided
+						valid_entry = False
+						while not valid_entry:
+							direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+							
+							if direction.lower() == 'y':
+								fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
+								fout.write( fits_id + '\n' ) # write new file name to list
+								fout.close()
+								valid_entry = True
+							
+							elif direction.lower() == 'q': # exit function
+								print "Exiting..."
+								os.chdir( start_dir ) # move back to starting directory
+								pl.close('all') # close image to free memory
+								return
+							
+							elif direction.lower() != 'n': # invalid case
+								print "'{}' is not a valid entry.".format( direction )
+							
+							else: # 'N' selected, skip
+								valid_entry = True
+
+						hdulist.close() # close FITs file
+						pl.close('all') # close image to free memory
 
 				# close files
 				fin.close()
@@ -307,6 +324,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3] ):
 		- added target directory option.  sky and object frames are written to the same dir.
 		- prompts user for overwrite
 				- ccd lists are now by filter rather than camera number
+		- added GAIN and SATURATE keywords to headers
 
 	Future Improvements:
 		- automation of frame selection
@@ -382,7 +400,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					if 'VSTID' in h:
 						vstid = h['VSTID']
 					else:
-						"ERROR: ratdisp - VSTID keywork not found in fits header."
+						"ERROR: ratdisp - VSTID keyword not found in fits header."
 						os.chdir( start_dir ) # move back to starting directory
 						pl.close('all') # close image to free memory
 						return
@@ -415,7 +433,9 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 						
 						if direction.lower() == 'y':
 							h['WAVELENG'] = 'OPT'
-							
+							h['GAIN'] = (af.CAM_GAIN[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
+							h['SATURATE'] = (af.CAM_SATUR[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
+
 							# object frame
 							imfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, cam_i )
 							h['TARGNAME'] = targname
@@ -481,7 +501,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					if 'VSTID' in h:
 						vstid = h['VSTID']
 					else:
-						"ERROR: ratdisp - VSTID keywork not found in fits header."
+						"ERROR: ratdisp - VSTID keyword not found in fits header."
 						os.chdir( start_dir ) # move back to starting directory
 						pl.close('all') # close image to free memory
 						return
@@ -525,6 +545,8 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 
 						if direction.lower() == 'e' or direction.lower() == 'w': # selected
 							h['WAVELENG'] = 'IR'
+							h['GAIN'] = (af.CAM_GAIN[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
+							h['SATURATE'] = (af.CAM_SATUR[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
 							
 							if direction.lower() == 'e':
 								f_img = cam_i-2
