@@ -368,6 +368,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], auto=False, 
 		workdir:	directory where function is to be executed
 		targetdir:	directory where selected frames and lists are output
 		cams:		camera numbers.  all by default
+		auto:		select all science frames
 
 	Usage:
 		1)	enter python or ipython environment
@@ -385,14 +386,13 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], auto=False, 
 		- prompts user for overwrite
 				- ccd lists are now by filter rather than camera number
 		- added GAIN and SATURATE keywords to headers
+		* FINISH automation.  cases for different center labels.
 
 	Future Improvements:
 		- automation of frame selection
-			- use previous E/W pattern provided by user?
-			- could provide this in a calibration file
+			- view 20ish automatically selected frames at a time
 """
-
-def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
+def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 
 	# check for non-list camera argument
 	if type(cams) is not list:
@@ -405,7 +405,10 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 	os.chdir( workdir )
 	
 	d = os.getcwd().split('/')[-1] # name of current directory
-	print "\n* * * displaying science frames in {} for selection * * *".format(d)
+	if not auto:
+		print "\n* * * displaying science frames in {} for selection * * *".format(d)
+	else:
+		print "\n* * * selecting all science frames in {} * * *".format(d)
 
 	# make target directory if it does not exist
 	if not os.path.exists( targetdir ):
@@ -447,12 +450,17 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 				
 				# look at FITs data sequentially
 				for line in fin:
+
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
 					print '\n{}'.format( fits_fn )
+					
+					# open data
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
+					
+					# check for required header keywords
 					if 'PRPSLID' in h:
 						prpslid = h['PRPSLID']
 					else:
@@ -467,24 +475,26 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 						os.chdir( start_dir ) # move back to starting directory
 						pl.close('all') # close image to free memory
 						return
+
 					targname = '{}-vis{}'.format( prpslid, vstid )
 					targname_sky = '{}-sky'.format( targname )
 					
 					# rotate image or not
 					im = np.rot90( im, af.CAM_ROTAT[cam_i] )
 					
-					# Let user determine if the image is good or not
-					implot = zoom( im, ZOOM_LVL ) # change image size for display
+					# get image statistics
 					m = np.median( im )
 					s = af.robust_sigma( im )
-					
+						
 					# display image and prompt user
-					axim = pl.imshow( implot, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
-					axim.axes.set_xticks(axim.axes.get_xlim())
-					axim.axes.set_xticklabels(['E','W'])
-					axim.axes.set_yticks(axim.axes.get_ylim())
-					axim.axes.set_yticklabels(['S','N'])
-					pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m), s ) )
+					if not auto:
+						implot = zoom( im, ZOOM_LVL ) # change image size for display
+						axim = pl.imshow( implot, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
+						axim.axes.set_xticks(axim.axes.get_xlim())
+						axim.axes.set_xticklabels(['E','W'])
+						axim.axes.set_yticks(axim.axes.get_ylim())
+						axim.axes.set_yticklabels(['S','N'])
+						pl.title( r"{} band, Median = {}, $\sigma$ = {:.1f}".format( h['FILTER'], int(m), s ) )
 
 					# print filter name
 					print '\t* Filter used: {}'.format( h['FILTER'] )
@@ -492,9 +502,16 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					# query user until valid response is provided
 					valid_entry = False
 					while not valid_entry:
-						direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+						
+						# either select all if auto, or have user select
+						if auto:
+							direction = 'y'
+						else:
+							direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
 						
 						if direction.lower() == 'y':
+							
+							# set keyword values
 							h['WAVELENG'] = 'OPT'
 							h['GAIN'] = (af.CAM_GAIN[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
 							h['SATURATE'] = (af.CAM_SATUR[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
@@ -548,12 +565,17 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 				
 				# look at FITs data sequentially
 				for line in fin:
+					
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
 					print '\n{}'.format( fits_fn )
+					
+					# open data
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
+
+					# check for required header keywords
 					if 'PRPSLID' in h:
 						prpslid = h['PRPSLID']
 					else:
@@ -568,6 +590,14 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 						os.chdir( start_dir ) # move back to starting directory
 						pl.close('all') # close image to free memory
 						return
+					if af.CENTER_KEY in h:
+						center = h[af.CENTER_KEY].split('center')[0]
+					else:
+						"ERROR: ratdisp - {} keyword not found in fits header.".format( af.CENTER_KEY )
+						os.chdir( start_dir ) # move back to starting directory
+						pl.close('all')
+						return
+					
 					targname = '{}-vis{}'.format( prpslid, vstid )
 					targname_sky = '{}-sky'.format( targname )
 					
@@ -576,8 +606,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					if cam_i == 3:
 						im = np.flipud( im ) # flip C3 about y axis
 					
-					# Let user determine if the image is good or not
-					implot = zoom( im, ZOOM_LVL ) # change image size for display
+					# get image statistics
 					imleft = im[af.H2RG_SLICES[cam_i-2]]
 					mleft = np.median( imleft )
 					sleft = af.robust_sigma( imleft )
@@ -586,25 +615,47 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3] ):
 					sright = af.robust_sigma( imright )
 					
 					# display image and prompt user
-					pl.subplot(121)
-					pl.subplots_adjust(left=0.125, bottom=0.1, right=0.9, top=0.9, wspace=0.0, hspace=0.2)
-					axim = pl.imshow( imleft, vmin=mleft-5*sleft, vmax=mleft+5*sleft, origin='lower', cmap=pl.cm.gray )
-					axim.axes.set_xticks([axim.axes.get_xlim()[0]])
-					axim.axes.set_xticklabels(['E'])
-					axim.axes.set_yticks(axim.axes.get_ylim())
-					axim.axes.set_yticklabels(['S','N'])
-					pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(mleft), sleft ) )
-					pl.subplot(122)
-					axim = pl.imshow( imright, vmin=mright-5*sright, vmax=mright+5*sright, origin='lower', cmap=pl.cm.gray )
-					axim.axes.set_xticks([axim.axes.get_xlim()[1]])
-					axim.axes.set_xticklabels(['W'])
-					axim.axes.set_yticks([])
-					pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(mright), sright ) )
+					if not auto:
+						imleft = zoom( imleft, ZOOM_LVL ) # change image size for display
+						pl.subplot(121)
+						pl.subplots_adjust(left=0.125, bottom=0.1, right=0.9, top=0.9, wspace=0.0, hspace=0.2)
+						axim = pl.imshow( imleft, vmin=mleft-5*sleft, vmax=mleft+5*sleft, origin='lower', cmap=pl.cm.gray )
+						axim.axes.set_xticks([axim.axes.get_xlim()[0]])
+						axim.axes.set_xticklabels(['E'])
+						axim.axes.set_yticks(axim.axes.get_ylim())
+						axim.axes.set_yticklabels(['S','N'])
+						pl.title( r"{} band".format( af.H2RG_FILTERS[cam_i-2] ) + '\n' + "Median = {}, $\sigma$ = {:.1f}".format( int(mleft), sleft ) )
+						imright = zoom( imright, ZOOM_LVL ) # change image size for display
+						pl.subplot(122)
+						axim = pl.imshow( imright, vmin=mright-5*sright, vmax=mright+5*sright, origin='lower', cmap=pl.cm.gray )
+						axim.axes.set_xticks([axim.axes.get_xlim()[1]])
+						axim.axes.set_xticklabels(['W'])
+						axim.axes.set_yticks([])
+						pl.title( r"{} band".format( af.H2RG_FILTERS[cam_i] ) + '\n' + "Median = {}, $\sigma$ = {:.1f}".format( int(mright), sright ) )
+					
+					# print target center for user
+					if center.count( af.H2RG_FILTERS[cam_i] ) != 0:
+						print "\t* The target is focused on the {} filter.".format( af.H2RG_FILTERS[cam_i] )
+					elif center.count( af.H2RG_FILTERS[cam_i-2] ) != 0:
+						print "\t* The target is focused on the {} filter.".format( af.H2RG_FILTERS[cam_i-2] )
+					else:
+						print "\t* Warning: The target is NOT focused on an H2RG filter. The target is focused on the {} filter.".format( center )
 
 					# query user until valid response is provided
 					valid_entry = False
 					while not valid_entry:
-						direction = raw_input("\nType E for EAST, W for WEST, N for NEXT, Q for QUIT: ")
+
+						# either select based on center keyword if auto, or have user select
+						if auto:
+							if center.count( af.H2RG_FILTERS[cam_i] ) != 0:
+								direction = 'w'
+							elif center.count( af.H2RG_FILTERS[cam_i-2] ) != 0:
+								direction = 'e'
+							else:
+								print  "\t* Warning: Skipping frame not centered on H2RG filter."
+								direction = 'n'
+						else:
+							direction = raw_input("\nType E for EAST, W for WEST, N for NEXT, Q for QUIT: ")
 
 						if direction.lower() == 'e' or direction.lower() == 'w': # selected
 							h['WAVELENG'] = 'IR'

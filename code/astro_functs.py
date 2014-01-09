@@ -30,6 +30,7 @@ BIAS_NAME = 'bias' # designator for bias frames
 CONFIG_LOCATION = 'astro_functs.py' # name of file containing configuration information, currently this file.
 CAM_GAIN = [ lambda SOFTGAIN: 16.80/SOFTGAIN, lambda SOFTGAIN: 18.64/SOFTGAIN, lambda SOFTGAIN: 2.2/SOFTGAIN, lambda SOFTGAIN: 2.4/SOFTGAIN ] # gain of each camera as a function of the SOFTGAIN keyword extracted from a frame's header
 CAM_SATUR = [ lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (32000./SOFTGAIN)-1, lambda SOFTGAIN: (32000./SOFTGAIN)-1 ] # saturation levels for each detector in DNs as a function of the SOFTGAIN keyword extracted from a frame's header
+CENTER_KEY = 'STRRQAP' # RATIR header keyword specifying which H2RG filters the target is focused on
 
 """
 Purpose:		combine stack of frames
