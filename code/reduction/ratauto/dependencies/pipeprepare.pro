@@ -35,6 +35,7 @@
 ;	Need to check what additional keywords need to propagate, and check if values that are set with 
 ;	magic numbers can be set from existing keywords.  Possibly include prefix character into variable structure?
 ;	Master bias list in parameter file?
+;	Change airmass keywords for RIMAS
 ;-
 
 ;----------------------------------------------------------------------------------------
@@ -98,26 +99,16 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 
 	;Add additional keywords and remove unnecessary ones
 	;These keywords may need to be changed for RIMAS CHANGE VLT                       
-	pxscale = 0.3
-	latitude = sxpar(header, 'LATITUDE')	
-
-	sxaddpar, header, 'PXSCALE', pxscale, 'arcsec/pix'
 	sxaddpar, header, 'OBSERVAT',"SPM", before='TELESCOP'
-	sxaddpar, header, 'RDNOISE', 4, before='BINNING'
-	sxaddpar, header, 'AIRMASS', 1.
 	
-	;Sun/moon ephemeris
-	jd  = sxpar(header, 'JD')
-	lst = sxpar(header, 'LST')
-
-	;Calculate moon altitude from start of exposure. The middle (or "worst") would be more useful.
-	moonpos, jd, moonra, moondec
-	hadec2altaz, lst-moonra, moondec, latitude, moonalt, moonaz
-	sxaddpar, header, 'MOONELEV', moonalt, (moonalt>0?'Above horizon':'Below horizon'), after='SUN_ALT'
-
+	;Grabs starting airmass, can alternatively use ETROBAM (ending time observed airmass) 
+	;and saves as AIRMASS.  CHANGE FOR RIMAS
+	am  = sxpar(header, 'STROBAM')
+	sxaddpar, header, 'AIRMASS', am
+	
    	filter = strtrim(sxpar(header, 'FILTER'))
    	
-	;Target requested RA and DEC CHANGE for RIMAS VLT
+	;Target requested RA and DEC CHANGE for RIMAS VLT - ending time coordinates
 	radeg  = sxpar(header,'ETRRQRA')
 	decdeg = sxpar(header,'ETRRQDE')
 	
@@ -161,11 +152,11 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
  					'SCR_COMM','COMM_NUM','CCD_TYPE','CCD_SER','SATURATE',$
  					'RDNOISE','BINNING','BINY','BINX','WAVELENG','TARGNAME',$
  					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PXSCALE',$
- 					'SUN_ALT','MOONELEV','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
+ 					'SUN_ALT','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
  					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
  					'SOFTGAIN','FILTER','SCRA','SCRB','SCRC1','SCRC2','SCRC3','SCRC4',$
  					'SCRATR','SCRBTR','SCRC1TR','SCRC2TR','SCRC3TR','SCRC4TR',$
- 					'AVERAGE','STDEV']
+ 					'AVERAGE','STDEV','GAIN','AIRMASS']
  
  	;Finds list of unnecessary keywords, then deletes entire list
 	unneckey = ''
