@@ -11,7 +11,8 @@
 		* small memory leak in ratdisp and ratdisp_calib
 
 	Future Improvements:
-		-
+		- 
+
 """
 
 import os
@@ -386,7 +387,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], auto=False, 
 		- prompts user for overwrite
 				- ccd lists are now by filter rather than camera number
 		- added GAIN and SATURATE keywords to headers
-		* FINISH automation.  cases for different center labels.
+		- added automated option
 
 	Future Improvements:
 		- automation of frame selection

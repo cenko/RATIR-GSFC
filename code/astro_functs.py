@@ -1,16 +1,27 @@
 """
-Written by John Capone (jicapone@astro.umd.edu).
+	Purpose:	repository for general purpose functions used by the RATIR pipeline.  also contains constants (it may be better to put these in a configuration file rather than in this python script).
 
-Purpose:
-	- this code is primarily used for the constants found below.  it may be better to put these in a configuration file rather than in this python script.
+	Usage:		
+		*)	most of these functions and constants are usually called by other scripts, not by the user
+		1)	enter python or ipython environment
+		2)	can load all functions using:
+			- "from rat_preproc import *" if you want to call functions using just the function's name
+			- "import rat_preproc as rp" if you want to call functions using rp.function_name( args )
 
-Notes:
-	- is numpy mean() buggy? found cases where mean(array) < min(array)
+	Notes:
+		- is numpy mean() buggy? found cases where mean(array) < min(array)
+		- added show_list() to aid users in reviewing results
+
+	Future Improvements:
+		- 
+
 """
 
 import astropy.io.fits as pf
+import matplotlib.pylab as pl
 import numpy as np
 import time
+from scipy.ndimage.interpolation import zoom
 
 # CONSTANTS
 PROPOSALS = { 'NIRstandard': '0000', 'OPTstandard': '00001', 'cluster': '0002', 'galaxy': '0003', 'blank': '0004', 'pointing': '0005', 'bias': '0006', 'dark': '0007', 'flat': '0008', 'focus': '0009', 'misc': '0010', 'GRB': '1000' } # 2012 proposal names and id numbers. source: rsync://ratir.astroscu.unam.mx/public/proposalidentifiers.txt
@@ -33,15 +44,24 @@ CAM_SATUR = [ lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (2.**16/SOF
 CENTER_KEY = 'STRRQAP' # RATIR header keyword specifying which H2RG filters the target is focused on
 
 """
-Purpose:		combine stack of frames
-				* currently no outlier rejection
-Input:
-	indata:		stack of frames to be combined
-	type:		function used to combine the stack.  currently only mean or median
-	ret_std:	if set to true, return the standard deviation of each pixel.  default is false
-Output:
-	combined:	combined stack
-	sigma:		standard deviation of each pixel (optional)
+	Written by John Capone (jicapone@astro.umd.edu).
+
+	Purpose:		combine stack of frames
+
+	Input:
+		indata:		stack of frames to be combined
+		type:		function used to combine the stack.  currently only mean or median
+		ret_std:	if set to true, return the standard deviation of each pixel.  default is false
+	
+	Output:
+		combined:	combined stack
+		sigma:		standard deviation of each pixel (optional)
+
+	Notes:
+		- 
+
+	Future Improvements:
+		- add outlier rejection
 """
 def imcombine( indata, type='median', ret_std=False ):
 	if indata.ndim != 3:
@@ -57,12 +77,18 @@ def imcombine( indata, type='median', ret_std=False ):
 		return combined
 
 """
-* converted from IDL ROBUST_SIGMA function
-Purpose:		Calculate a resistant estimate of the dispersion of a distribution. For an uncontaminated distribution, this is identical to the standard deviation.
-Input:
-	y:			Vector of quantity for which the dispersion is to be calculated
-	zero:		if set, the dispersion is calculated w.r.t. 0.0 rather than the central value of the vector. If Y is a vector of residuals, this should be set.
-Output:		robust_sigma returns the dispersion. In case of failure, returns value of -1.0
+	Converted from IDL ROBUST_SIGMA function by John Capone (jicapone@astro.umd.edu).
+
+	Purpose:		Calculate a resistant estimate of the dispersion of a distribution. For an uncontaminated distribution, this is identical to the standard deviation.
+
+	Input:
+		y:			Vector of quantity for which the dispersion is to be calculated
+		zero:		if set, the dispersion is calculated w.r.t. 0.0 rather than the central value of the vector. If Y is a vector of residuals, this should be set.
+	
+	Output:			robust_sigma returns the dispersion. In case of failure, returns value of -1.0
+
+	Notes:
+		- 
 """
 def robust_sigma( y, zero=False ):
 	eps = 1.0e-20
@@ -97,6 +123,87 @@ def robust_sigma( y, zero=False ):
 		sigma = 0.
 	return sigma
 
+"""
+	Written by John Capone (jicapone@astro.umd.edu).
 
+	Purpose:		displays images in specified list file.
 
+	Input:
+		list_fn:	file name of list file
+		nx:			number of images to display simultaneously in x
+		ny:			number of images to display simultaneously in y
+		zoom_lvl:	amount to decrease image resolution by (to save memory)
 
+	Usage:
+		1)	enter python or ipython environment
+		2)	load function -> 'from rat_preproc import show_list'
+		3)	run function -> 'show_list( list_fn='path/to/list/file.list' )'
+			- decreasing zoom_lvl (i.e. from 0.5 to 0.1) decreases the size of the displayed image, thus decreasing the amount of memory required
+		4)	function will display arrays of images in list file for inspection by user
+
+	Notes:
+		- 
+
+	Future Improvements:
+		- 
+"""
+def show_list( list_fn, nx=3, ny=3, zoom_lvl=0.5 ):
+
+	nx = int(nx); ny = int(ny) # force parameter types to int
+
+	try:
+		fin = open( list_fn, 'r' ) # open list of FITs files
+	except IOError:
+		print "Error: {} not found.  Exiting...".format( list_fn )
+		return
+	
+	fits_fns = fin.readlines() # read file names from list
+	fin.close() # close files
+	nfits = len(fits_fns) # number of fits files listed
+
+	pl.ion() # pylab in interactive mode
+
+	# create figures of subplots for review
+	nfigs = int( np.ceil( nfits / float( nx * ny ) ) )
+	for i in range( nfigs ):
+
+		start_fits = i*nx*ny
+		if (i + 1)*nx*ny <= nfits:
+			stop_fits = (i + 1)*nx*ny - 1
+			nsubplts = nx*ny
+		else:
+			stop_fits = nfits
+			nsubplts = nfits - start_fits
+		
+		pl.figure( "FITS {} - {}".format( start_fits, stop_fits ), figsize=(nx*3,ny*3), tight_layout=True ) # create new figure
+
+		# display image in each subplot
+		for j in range( nsubplts ):
+
+			print "{:<4}:{:<4}".format( i, start_fits + j )
+
+			pl.subplot( ny, nx, j+1 ) # new subplot
+
+			fits_fn = fits_fns[start_fits + j].rstrip() # current fits file name with return removed
+			fits_id = fits_fn.split('.')[0] # fits file name with extention removed
+			
+			# open data
+			hdulist = pf.open( fits_fn )
+			im = hdulist[0].data
+			h = hdulist[0].header
+			hdulist.close() # close FITs file
+
+			# image statistics
+			m = np.median( im )
+			s = robust_sigma( im )
+
+			# display
+			imdisp = zoom( im, zoom_lvl )
+			axim = pl.imshow( imdisp, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
+			axim.get_axes().get_xaxis().set_ticks([]) # remove numbers from x axis
+			axim.get_axes().get_yaxis().set_ticks([]) # remove numbers from y axis
+			pl.title( "{} - {} filter".format( fits_id, h['FILTER'] ) ) # title with identifier
+			pl.xlabel( "Median: {}".format( m ) )
+
+		raw_input( "Press any key to continue." ) # prompt user to continue
+		pl.close('all') # close image to free memory
