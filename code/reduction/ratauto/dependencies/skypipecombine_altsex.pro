@@ -157,31 +157,48 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
       		indata = data[*,*,f]
       		satmask = fltarr(nx, ny)
       		
+      		;Find sources from sextractor for RATIR's CCDs, 
+      		;otherwise use previous source extraction method using iterative sigma clipping
       		if (filt eq 'i') or (filt eq 'r') then begin
       		
-      			print,pipevar.sexcommand + ' ' +files[f]+  ' -c sex.config -CATALOG_NAME skysource.cat -PHOT_FLUXFRAC 1.0 -FILTER_NAME sex.conv -PARAMETERS_NAME source.param'
-      			spawn,pipevar.sexcommand + ' ' +files[f]+  ' -c sex.config -CATALOG_NAME skysource.cat -PHOT_FLUXFRAC 1.0 -FILTER_NAME sex.conv -PARAMETERS_NAME source.param'
-      			readcol, 'skysource.cat', x,y,ra,dec,mag,magerr,rad, ell, fwhm
-      		
-      			sdata = size(indata)
-      			scale = 2.0     		
+      			;Runs sextractor with special commands for quick and dirty source extraction
+      			print,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
+      			spawn,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
+      			readcol, 'skysource.cat', x,y,ra,dec,mag,magerr,rad, fwhms,ell, cstar, flag
+      			
+      			;Finds sources with reasonable FWHM (i.e. >1 pixel) and no raised flags, 
+      			;except if source near edge, still want to sky subtract without bright source
+      			realsources = where(fwhms gt 1 and (flag eq 0 or flag eq 16))
 
-      			for so=0,n_elements(x)-1 do begin
+				rad = rad[realsources]
+				x   = x[realsources]
+				y   = y[realsources]
+
+      			sdata = size(indata)
+      			scale = 1.0
+				
+				;For each good source, set everything within given radius to NAN
+      			for so=0,n_elements(rad)-1 do begin
       		
+      				;Source removal using box with radius from sextractor
       				rd = abs(rad[so])*scale
       				minx = x[so]-rd
       				maxx = x[so]+rd
       				miny = y[so]-rd
       				maxy = y[so]+rd
  
+ 					;If at an edge just go to the edge of the image
  					if minx lt 0 then minx = 0
  					if miny lt 0 then miny = 0
  					if maxx gt sdata[1]-1 then maxx = sdata[1]-1
       				if maxy gt sdata[2]-1 then maxy = sdata[2]-1
       			
       				indata[ minx:maxx, miny:maxy ] = !Values.F_NAN
+      				
       			endfor
+
       		endif else begin
+      		
       			sigclipstats_vt, indata, sigmahi=5, sigmalo=-5, median=datamed, stdevi=datastdev
       			sourcepixels = where(indata ge datamed + objthresh * datastdev, ctsourcepix)
       
@@ -284,5 +301,5 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
 	mwrfits, flat, outfile, h, /create
 
 	print, '  Written to ', outfile
-
+	
 end
