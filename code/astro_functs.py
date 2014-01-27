@@ -17,6 +17,7 @@
 
 """
 
+import os
 import astropy.io.fits as pf
 import matplotlib.pylab as pl
 import numpy as np
@@ -132,7 +133,9 @@ def robust_sigma( y, zero=False ):
 		list_fn:	file name of list file
 		nx:			number of images to display simultaneously in x
 		ny:			number of images to display simultaneously in y
+		size_mult:	multiple to determine image sizes
 		zoom_lvl:	amount to decrease image resolution by (to save memory)
+		fontsize:	fontsize for plots
 
 	Usage:
 		1)	enter python or ipython environment
@@ -142,12 +145,13 @@ def robust_sigma( y, zero=False ):
 		4)	function will display arrays of images in list file for inspection by user
 
 	Notes:
-		- 
+		- added escape character
+		- user can now change font size
 
 	Future Improvements:
-		- 
+		* get data directory from list_fn
 """
-def show_list( list_fn, nx=3, ny=3, zoom_lvl=0.5 ):
+def show_list( list_fn, nx=5, ny=3, size_mult=3.2, zoom_lvl=0.5, fontsize=8 ):
 
 	nx = int(nx); ny = int(ny) # force parameter types to int
 
@@ -157,6 +161,13 @@ def show_list( list_fn, nx=3, ny=3, zoom_lvl=0.5 ):
 		print "Error: {} not found.  Exiting...".format( list_fn )
 		return
 	
+	# move to working directory
+	start_dir = os.getcwd()
+	workdir = os.path.split( list_fn )[0]
+	if workdir == '':
+		workdir = '.'
+	os.chdir( workdir )
+
 	fits_fns = fin.readlines() # read file names from list
 	fin.close() # close files
 	nfits = len(fits_fns) # number of fits files listed
@@ -175,7 +186,7 @@ def show_list( list_fn, nx=3, ny=3, zoom_lvl=0.5 ):
 			stop_fits = nfits
 			nsubplts = nfits - start_fits
 		
-		pl.figure( "FITS {} - {}".format( start_fits, stop_fits ), figsize=(nx*3,ny*3), tight_layout=True ) # create new figure
+		pl.figure( "FITS {} - {}".format( start_fits, stop_fits ), figsize=(nx*size_mult,ny*size_mult), tight_layout=True ) # create new figure
 
 		# display image in each subplot
 		for j in range( nsubplts ):
@@ -185,7 +196,19 @@ def show_list( list_fn, nx=3, ny=3, zoom_lvl=0.5 ):
 			pl.subplot( ny, nx, j+1 ) # new subplot
 
 			fits_fn = fits_fns[start_fits + j].rstrip() # current fits file name with return removed
-			fits_id = fits_fn.split('.')[0] # fits file name with extention removed
+			temp = fits_fn.split('.')
+			if len( temp ) == 1:
+				fits_fn += '.fits'
+			elif len( temp ) == 2:
+				if temp[1].lower() != 'fits':
+					print "Error: invalid \"{}\" file type detected.  Should be \"fits\" file type. Exiting...".format( temp[1] )
+					os.chdir( start_dir ) # move back to starting directory
+					return
+			else:
+				print "Error: file names should not include \".\" except for file type extention.  Exiting..."
+				os.chdir( start_dir ) # move back to starting directory
+				return
+			fits_id = temp[0] # fits file name with extention removed
 			
 			# open data
 			hdulist = pf.open( fits_fn )
@@ -202,8 +225,14 @@ def show_list( list_fn, nx=3, ny=3, zoom_lvl=0.5 ):
 			axim = pl.imshow( imdisp, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
 			axim.get_axes().get_xaxis().set_ticks([]) # remove numbers from x axis
 			axim.get_axes().get_yaxis().set_ticks([]) # remove numbers from y axis
-			pl.title( "{} - {} filter".format( fits_id, h['FILTER'] ) ) # title with identifier
-			pl.xlabel( "Median: {}".format( m ) )
+			pl.title( "{} - {} filter".format( fits_id, h['FILTER'] ), fontsize=fontsize ) # title with identifier
+			pl.xlabel( "Median: {}".format( m ), fontsize=fontsize )
 
-		raw_input( "Press any key to continue." ) # prompt user to continue
+		usr_select = raw_input( "Press any key to continue or \"q\" to quit: " ) # prompt user to continue
 		pl.close('all') # close image to free memory
+		if usr_select.lower() == 'q':
+			print "Exiting..."
+			os.chdir( start_dir ) # move back to starting directory
+			return
+
+	os.chdir( start_dir ) # move back to starting directory

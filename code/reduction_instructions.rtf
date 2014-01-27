@@ -1,7 +1,7 @@
-{\rtf1\ansi\ansicpg1252\cocoartf1187\cocoasubrtf340
+{\rtf1\ansi\ansicpg1252\cocoartf1187\cocoasubrtf400
 {\fonttbl\f0\fswiss\fcharset0 Helvetica;}
 {\colortbl;\red255\green255\blue255;}
-\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\margl1440\margr1440\vieww28600\viewh16520\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
 
 \f0\fs24 \cf0 README \
@@ -19,34 +19,34 @@ For now, you should know that you need:\
 \
 The last three should all be downloadable and installable via Mac's 'port' command.  \
 \
-STEP 1 - Prepare files for pipeline using two simple IDL scripts.\
+STEP 1 - Prepare files for pipeline.\
 \
-From your data directory (~/ratir_reduction_fox/sample_data) run a bash command to create lists:\
-ofox% bash ratlist.sh\
+All preprocessing is done in Python.  It is convenient to enter the ipython environment to execute the following commands.\
 \
----This outputs lists for each directory, flats and grb.\
+After entering ipython, load the preprocessing commands:\
+	In [1]: from rat_preproc import *\
 \
-Open IDL and from an IDL prompt:\
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural
-\cf0 idl> ratdisp_flat\
+Run ratlist function to create lists (can select desired cameras):\
+	In [2]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )\
+This outputs a list for each camera.  You must run this script on each directory containing data to be processed (i.e. flats, grb data, etc.).\
 \
-\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural
-\cf0 ---This will pop up a window showing you all the flats from that night, with the proper rotation.  It will start with C0 unless you specify a camera you want to re-do (i.e., ratdisp_flat, camera=2).\
----Follow the instructions to select useful flat field frames.  Essentially, "Y" for yes and "N" for no and "Q" for quit.\
----The program prints out the median pixel value for both the detector, including the East/West pairs in the IR detectors.  I find that values between about 3K and 20K are useful for flats.\
----The flat-field procedure is automated, so most of the early frames are saturated.\
----This program crops the data, saves the cropped data, and creates lists of user accepted/rejected data.  All results are stored in the flat-field directory.\
+Run ratdisp_calib to select calibration frames you want to use.  For example, if processing flat frames:\
+	In [3]: ratdisp_calib( ftype=af.FLAT_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )\
+If auto is False, frames will be displayed for selection by the user.  Otherwise the script will select frames.  All bias frames will be accepted.  Flats are selected by comparing the median value of the frame to the detector's saturation value.  Varying amin and amax allows the user to tune the range of median values automatically accepted as a fraction of the saturation value.\
+The flat-field procedure is automated, so most of the early frames are saturated.\
 \
 Now, do the same thing for the actual data:\
-idl> ratdisp\
+	In [4]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )\
+	In [5]: ratdisp( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )\
+If using the automated selection, all science frames will be selected.  Otherwise, frames will be displayed for the user to select.  For H2RG frames, the user must select if the target is on the East (left) or West (right) side of the field.  The script will output which side the FITs header says the target was focused on.\
 \
----This program does the same thing, but it requires the user to take one additional step and identify whether the data occur on the East (left) or West (right) side of the field.  This step matches the data with the appropriate sky images.\
----This might be a little difficult since none of the data have been flat-fielded yet.  So, if you can't tell from just looking, you should use the log.  In the future, I will try to use the log to do this automatically.\
+STEP 2 - Make your master calibration frames\
 \
-STEP 2 - Make your flats in IRAF\
+These steps are also done in the Python environment with rat_preproc loaded.\
 \
-cl> cd flats_20121212\
-cl> mfrat\
+To make a master bias or flat frame:\
+	In [6]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )\
+If bands = 'ALL' the script will create a master frame for all lists in the working directory.  The user may also specify a list of desired bands.  fmin determines the minimum number of frames needed to create a master frame.  If the number of frames available is less than this, the user will be warned and asked whether to continue.\
 \
 STEP 3 - Run the Keck/LRIS Pipeline\
 \

@@ -26,6 +26,7 @@ from glob import glob
 import gc
 
 import astro_functs as af # contains basic functions and RATIR constants
+from astro_functs import show_list # allow user to call show_list without "af." prefix
 
 # Preprocessing constants
 ZOOM_LVL = 0.5 # image zoom for display to user in ratdisp() and ratdisp_calib()
@@ -784,7 +785,7 @@ def _prep_bias_list( cams, workdir='.' ):
 
 	Future Improvements:
 		- may want to be generalized for use with dark current frames
-		- need to add filter name to master's header
+		- 
 """
 def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 
@@ -799,10 +800,14 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 		return
 
 	# if making masters for all bands, search for lists
-	if bands == 'ALL':
+	if bands.upper() == 'ALL':
 		ltemp = glob( '{}_*.list'.format(mtype) )
 		bands = []
 		for f in ltemp: bands.append( f.split('_')[1].split('.')[0] )
+	elif type(bands) is not list:
+		print "Error: bands must either be \"ALL\" or a list of desired filters."
+		os.chdir( start_dir ) # move back to starting directory
+		return
 
 	if mtype is af.BIAS_NAME:
 		_prep_bias_list( cams=bands, workdir=workdir )
