@@ -35,7 +35,26 @@ Outline
 
 2. Reduction {#redux}
 ------------
-2.1 Run preprocessing scripts (JOHN PUT INSTRUCTIONS IN)
+2.1 Run preprocessing scripts
+
+	Python
+	
+	Load the preprocessing commands (this will also load astro_functs.py as af):
+	In [1]: from rat_preproc import *
+	
+	Create lists of fits files for specified cameras (must be done for each directory containing FITs files you'll be using):
+	In [2]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )
+	
+	Select calibration frames you want to use:
+	In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )
+	
+	Select science frames you want to use:
+	In [4]: ratdisp( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )
+	
+	Make master bias or flat frame:
+	In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )
+	
+	More detailed instructions can be found in reduction_instructions.rtf or code comments in rat_preproc.py and astro_functs.py.
 
 2.2 Run ratautoproc.pro in data directory (in directory above processed data and reduction folder)
 
