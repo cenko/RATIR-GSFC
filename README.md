@@ -4,19 +4,20 @@ RATIR-GSFC
 GSFC/UMd RATIR Pipeline Repository
 
 Directories:
-* code/ 
+* code/
 * images/
 * sandbox/
 
 1. Setup
 --------
 1. Dependencies:
-* IDL
-* Python
-	- ** ADD PACKAGE DEPENDENCIES? **
-* SExtractor
-* SWarp
-* cdsclient package
+	- IDL
+	- Python
+		+ **ADD PACKAGE DEPENDENCIES?**
+	- SExtractor
+	- SWarp
+	- cdsclient package
+
 Most can be installed using Macports.
 
 2. Run *startup.sh* in Unix shell to source code:
