@@ -71,8 +71,9 @@ More detailed instructions can be found in *reduction_instructions.rtf* or code 
 
 2.2 Run ratautoproc.pro in data directory (in directory above processed data and reduction folder)
 
-	IDL
-	ratautoproc, datadir='raw/', redo=1
+```IDL
+ratautoproc, datadir='raw/', redo=1
+```
 	
 	datadir specifies where processed data is stored (should be in lower directory), will run all data in this directory  
 	Will save to specified directory (imworkingdir) in pipeautoproc.par
