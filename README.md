@@ -39,33 +39,33 @@ Outline
 
 1. Load the preprocessing commands (this will also load astro_functs.py as af):
 
-"""python
+```python
 In [1]: from rat_preproc import *
-"""
+```
 
 2. Create lists of fits files for specified cameras (must be done for each directory containing FITs files you'll be using):
 
-"""python
+```python
 In [2]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )
-"""
+```
 
 3. Select calibration frames you want to use:
 
-"""python
+```python
 In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )
-"""
+```
 	
 4. Select science frames you want to use:
 
-"""python
+```python
 In [4]: ratdisp( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )
-"""
+```
 	
 5. Make master bias or flat frame:
 
-"""python
+```python
 In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )
-"""
+```
 	
 More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *rat_preproc.py* and *astro_functs.py*.
 
