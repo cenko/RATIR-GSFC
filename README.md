@@ -9,6 +9,13 @@ Directories:
 * images/
 * sandbox/
 
+Outline
+-------
+
+1. [Setup](RATIR-GSFC#1-setup)
+2. [Reduction](RATIR-GSFC#2-reduction)
+3. [Photometry](RATIR-GSFC#3-photometry)
+
 1. Setup
 --------
 1. Dependencies:
