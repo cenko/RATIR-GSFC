@@ -4,34 +4,29 @@ RATIR-GSFC
 GSFC/UMd RATIR Pipeline Repository
 
 Directories:
-code/ 
-images/
-sandbox/
+* code/ 
+* images/
+* sandbox/
 
-Outline
--------
-
-1. [SETUP](#setup)
-
-2. [REDUCTION](#redux)
-
-3. [PHOTOMETRY](#photo)
-
-1. Setup {#setup}
+1. Setup
 --------
-### 1.1 Requires (most installable using Macports):
-
+1. Dependencies:
 * IDL
 * Python
+	- ** ADD PACKAGE DEPENDENCIES? **
 * SExtractor
 * SWarp
 * cdsclient package
+Most can be installed using Macports.
 
-### 1.2 Run startup.sh in Unix shell to source code
+2. Run *startup.sh* in Unix shell to source code:
+```bash
+source startup.sh
+```
 
-### 1.3 Alter pipeautoproc.par to point to full path of autoastrometry.py on individual computer (under code/reduction/ratauto)
+3. Alter *pipeautoproc.par* to point to full path of *autoastrometry.py* on individual computer (under code/reduction/ratauto)
 
-2. Reduction {#redux}
+2. Reduction
 ------------
 ### 2.1 Run preprocessing scripts
 
@@ -69,21 +64,22 @@ In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5
 	
 More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *rat_preproc.py* and *astro_functs.py*.
 
-### 2.2 Run ratautoproc.pro in data directory (in directory above processed data and reduction folder)
+### 2.2 Run *ratautoproc.pro*
+This IDL script should be run from the data directory (the directory above processed data and reduction folder)
 
 ```IDL
 ratautoproc, datadir='raw/', redo=1
 ```
 	
-*datadir* specifies where processed data is stored (should be in lower directory), will run all data in this directory  
-Will save to specified directory (imworkingdir) in pipeautoproc.par
-*redo* keyword overwrites previously reduction processed files
-Additional keywords:
-* start
-* stop
-* step
-* only (allows you to run particular steps if you don't want to run full reduction)
-* nocrclean (if set skips cosmic ray cleaning)	
+* *datadir* specifies where processed data is stored (should be in lower directory), will run all data in this directory  
+* Will save to specified directory (imworkingdir) in pipeautoproc.par
+* *redo* keyword overwrites previously reduction processed files
+* Additional keywords:
+	- start
+	- stop
+	- step
+	- only (allows you to run particular steps if you don't want to run full reduction)
+	- nocrclean (if set skips cosmic ray cleaning)	
 	
 Runs these steps in this order unless specified:	
 * steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']
@@ -109,11 +105,12 @@ Runs these steps in this order unless specified:
 7. Stack (*autopipestack.pro*)
 	- Uses SWarp to stack images with same filter
 
-3. Photometry {#photo}
+3. Photometry
 -------------
-### 3.1 Run autoredux.py in photometry folder
+### 3.1 Run autoredux.py
+Run this python scrip from the photometry folder.
 
-Can automatically run full photometry reduction using *autoredux.py*
+Can automatically run full photometry reduction using *autoredux.py*  
 Needs to run inside directory with coadd*.fits files:
 
 ```python
