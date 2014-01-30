@@ -1,29 +1,31 @@
 RATIR-GSFC
 ==========
 
-GSFC/UMd RATIR Pipeline Repository  
+GSFC/UMd RATIR Pipeline Repository
 
-Directories:  
-* code/  
-* images/  
-* sandbox/  
+Directories:
 
-1. Setup  
+* code/
+* images/
+* sandbox/
+
+1. Setup
 --------
-1. Dependencies:  
-	- IDL  
-	- Python  
-		+ **ADD PACKAGE DEPENDENCIES?**  
-	- SExtractor  
-	- SWarp  
+1. Dependencies:
+	- IDL
+	- Python
+		+ **ADD PACKAGE DEPENDENCIES?**
+	- SExtractor
+	- SWarp
 	- cdsclient package  
 
-Most can be installed using Macports.  
+	Most can be installed using Macports.  
 
-2. Run *startup.sh* in Unix shell to source code:  
-```bash
-source startup.sh  
-```
+2. Run *startup.sh* in Unix shell to source code:
+
+	```bash
+	source startup.sh
+	```
 
 3. Alter *pipeautoproc.par* to point to full path of *autoastrometry.py* on individual computer (under code/reduction/ratauto)  
 
@@ -35,33 +37,33 @@ source startup.sh
 
 2. Load the preprocessing commands (this will also load astro_functs.py as af):
 
-```python
-In [1]: from rat_preproc import *
-```
+	```python
+	In [1]: from rat_preproc import *
+	```
 
 3. Create lists of fits files for specified cameras (must be done for each directory containing FITs files you'll be using):
 
-```python
-In [2]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )
-```
+	```python
+	In [2]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )
+	```
 
 4. Select calibration frames you want to use:
 
-```python
-In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )
-```
+	```python
+	In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )
+	```
 	
 5. Select science frames you want to use:
 
-```python
-In [4]: ratdisp( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )
-```
+	```python
+	In [4]: ratdisp( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )
+	```
 	
 6. Make master bias or flat frame:
 
-```python
-In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )
-```
+	```python
+	In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )
+	```
 	
 More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *rat_preproc.py* and *astro_functs.py*.
 
@@ -83,6 +85,7 @@ ratautoproc, datadir='raw/', redo=1
 	- nocrclean (if set skips cosmic ray cleaning)	
 	
 Runs these steps in this order unless specified:	
+
 * steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']
 		
 1. Prepare (*autopipeprepare.pro*, *pipeprepare.pro*)
