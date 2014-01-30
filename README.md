@@ -1,31 +1,31 @@
 RATIR-GSFC
 ==========
 
-GSFC/UMd RATIR Pipeline Repository
+GSFC/UMd RATIR Pipeline Repository  
 
-Directories:
-* code/
-* images/
-* sandbox/
+Directories:  
+* code/  
+* images/  
+* sandbox/  
 
-1. Setup
+1. Setup  
 --------
-1. Dependencies:
-	- IDL
-	- Python
-		+ **ADD PACKAGE DEPENDENCIES?**
-	- SExtractor
-	- SWarp
-	- cdsclient package
+1. Dependencies:  
+	- IDL  
+	- Python  
+		+ **ADD PACKAGE DEPENDENCIES?**  
+	- SExtractor  
+	- SWarp  
+	- cdsclient package  
 
-Most can be installed using Macports.
+Most can be installed using Macports.  
 
-2. Run *startup.sh* in Unix shell to source code:
+2. Run *startup.sh* in Unix shell to source code:  
 ```bash
-source startup.sh
+source startup.sh  
 ```
 
-3. Alter *pipeautoproc.par* to point to full path of *autoastrometry.py* on individual computer (under code/reduction/ratauto)
+3. Alter *pipeautoproc.par* to point to full path of *autoastrometry.py* on individual computer (under code/reduction/ratauto)  
 
 2. Reduction
 ------------
