@@ -24,7 +24,7 @@ import photprocesslibrary as pplib
 
 def assoc():
 
-	coaddfiles = pplib.choosefiles('coadd*.crop.fits')
+	coaddfiles = pplib.choosefiles('coadd*_?.ref.fits')
 
 	ra1arr  = []
 	dec1arr = []
@@ -58,6 +58,7 @@ def assoc():
 	dectop  = min(dec2arr)
 
 	#Crops data so the size of every filter image matches and saves to file 'coadd*.crop.multi.fits'
+	#Same for weight file
 	for files in coaddfiles:
 
 		newfile = files[:-4]+'multi.fits'
@@ -69,6 +70,16 @@ def assoc():
 		[[x1,y1],[x2,y2]] = w.wcs_world2pix([[raleft, decbot], [raright, dectop]], 0)
 		
 		pplib.hextractlite(newfile, data, fitsheader, x1+1, x2, y1+1, y2)
+		
+		wnewfile = files[:-4]+'multi.weight.fits'
+		wfitsfile = pf.open(files[:-4]+'weight.fits')
+		wfitsheader = wfitsfile[0].header
+		wdata = wfitsfile[0].data
+	
+		w = wcs.WCS(wfitsheader)
+		[[x1,y1],[x2,y2]] = w.wcs_world2pix([[raleft, decbot], [raright, dectop]], 0)
+		
+		pplib.hextractlite(wnewfile, wdata, wfitsheader, x1+1, x2, y1+1, y2)
 
 	#Crops the multicolor fits file so it matches the same coordinates
 	mixfile = 'multicolor.fits'
@@ -85,14 +96,17 @@ def assoc():
 	
 	#Make sure configuration file is in current working directory, if not copy it from
 	#location where this code is stored
-	if not os.path.exists('ratir_nir.sex'): 
-		os.system('cp '+propath+'/defaults/ratir_nir.sex .')
+	if not os.path.exists('ratir_weighted.sex'): 
+		os.system('cp '+propath+'/defaults/ratir_weighted.sex .')
 	
 	if not os.path.exists('temp.param'): 
 		os.system('cp '+propath+'/defaults/temp.param .')
 		
-	if not os.path.exists('sex.conv'): 
-		os.system('cp '+propath+'/defaults/sex.conv .')
+	if not os.path.exists('ratir.conv'): 
+		os.system('cp '+propath+'/defaults/ratir.conv .')
+				
+	if not os.path.exists('ratir_nir.nnw'): 
+		os.system('cp '+propath+'/defaults/ratir_nir.nnw .')
 
 	#Uses sextractor to find the magnitude and location of sources for each file
 	#Saves this information into 'fluxes2_*.txt' files
@@ -110,6 +124,5 @@ def assoc():
 
 		#Call to sextractor in double image mode (image1 used for detection of sources, image2 only for measurements - must be same size) 
 		#"sex image1, image2 -c configuration file" uses multicolor file for source detection and filter file for magnitude measurements
-	
-		os.system('sex ' + mixfile + ', ' + compfile + ' -c "ratir_nir.sex"')
+		os.system('sex ' + mixfile + ', ' + compfile + ' -WEIGHT_IMAGE '+ compfile[:-4]+'weight.fits' + ' -c "ratir_weighted.sex"')
 		os.system('mv -f temp.cat fluxes2_'+filter+'.txt')

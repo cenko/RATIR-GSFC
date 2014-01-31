@@ -27,7 +27,6 @@ from scipy.misc import bytescale
 import pylab as pl
 import scipy as sp
 from astropy import wcs
-import time
 
 import photprocesslibrary as pplib
 import printratirhtml
@@ -54,7 +53,9 @@ def plotratir():
     	plotdict[name] = np.zeros(arr_size)
 
     # retrieve detection files
-    zffiles = pplib.choosefiles( 'coadd*_?.crop.multi.fits' )
+    
+    
+    zffiles = pplib.choosefiles( 'coadd*_?.ref.multi.fits' )
 
     #Save filter and data from each file into arrays and find overlapping stars
     #between filter files using final photometry file (comparing distances from RA and DEC)
@@ -103,7 +104,7 @@ def plotratir():
             compmagerr = magerr
             
             #For each source in file find any sources that are within 1 arcsecond
-            #if these exist then stor information in same index but different filter's magnitude
+            #if these exist then store information in same index but different filter's magnitude
             #array.  If these don't exist, put on the end of filter's (and position) arrays
             #to signify a new source
 
@@ -120,15 +121,45 @@ def plotratir():
                     plotdict[cfilter+'mag'][nstars]    = compmag[j]
                     plotdict[cfilter+'magerr'][nstars] = compmagerr[j]
                     nstars += 1
-                    
+    
     imgarr = np.array(imgarr)
 	
 	#Save stars to finalmags.txt with correct format and removes zeros
     store = np.zeros(nstars)
     for name in names:
     	store = np.vstack( (store,plotdict[name][:nstars]) )
-    	
+    
     store = store[1:, :] #Removes 0's from initialization
+
+    #Finds sources that are cut off on at least one filter using weight maps
+    #and checking if 25% of the number of pixels in a 10 pixel radius circle
+    #are 0 in the weight map of each filter (i.e. cut off)
+    sra = store[0]
+    sdec = store[1]   
+    removesource = []
+    
+    for s in np.arange(len(sra)):
+    	for file in zffiles:
+    		nzero = 0
+    		wmultifile = file[:-4]+'weight.fits'
+    		hlist = pf.open(wmultifile)
+    		wdata = hlist[0].data
+    		wh    = hlist[0].header
+    		w     = wcs.WCS(wh)
+    		spix  = w.wcs_world2pix(sra[s],sdec[s], 1)
+    		
+    		wcir  = pplib.circle(spix[0],spix[1],10)
+    		ncir  = len(wcir)
+    		for coord in wcir:
+    			if (wh['NAXIS1'] > coord[0] > 0) & (wh['NAXIS2'] > coord[1] > 0):
+    				if wdata[int(coord[1])][int(coord[0])] == 0: nzero += 1
+    			else:
+    				ncir -= 1
+    		if nzero >= 0.25*ncir: 
+    			removesource.append(s)
+    			break    
+
+    store = np.delete(store, removesource, axis=1)
     np.savetxt('finalmags.txt', store.T, fmt='%12.6f')
     
     #Find the index of the file that corresponds to each filter and save 
@@ -139,12 +170,10 @@ def plotratir():
     	except ValueError:
     		pass
 
-
 	#Determines colors based on which filters are present.  
 	#Red = J/H, green = z/y, blue = r/i
 	#If neither filter present, set to 0, if one present, use imgarr of data from that filter
-	#if both present use half from imgarr of data from each filter
-	
+	#if both present use half from imgarr of data from each filter	
 	def fcolor(filt1, filt2, ifiltdict, imgarr):
 	
 		if filt1 and filt2 in ifiltdict:
@@ -197,6 +226,23 @@ def plotratir():
     pl.imshow( color, interpolation='None', origin='lower' )
     sp.misc.imsave( 'color.png', color )
     
+    #Find aperture size to make circles around sources that match sextractor aperture
+    pline=''
+    sfile = open('ratir_weighted.sex', 'r')
+    for line in sfile:
+    	if 'PHOT_APERTURES' in line: pline=line
+    sfile.close()
+    
+    bpline = pline.split()	
+    
+    if len(bpline) != 0:
+    	aper = int(bpline[1])/2.0 #radius
+    else:
+    	aper = 10
+    
+    objra  = store[0]
+    objdec = store[1]
+    
     #Plot each image with circles on star identification
     for i in range(len(zffiles)):
     	ifile   = zffiles[i]
@@ -215,24 +261,24 @@ def plotratir():
     	
     	# Parse the WCS keywords in the primary HDU    	
     	w       = wcs.WCS(h)
-    	world   = np.transpose([plotdict['ra'], plotdict['dec']])
+    	world   = np.transpose([objra, objdec])
     	pixcrd  = w.wcs_world2pix(world, 1)
     	
-    	fs = 12
+    	fs = 20
     	fw = 'normal'
-    	lw = 1
+    	lw = 2
     	
     	#For each star create a circle and plot in green
     	#If pixel coordinates of star (from WCS conversion of RA and DEC) and within the 
     	#x and y limits, then put text on right side, otherwise put on left
-    	for j in range(nstars):
-    		ctemp = pplib.circle( pixcrd[j][0]/scalefactor, pixcrd[j][1]/scalefactor, 10 ).T
+    	for j in range(len(objra)):
+    		ctemp = pplib.circle( pixcrd[j][0]/scalefactor, pixcrd[j][1]/scalefactor, aper ).T
     		pl.plot( ctemp[0], ctemp[1], c='#00ff00', lw=lw )
     		if pixcrd[j][0]/scalefactor+40 < xlims[1] and pixcrd[j][1]/scalefactor+20 < ylims[1]:
     			pl.text( pixcrd[j][0]/scalefactor+15, pixcrd[j][1]/scalefactor, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
     		else:
-    			pl.text( pixcrd[j][0]/scalefactor-30, pixcrd[j][1]/scalefactor-10, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
-    	
+    			pl.text( pixcrd[j][0]/scalefactor-45, pixcrd[j][1]/scalefactor-20, `j`, color='#00ff00', fontsize=fs, fontweight=fw )
+    			
     	#Label plot and remove axes, save to filename+.png
     	pl.text( 0.2*xlims[1], 0.9*ylims[1], cfilter+'-Band', color='r', fontsize=fs, fontweight=fw )
         a = pl.gca()

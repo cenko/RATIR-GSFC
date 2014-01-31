@@ -59,7 +59,7 @@ def printratirhtml():
 
 	f.write( '<BR><HR><FONT SIZE="+2" COLOR="#006600">AB System Photometry (sources within 1 arcmin):</FONT><BR>\n' )
 	f.write( 'Notes: Non-zero magnitudes with uncertainty of zero are 3-sigma upper limits.  Sources with magnitudes of 0.0000 are unobserved.<BR>\n' )
-
+	f.write( '		 Circles in images above match aperture size used in sextractor.<BR>\n' )
 	f.write( '<br />\n' )
 
 	#Writes table with all magnitudes
