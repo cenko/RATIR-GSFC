@@ -112,10 +112,12 @@ ratautoproc, datadir='raw/', redo=1
 
 	- nocrclean (if set skips cosmic ray cleaning)	
 	
-Runs these steps in this order unless specified:	
+* Runs these steps in this order unless specified:	
 
-* steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']
-		
+	- steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']
+	
+Description of each step:
+
 1. Prepare (*autopipeprepare.pro*, *pipeprepare.pro*)
 
 	- Header information manipulation and bias subtraction for images with master bias files
