@@ -151,15 +151,16 @@ Description of each step:
 
 ### 3.1 Run autoredux.py
 
-Run this python scrip from the photometry folder.
+Run this python script from the photometry folder.
 
 Can automatically run full photometry reduction using *autoredux.py*  
 Needs to run inside directory with coadd*.fits files:
 
-```python
-import autoredux
-autoredux.autoredux()
-```
+```python ```
+
+```import autoredux```
+
+```autoredux.autoredux()```
 
 *autoredux.py* runs the following programs in this order:
 
@@ -189,4 +190,4 @@ autoredux.autoredux()
 
 	- plotratir.py
 
-The sandbox was meant as a place to test new code developement.  Note that any changes made to this directory will not be reflected in the repository.
+The sandbox was meant as a place to test new code development.  Note that any changes made to this directory will not be reflected in the repository.
