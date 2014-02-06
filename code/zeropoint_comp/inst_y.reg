@@ -1,0 +1,13 @@
+# Region file format: DS9 version 4.0
+
+global color=red
+circle(77.973,1682.905, 10) #text='0'
+circle(506.844,1447.312, 10) #text='1'
+circle(369.451,1213.674, 10) #text='2'
+circle(443.277,852.592, 10) #text='3'
+circle(409.778,884.997, 10) #text='4'
+circle(150.411,705.927, 10) #text='5'
+circle(220.114,594.33, 10) #text='6'
+circle(135.537,570.838, 10) #text='7'
+circle(368.115,394.786, 10) #text='8'
+circle(237.711,312.99, 10) #text='9'
