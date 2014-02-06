@@ -1,6 +1,6 @@
 # Region file format: DS9 version 4.0
 
-global color=red
+global color=red font="helvetica 14 normal" 
 circle(423.31,1612.0, 10) #text='0'
 circle(579.525,1498.544, 10) #text='1'
 circle(282.975,1377.432, 10) #text='2'
