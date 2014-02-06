@@ -42,7 +42,8 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 	;Copies necessary parameter file for sextractor if not in current working directory
 	if file_test('source.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/source.param .'
 	if file_test('sex_source.config') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/sex_source.config .'
-
+	if file_test('sex.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/sex.conv .'
+	
 	;Finds files with given prefix CHANGE FOR RIMAS VLT
 	prefchar = '2'
 
