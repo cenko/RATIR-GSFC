@@ -156,11 +156,10 @@ Run this python script from the photometry folder.
 Can automatically run full photometry reduction using *autoredux.py*  
 Needs to run inside directory with coadd*.fits files:
 
-```python ```
-
-```import autoredux```
-
-```autoredux.autoredux()```
+```python
+import autoredux
+autoredux.autoredux()
+```
 
 *autoredux.py* runs the following programs in this order:
 
