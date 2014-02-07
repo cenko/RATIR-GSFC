@@ -71,16 +71,14 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
   	if n_elements(namefixfiles) gt 1 then namefixfiles = namefixfiles[1:*] else delvarx, namefixfiles
 	
 	
-	;Finds any master bias files
+	;Finds any master bias files and filter name from header keyword
 	biasfiles = findfile(pipevar.imworkingdir+'bias*', count=bct)
 	biasfilter = []
 	if bct gt 0 then begin
 	
 		for i = 0, n_elements(biasfiles)-1 do begin
-			;Find filter name from character after bias_ in bias name
-			cbiasfile  = biasfiles[i]
-			pos        = strpos(cbiasfile, 'bias_')
-			filter     = strmid(cbiasfile, pos+5,1)
+			header = headfits(biasfiles[i])
+			filter = sxpar(header,'FILTER')
 			biasfilter = [biasfilter,filter]
 		endfor
 		
