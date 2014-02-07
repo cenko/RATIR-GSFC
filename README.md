@@ -157,15 +157,13 @@ Can automatically run full photometry reduction using *autoredux.py*
 Needs to run inside directory with coadd*.fits files:
 
 ```python
-import autoredux
-autoredux.autoredux()
+from autoredux import *
+autoredux()
 ```
 
 *autoredux.py* runs the following programs in this order:
 
-1. Identify point sources in individual frames after cropping (automatic crop
-
-	- using weight files, can run manual crop using manualcrop keyword).
+1. Identify point sources in individual frames after cropping (automatic crop using weight files, can run manual crop using manualcrop keyword).
 
 	- icoords.py
 
