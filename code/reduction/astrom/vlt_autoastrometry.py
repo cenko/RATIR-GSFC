@@ -779,6 +779,9 @@ def main():
     
     if not os.path.exists('sex.conv'):    
     	shutil.copyfile(propath+'sex.conv', 'sex.conv')    
+    	
+    if not os.path.exists('default.nnw'):    
+    	shutil.copyfile(propath+'default.nnw', 'default.nnw') 
 
     nimage = len(files)
     failures = []

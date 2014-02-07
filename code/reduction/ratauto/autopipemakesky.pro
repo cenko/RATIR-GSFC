@@ -43,6 +43,7 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 	if file_test('source.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/source.param .'
 	if file_test('sex_source.config') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/sex_source.config .'
 	if file_test('sex.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/sex.conv .'
+	if file_test('default.nnw') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.nnw .'
 	
 	;Finds files with given prefix CHANGE FOR RIMAS VLT
 	prefchar = '2'
