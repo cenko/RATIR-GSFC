@@ -72,17 +72,21 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 	
 	
 	;Finds any master bias files and filter name from header keyword
+	;MUST CHANGE FOR RIMAS Assumes camera name is in filename before '.'
 	biasfiles = findfile(pipevar.imworkingdir+'bias*', count=bct)
-	biasfilter = []
+	biascamera = []
 	if bct gt 0 then begin
 	
 		for i = 0, n_elements(biasfiles)-1 do begin
 			header = headfits(biasfiles[i])
-			filter = sxpar(header,'FILTER')
-			biasfilter = [biasfilter,filter]
+			;camera = sxpar(header,'CCD_NAME')
+			camera = strmid(biasfiles[i], strpos(biasfiles[i], '.', /reverse_search)-1,1)
+			biascamera = [biascamera,camera]
 		endfor
 		
 	endif
+	
+	print, biascamera
 
 	;For each file (that doesn't have an existing p file or can be overwritten), run pipeprepare on it with
 	;output file being saved into the imworkingdir, will run bias subtraction if bias master available (checks
@@ -96,10 +100,10 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
      	outnameim = pipevar.imworkingdir + 'p' + fileroot
      	matchi = where(outnameim eq pfiles, ct)
      	
-		filter = strmid(files[f], strpos(files[f], '.', /reverse_search)-1,1)
-		filloc = where(filter eq biasfilter, realfil)
+		camera = strmid(files[f], strpos(files[f], 'o_', /reverse_search)-1,1)
+		camloc = where(camera eq biascamera, realcam)
 		
-		if realfil gt 0 then biasfile = biasfiles[filloc] else biasfile=''
+		if realcam gt 0 then biasfile = biasfiles[camloc] else biasfile=''
 
      	if ct eq 0 or pipevar.overwrite gt 0 then begin
 			pipeprepare, files[f], outname=outnameim, namefixfiles=namefixfiles, biasfile=biasfile

@@ -148,19 +148,17 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 	mandatorykey = ['SIMPLE','BITPIX','NAXIS','NAXIS1','NAXIS2', $
  					'HISTORY','CTIME','USEC','JD','DATE-OBS','EXPOSURE', $
  					'EXPTIME','INSTRUME','OBSERVAT','TELESCOP','ORIGIN', $
- 					'LATITUDE','LONGITUD','FOC_NAME','SCRIPREP','SCRIPT',$
- 					'SCR_COMM','COMM_NUM','CCD_TYPE','CCD_SER','SATURATE',$
+ 					'LATITUDE','LONGITUD','CCD_TYPE','CCD_SER','SATURATE',$
  					'RDNOISE','BINNING','BINY','BINX','WAVELENG','TARGNAME',$
  					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PXSCALE',$
  					'SUN_ALT','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
  					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
- 					'SOFTGAIN','FILTER','SCRA','SCRB','SCRC1','SCRC2','SCRC3','SCRC4',$
- 					'SCRATR','SCRBTR','SCRC1TR','SCRC2TR','SCRC3TR','SCRC4TR',$
- 					'AVERAGE','STDEV','GAIN','AIRMASS']
+ 					'SOFTGAIN','FILTER','AVERAGE','STDEV','GAIN','AIRMASS','CCD_NAME']
  
  	;Finds list of unnecessary keywords, then deletes entire list
 	unneckey = ''
 	newheader = header
+		
 		
 	h = strsplit(header,/EXTRACT)
 	unneckey = strarr(n_elements(h))
