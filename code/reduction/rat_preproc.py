@@ -146,7 +146,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], auto=False, 
 					
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
-					print '\n{}'.format( fits_fn )
+					print '{}'.format( fits_fn )
 
 					# open data
 					hdulist = pf.open( fits_fn )
@@ -155,7 +155,7 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], auto=False, 
 
 					# all bias frames are selected
 					if auto and ftype is af.BIAS_NAME:
-						fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
+						fout = open( '{}_{}.list'.format( ftype, cam_i ), 'a' ) # append if this filter's list exists
 						fout.write( fits_id + '\n' ) # write new file name to list
 						fout.close()
 
@@ -233,130 +233,131 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], auto=False, 
 			except IOError:
 				print "Warning: {} not found.  Skipping camera {}.".format( fn_list, cam_i )
 			else:
-				fout = [open( '{}_{}.list'.format( ftype, af.H2RG_FILTERS[cam_i-2] ), 'w' ), open( '{}_{}.list'.format( ftype, af.H2RG_FILTERS[cam_i] ), 'w' )] # create list files for new img FITs files (e, w)
-				
-				# look at FITs data sequentially
+				isfoutopen = False
+				# H2RGs do not have bias frames.  inform user
+				if auto and ftype is af.BIAS_NAME:
+					print "\t* Warning: H2RG detectors do not have {} frames.  Skipping...".format( af.BIAS_NAME )
+				else: 
+					fout = [open( '{}_{}.list'.format( ftype, af.H2RG_FILTERS[cam_i-2] ), 'w' ), open( '{}_{}.list'.format( ftype, af.H2RG_FILTERS[cam_i] ), 'w' )] # create list files for new img FITs files (e, w)
+					isfoutopen = True
+					
+				# look at FITs data sequentially					
 				for line in fin:
 					
 					fits_fn = line.rstrip() # current fits file name with return removed
 					fits_id = fits_fn.split('.')[0] # fits file name with extention removed
-					print '\n{}'.format( fits_fn )
+					print '{}'.format( fits_fn )
 
 					# open data
 					hdulist = pf.open( fits_fn )
 					im = hdulist[0].data
 					h = hdulist[0].header
-					
-					# H2RGs do not have bias frames.  inform user
-					if auto and ftype is af.BIAS_NAME:
-						print "\t* Warning: H2RG detectors do not have {} frames.  Skipping...".format( af.BIAS_NAME )
 
+					# rotate FITs data to align with filters (Z/J in E-left, Y/H in W-right)
+					im = np.rot90( im, af.CAM_ROTAT[cam_i] )
+					if cam_i == 3:
+						im = np.flipud( im ) # flip C3 about y axis
+						
+					# Let user determine if the image is good or not
+					implot = zoom( im, ZOOM_LVL ) # change image size for display
+					imleft = im[af.H2RG_SLICES[cam_i-2]]
+					mleft = np.median( imleft )
+					sleft = af.robust_sigma( imleft )
+					imright = im[af.H2RG_SLICES[cam_i]]
+					mright = np.median( imright )
+					sright = af.robust_sigma( imright )
+					print '\t* Median of left side is {} counts'.format( mleft )
+					print '\t* Median of right side is {} counts'.format( mright )
+						
+					# select non-saturated flat frames with sufficient counts
+					if auto and ftype is af.FLAT_NAME:
+
+						# check whether median values are in specified range
+						sat_pt = af.CAM_SATUR[cam_i](h['SOFTGAIN'])
+						vmin = amin * sat_pt; vmax = amax * sat_pt
+
+						# left side
+						if mleft > vmin and mleft < vmax:
+							print "\t* Left side selected."
+							imfits_left = '{}_{}_{}.fits'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i-2] )
+							h['FILTER'] = af.H2RG_FILTERS[cam_i-2]
+							pf.writeto( imfits_left, imleft, header=h, clobber=True ) # save left frame
+							fout[0].write( '{}_{}_{}\n'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i-2] ) ) # write new file name to list
+						else:
+							if mleft < vmin:
+								print "\t* Left side rejected:\tUNDEREXPOSED."
+							else:
+								print "\t* Left side rejected:\tSATURATED."
+
+						# right side
+						if mright > vmin and mright < vmax:
+							print "\t* Right side selected."
+							imfits_right = '{}_{}_{}.fits'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i] )
+							h['FILTER'] = af.H2RG_FILTERS[cam_i]
+							pf.writeto( imfits_right, imright, header=h, clobber=True ) # save object frame
+							fout[1].write( '{}_{}_{}\n'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i] ) ) # write new file name to list
+						else:
+							if mleft < vmin:
+								print "\t* Right side rejected:\tUNDEREXPOSED."
+							else:
+								print "\t* Right side rejected:\tSATURATED."
+
+					# display image and prompt user
 					else:
-
-						# rotate FITs data to align with filters (Z/J in E-left, Y/H in W-right)
-						im = np.rot90( im, af.CAM_ROTAT[cam_i] )
-						if cam_i == 3:
-							im = np.flipud( im ) # flip C3 about y axis
-						
-						# Let user determine if the image is good or not
-						implot = zoom( im, ZOOM_LVL ) # change image size for display
-						imleft = im[af.H2RG_SLICES[cam_i-2]]
-						mleft = np.median( imleft )
-						sleft = af.robust_sigma( imleft )
-						imright = im[af.H2RG_SLICES[cam_i]]
-						mright = np.median( imright )
-						sright = af.robust_sigma( imright )
-						print '\t* Median of left side is {} counts'.format( mleft )
-						print '\t* Median of right side is {} counts'.format( mright )
-						
-						# select non-saturated flat frames with sufficient counts
-						if auto and ftype is af.FLAT_NAME:
-
-							# check whether median values are in specified range
-							sat_pt = af.CAM_SATUR[cam_i](h['SOFTGAIN'])
-							vmin = amin * sat_pt; vmax = amax * sat_pt
-
-							# left side
-							if mleft > vmin and mleft < vmax:
-								print "\t* Left side selected."
+						# display image and prompt user
+						pl.subplot(121)
+						pl.subplots_adjust(left=0.125, bottom=0.1, right=0.9, top=0.9, wspace=0.0, hspace=0.2)
+						axim = pl.imshow( imleft, vmin=mleft-5*sleft, vmax=mleft+5*sleft, origin='lower', cmap=pl.cm.gray )
+						axim.axes.set_xticks([axim.axes.get_xlim()[0]])
+						axim.axes.set_xticklabels(['E'])
+						axim.axes.set_yticks(axim.axes.get_ylim())
+						axim.axes.set_yticklabels(['S','N'])
+						pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(mleft), sleft ) )
+						pl.subplot(122)
+						axim = pl.imshow( imright, vmin=mright-5*sright, vmax=mright+5*sright, origin='lower', cmap=pl.cm.gray )
+						axim.axes.set_xticks([axim.axes.get_xlim()[1]])
+						axim.axes.set_xticklabels(['W'])
+						axim.axes.set_yticks([])
+						pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(mright), sright ) )
+							
+						# query user until valid response is provided, Z & J face the EASTERN part of the field
+						valid_entry = False
+						while not valid_entry:
+							direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+								
+							if direction.lower() == 'y':
+									
 								imfits_left = '{}_{}_{}.fits'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i-2] )
 								h['FILTER'] = af.H2RG_FILTERS[cam_i-2]
-								pf.writeto( imfits_left, imleft, header=h, clobber=True ) # save left frame
+								pf.writeto( imfits_left, imleft, header=h, clobber=True ) # save object frame
 								fout[0].write( '{}_{}_{}\n'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i-2] ) ) # write new file name to list
-							else:
-								if mleft < vmin:
-									print "\t* Left side rejected:\tUNDEREXPOSED."
-								else:
-									print "\t* Left side rejected:\tSATURATED."
-
-							# right side
-							if mright > vmin and mright < vmax:
-								print "\t* Right side selected."
+									
 								imfits_right = '{}_{}_{}.fits'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i] )
 								h['FILTER'] = af.H2RG_FILTERS[cam_i]
 								pf.writeto( imfits_right, imright, header=h, clobber=True ) # save object frame
 								fout[1].write( '{}_{}_{}\n'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i] ) ) # write new file name to list
-							else:
-								if mleft < vmin:
-									print "\t* Right side rejected:\tUNDEREXPOSED."
-								else:
-									print "\t* Right side rejected:\tSATURATED."
-
-						# display image and prompt user
-						else:
-							# display image and prompt user
-							pl.subplot(121)
-							pl.subplots_adjust(left=0.125, bottom=0.1, right=0.9, top=0.9, wspace=0.0, hspace=0.2)
-							axim = pl.imshow( imleft, vmin=mleft-5*sleft, vmax=mleft+5*sleft, origin='lower', cmap=pl.cm.gray )
-							axim.axes.set_xticks([axim.axes.get_xlim()[0]])
-							axim.axes.set_xticklabels(['E'])
-							axim.axes.set_yticks(axim.axes.get_ylim())
-							axim.axes.set_yticklabels(['S','N'])
-							pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(mleft), sleft ) )
-							pl.subplot(122)
-							axim = pl.imshow( imright, vmin=mright-5*sright, vmax=mright+5*sright, origin='lower', cmap=pl.cm.gray )
-							axim.axes.set_xticks([axim.axes.get_xlim()[1]])
-							axim.axes.set_xticklabels(['W'])
-							axim.axes.set_yticks([])
-							pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(mright), sright ) )
-							
-							# query user until valid response is provided, Z & J face the EASTERN part of the field
-							valid_entry = False
-							while not valid_entry:
-								direction = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
-								
-								if direction.lower() == 'y':
 									
-									imfits_left = '{}_{}_{}.fits'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i-2] )
-									h['FILTER'] = af.H2RG_FILTERS[cam_i-2]
-									pf.writeto( imfits_left, imleft, header=h, clobber=True ) # save object frame
-									fout[0].write( '{}_{}_{}\n'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i-2] ) ) # write new file name to list
-									
-									imfits_right = '{}_{}_{}.fits'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i] )
-									h['FILTER'] = af.H2RG_FILTERS[cam_i]
-									pf.writeto( imfits_right, imright, header=h, clobber=True ) # save object frame
-									fout[1].write( '{}_{}_{}\n'.format( fits_id, ftype, af.H2RG_FILTERS[cam_i] ) ) # write new file name to list
-									
-									valid_entry = True
+								valid_entry = True
 								
-								elif direction.lower() == 'q': # exit function
-									print "Exiting..."
-									os.chdir( start_dir ) # move back to starting directory
-									pl.close('all') # close image to free memory
-									return
+							elif direction.lower() == 'q': # exit function
+								print "Exiting..."
+								os.chdir( start_dir ) # move back to starting directory
+								pl.close('all') # close image to free memory
+								return
 								
-								elif direction.lower() != 'n': # invalid case
-									print "'{}' is not a valid entry.".format( direction )
+							elif direction.lower() != 'n': # invalid case
+								print "'{}' is not a valid entry.".format( direction )
 								
-								else: # 'N' selected, skip
-									valid_entry = True
+							else: # 'N' selected, skip
+								valid_entry = True
 
 					hdulist.close() # close FITs file
 					pl.close('all') # close image to free memory
 
 				# close files
 				fin.close()
-				for f in fout: f.close()
+				if isfoutopen:
+					for f in fout: f.close()
 
 	# move back to starting directory
 	os.chdir( start_dir )
@@ -800,17 +801,22 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 		return
 
 	# if making masters for all bands, search for lists
-	if bands.upper() == 'ALL':
-		ltemp = glob( '{}_*.list'.format(mtype) )
-		bands = []
-		for f in ltemp: bands.append( f.split('_')[1].split('.')[0] )
+	if isinstance(bands, str):
+		if bands.upper() == 'ALL':
+			ltemp = glob( '{}_*.list'.format(mtype) )
+			bands = []
+			for f in ltemp: bands.append( f.split('_')[1].split('.')[0] )
 	elif type(bands) is not list:
 		print "Error: bands must either be \"ALL\" or a list of desired filters."
 		os.chdir( start_dir ) # move back to starting directory
 		return
 
+	sorttype = 'BAND'
+
 	if mtype is af.BIAS_NAME:
-		_prep_bias_list( cams=bands, workdir=workdir )
+		_prep_bias_list( cams=bands, workdir='.' )
+		sorttype = 'CAMERA' 
+		
 
 	d = os.getcwd().split('/')[-1] # name of current directory
 	print "\n* * * making master {} frame in {} * * *".format( mtype, d )
@@ -819,7 +825,7 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 	for band in bands:
 
 		# print current band
-		print "\n* * * {} BAND * * *".format( band )
+		print "\n* * * {} {} * * *".format( band, sorttype )
 
 		flist = open( '{}_{}.list'.format( mtype, band ), 'r' )
 		hdu = pf.PrimaryHDU()
@@ -829,11 +835,16 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 		fs = flist.readlines()
 		cont = True
 		if len(fs) < fmin:
-			temp = raw_input( "Only {} frames available to make master {} for {} band.  Continue? (y/n): ".format( len(fs), mtype, band ) )
-			if temp.lower() == 'y' or temp.lower() == 'yes':
-				cont = True
-			else:
+			if len(fs) == 0:
+				print 'No frames available to make master {} for {} {}.'.format( mtype, band, sorttype.lower() )
 				cont = False
+			else:
+				temp = raw_input( "Only {} frames available to make master {} for {} {}.  Continue? (y/n): ".format( len(fs), mtype, band, sorttype.lower() ) )
+			
+				if temp.lower() == 'y' or temp.lower() == 'yes':
+					cont = True
+				else:
+					cont = False
 		if cont:
 			for f in fs:
 				fits_fn = f.rstrip() # current fits file name with return removed
@@ -854,6 +865,8 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 					os.chdir( start_dir ) # move back to starting directory
 					return
 			hdu.header['FILTER'] = filt0 # add filter keyword to master frame
+			hdu.header['CAMERA'] = band  # add camera keyword to master frame
+
 			data_arr = np.array( data_arr )
 			
 			master = af.imcombine( data_arr, type='median' )
