@@ -96,7 +96,7 @@ def icoords():
 		
 		#Read in results from sextractor and produce IRAF coordinate file save as coords(FILTER)
 		#Rename sextractor results to fluxes1_(FILTER).txt
-		x,y,ra,dec,mag,magerr,e,fwhm = np.loadtxt('temp.cat', unpack=True)
+		x,y,ra,dec,mag,magerr,e,fwhm,flag = np.loadtxt('temp.cat', unpack=True)
 		f = open('coords' + cfilter, 'w')
 		
 		for j in range(len(ra)):

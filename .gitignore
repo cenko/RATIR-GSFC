@@ -8,3 +8,15 @@ sandbox
 ###################
 
 *.pyc
+
+code/LMI_conversion/LMI_2_RATIR.py
+
+code/photometry/dependencies/LMI_get_SEDs.py
+
+code/reduction/ratauto/pipeautoproc.par
+
+code/sbc/iqlmi.py
+
+code/reduction/ratauto/pipeautoproc.par
+
+code/sbc/iqlmi.py

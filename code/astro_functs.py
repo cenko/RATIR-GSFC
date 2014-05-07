@@ -28,6 +28,9 @@ from scipy.ndimage.interpolation import zoom
 PROPOSALS = { 'NIRstandard': '0000', 'OPTstandard': '00001', 'cluster': '0002', 'galaxy': '0003', 'blank': '0004', 'pointing': '0005', 'bias': '0006', 'dark': '0007', 'flat': '0008', 'focus': '0009', 'misc': '0010', 'GRB': '1000' } # 2012 proposal names and id numbers. source: rsync://ratir.astroscu.unam.mx/public/proposalidentifiers.txt
 CAM_NAMES = [ 'C0', 'C1', 'C2', 'C3' ] # RATIR camera names
 CAM_ROTAT = [ 0, 0, 1, 1 ] # frames are rotated by value * 90 degrees
+CAM_XFLIP = [ False, False, False, False ] # frames are flipped in x
+CAM_YFLIP = [ False, False, False, True ] # frames are flipped in y
+CAM_PXSCALE = [0.32, 0.32, 0.3, 0.3] # C0, C1, C2, C3 in arcsec/px
 H2RG_FILTERS = [ 'Z', 'J', 'Y', 'H' ] # RATIR NIR bands.  0+2 are C2, 1+3 are C3
 # RATIR H2RG filter slices
 Z_SLICE = np.s_[1:1700,1:900]
@@ -43,6 +46,30 @@ CONFIG_LOCATION = 'astro_functs.py' # name of file containing configuration info
 CAM_GAIN = [ lambda SOFTGAIN: 16.80/SOFTGAIN, lambda SOFTGAIN: 18.64/SOFTGAIN, lambda SOFTGAIN: 2.2/SOFTGAIN, lambda SOFTGAIN: 2.4/SOFTGAIN ] # gain of each camera as a function of the SOFTGAIN keyword extracted from a frame's header
 CAM_SATUR = [ lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (32000./SOFTGAIN)-1, lambda SOFTGAIN: (32000./SOFTGAIN)-1 ] # saturation levels for each detector in DNs as a function of the SOFTGAIN keyword extracted from a frame's header
 CENTER_KEY = 'STRRQAP' # RATIR header keyword specifying which H2RG filters the target is focused on
+# frame corners in arcmin offset from center.  top-left, bottom-left, bottom-right, top-right.  top==north, left==east
+CAMOFFS = np.array([[[2.785,2.632], [2.604,-2.775], [-2.800,-2.615], [-2.635,2.789]],	# C0 corner offsets in arcmin
+					[[2.817,2.624], [2.607,-2.818], [-2.807,-2.624], [-2.616,2.818]],	# C1 corner offsets in arcmin
+					[[5.012,6.229], [4.569,-3.905], [-0.227,-3.678], [0.228,6.453]],	# C2-Z corner offsets in arcmin
+					[[-0.556,6.488],[-1.013,-3.642],[-5.488,-3.445], [-5.018,6.683]],	# C2-Y corner offsets in arcmin
+					[[4.834,5.430], [4.720,-4.701], [-0.324,-4.647], [-0.185,5.494]],	# C3-J corner offsets in arcmin
+					[[-0.916,5.503],[-1.059,-4.639],[-5.318,-4.594], [-5.154,5.557]]])	# C3-H corner offsets in arcmin
+FRAMECENTER = CAMOFFS.mean( axis=1 ) # field centers in arcmin (E,N) offset from center
+# Offsets of the pointing apertures east and north in arcmin
+APOFFS	= {	"rcenter":		np.array([0,0]),
+			"icenter":		np.array([0,0]),
+			"ricenter":		np.array([0,0]),
+			"riZJcenter":	np.array([1.2,0]),
+			"riYHcenter":	np.array([-1.8,0]),
+			"ZJcenter":		np.array([2.2,0.7]),
+			"YHcenter":		np.array([-3.2,0.7])}
+# return aperture center in pixels from frame center
+def APCENTER( apstr, fnum):
+	ao = APOFFS[apstr] # offset of pointing in arcmin
+	fc = FRAMECENTER[fnum] # offset of frame center in arcmin
+	if fnum < 2: ps = CAM_PXSCALE[fnum]
+	elif fnum < 4: ps = CAM_PXSCALE[2]
+	else: ps = CAM_PXSCALE[3]
+	return ((ao - fc)*60./ps).astype(np.int)
 
 """
 	Written by John Capone (jicapone@astro.umd.edu).
