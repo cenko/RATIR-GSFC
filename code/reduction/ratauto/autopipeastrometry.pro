@@ -29,6 +29,7 @@
 ;-
 pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 
+	
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
@@ -39,7 +40,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
-	
+		
 	;CHANGE FOR RIMAS
     prefchar = '2'
 	;Find files that have been processed giving zapped cosmic rays preference over unzapped
@@ -123,8 +124,8 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
        	if file_test(outfile) and pipevar.overwrite eq 0 then continue
        	h = headfits(zffiles[f], /silent)
        	exptime = sxpar(h,'ELAPTIME')
-       	counts = sxpar(h,'COUNTS')
-       	filt = sxpar(h,'FILTER')
+       	counts  = sxpar(h,'COUNTS')
+       	filt    = sxpar(h,'FILTER')
        	
        	;If count rate is high or exposure time is low then run astrometry as long as there aren't too many counts
        	;combined with a short exposure time (very bright frame).  Check that new astrometry file created (prefix 'a')
@@ -169,6 +170,38 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
        	endelse
     endfor
     
+	;TESTING 5/12/14
+	if file_test('astrom.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/astrom.param .'
+	if file_test('astrom.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/astrom.conv .'
+	
+	;Second run of astrometry using Scamp.  First identify objects using sextractor, then Scamp will solve
+	;by comparing reference catalog (currently set by default to SDSS) to sources found by sextractor
+	;Then add the WCS corrections and second astrometry parameters to header
+	acatlist = ''
+	afiles = choosefiles(prefchar+'*_img_?.fits',pipevar.imworkingdir+'azsfp',pipevar.imworkingdir+'asfp')
+	for i = 0, n_elements(afiles)-1 do begin
+		cfile = afiles[i]
+		extpos = strpos(cfile, '.')
+		trunfile = strmid(cfile, 0, extpos)
+		sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -PIXEL_SCALE 0.32 ' + cfile
+		print, sexcom
+		spawn, sexcom
+		acatlist = acatlist + ' ' + trunfile + '.cat'
+	endfor
+
+	scampcmd = "scamp -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
+	print, scampcmd
+	spawn, scampcmd
+	
+	for j = 0,n_elements(afiles)-1 do begin
+		im = afiles[j]
+		extpos = strpos(im, '.')
+		imtrunfile = strmid(im, 0, extpos)
+		
+		spawn, "missfits " + im
+		spawn, "rm " + imtrunfile + '.head ' + im + '.back'
+	endfor
+	
     outpipevar = pipevar
 end
 

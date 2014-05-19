@@ -22,6 +22,7 @@ from threading import Thread
 from time import time, strftime
 from urllib2 import urlopen
 import pickle
+import sys
 
 import multiprocessing as mp
 N_CORES = mp.cpu_count()  # use all the cpus you have
@@ -204,7 +205,7 @@ class online_catalog_query():
         return np.array(out)
     
     
-    def _query_sdss( self, container=None, cont_index=1, trim_mag=21. ):
+    def _query_sdss( self, container=None, cont_index=1, trim_mag=25. ):
         '''
         Query sdss8 server for sources found in a box of width self.boxsize (arcsecs)
         around self.coords.
@@ -220,7 +221,7 @@ class online_catalog_query():
         #  defined box size, return only basic parameters, and
         #  sort by distance from coordinates, and return only those
         #  sources brighter than trim_mag
-        request = 'findsdss8 -c "{} {}" -bs {} -lmr 0,{} -e0 -sr -m 1000000'.format( ra, dec, boxsize, trim_mag )
+        request = 'findsdss8 -c "{} {}" -bs {} -lmr 0,{} -e0 -lc 4,6 -sr -m 1000000'.format( ra, dec, boxsize, trim_mag )
         print "FINDSDSS8",ra,dec,boxsize,trim_mag
 
         out = Popen(request, shell=True, stdout=PIPE, stderr=PIPE)
@@ -239,6 +240,7 @@ class online_catalog_query():
             return output
         else:
             container[ cont_index ] = output
+        print len(sdss_objects)
     
     
     def _parse_2mass( self, s ):
@@ -743,6 +745,13 @@ class catalog():
         self.model_errors = []
         self.models = []
         self.modes = []
+        
+        #VLT
+        self.cmodes = []
+        self.serr = []
+        self.scat = []
+        self.ccoords = []
+        
         self.numcut = 0
         self.bands = ALL_FILTERS
         # this switch controls whether we ignore any catalogs.
@@ -767,6 +776,7 @@ class catalog():
         object_mags = []
         modes = []
         object_coords = []
+        cmode = -1
         if mass != None:
             if self.input_coords != None:
                 # if input coordinates were given, ignore all other objects
@@ -777,17 +787,43 @@ class catalog():
             # match sdss, apass, usnob objects to 2mass objects
             if sdss != None:
                 sdss_matches, tmp = identify_matches( mass[:,:2], sdss[:,:2] )
+                if cmode == -1:
+                	cmask = [0,-1,1,-1,2,-1,3,-1,4,-1]
+                	cmode = 0
+                	ocat = sdss              
             else:
                 sdss_matches = -9999*np.ones(len(mass), dtype='int')
             if apass != None:
                 apass_matches, tmp = identify_matches( mass[:,:2], apass[:,:2] )
+                if cmode == -1:
+                	cmask = [1,-1,2,-1,3,-1,6,-1,7,-1] 
+                	cmode = 1
+                	ocat = apass           	
             else:
                 apass_matches = -9999*np.ones(len(mass), dtype='int')
             if usnob != None:
-                usnob_matches, tmp = identify_matches( mass[:,:2], usnob[:,:2] )
+                usnob_matches, tmp = identify_matches( mass[:,:2], usnob[:,:2] ) 
+                if cmode == -1:
+                	cmask = [6,-1,8,-1]
+                	cmode = 2
+                	ocat = usnob
             else:
                 usnob_matches = -9999*np.ones(len(mass), dtype='int')
             
+            #VLT extra optical catalog objects
+            ccords = ocat[:,:2]
+            scat = np.zeros([len(ocat),13])+99
+            serr = np.zeros([len(ocat),13])+9
+            for p,val in enumerate(cmask):
+                if val != -1:
+                	scat[:,val] = ocat[:,p+2]
+                	serr[:,val] = ocat[:,p+3]
+        	
+        	self.scat = scat
+        	self.serr = serr
+        	self.ccoords = ccords
+        	self.cmodes = np.zeros(len(scat), dtype=int) + cmode
+                	          
             # Go through 2mass objects and assemble a catalog
             #  of all objects present in 2mass and (sdss or apass or usnob)
             #  Preference ranking: 2MASS + (SDSS > APASS > USNOB)
@@ -811,6 +847,8 @@ class catalog():
                 object_coords.append( obj[:2] )
         if len(object_coords) < 1:
             raise ValueError( "No good sources in this field!" )
+        
+
         
         # send all of these matches to the CPU pool to get modeled
         objects = zip( modes, object_mags )
@@ -838,7 +876,15 @@ class catalog():
         self.SEDs = np.array(self.SEDs)
         self.full_errors = np.array(self.full_errors)
         print 'cut', self.numcut, 'sources out of', len(results)
-    
+        
+        gmatch, tmp = identify_matches( self.coords, self.ccoords )
+        
+        for ind,match in enumerate(gmatch):
+        	if match > 0:
+        		self.ccoords[match] = self.coords[ind]
+        		self.scat[match] = self.SEDs[ind]
+        		self.serr[match] = self.full_errors[ind]
+        		self.cmodes[match] = self.modes[ind]
     
     def save_catalog( self, file_name ):
         save_catalog( self.coords, self.SEDs, self.full_errors, self.modes, file_name )
@@ -942,7 +988,7 @@ def calc_zeropoint( input_coords, catalog_coords, input_mags, catalog_mags, clip
         
 
 
-def zeropoint( input_file, band, output_file=None, usnob_thresh=15 ):
+def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=False ):
     '''
     Calculate <band> zeropoint for stars in <input_file>.
     
@@ -970,24 +1016,34 @@ def zeropoint( input_file, band, output_file=None, usnob_thresh=15 ):
     else:
         print 'Using',sum(mask),'USNOB, APASS, and/or SDSS sources.'
         cat_mags = c.SEDs[:, band_index]
-        cat_coords = c.coords        
-    zp, mad, matches = calc_zeropoint( input_coords, cat_coords, input_mags, cat_mags, return_zps=False )
-    
+        cat_coords = c.coords
+    if alloptstars:
+    	zp, mad, matches, ze = calc_zeropoint( input_coords, c.ccoords, input_mags, c.scat[:,band_index], return_zps=True )
+    	errors = c.serr
+    	catmag = c.scat
+    	modes  = c.cmodes
+    else:
+    	zp, mad, matches = calc_zeropoint( input_coords, cat_coords, input_mags, cat_mags, return_zps=False )
+    	errors = c.full_errors
+    	catmag = c.SEDs
+    	modes  = c.modes
+    	
+    # save matched catalog to file
     if output_file:
-        # save matched catalog to file
-        oc, os, oe, om = [],[],[],[]
-        for i,match in enumerate(matches):
-            oc.append( input_coords[i] )
-            if match >= 0:
-                os.append( c.SEDs[match] )
-                oe.append( c.full_errors[match] )
-                om.append( c.modes[match] )
-            else:
-                os.append( [99]*len(ALL_FILTERS) )
-                oe.append( [9]*len(ALL_FILTERS) )
-                om.append( -1 )
-        save_catalog( oc, os, oe, om, output_file )
-    
+    	oc, os, oe, om = [],[],[],[]
+    	for i,match in enumerate(matches):
+    		oc.append( input_coords[i] )
+    		if match >= 0:
+    			os.append( catmag[match] )
+    			oe.append( errors[match] )
+    			om.append( modes[match] )
+    		else:
+    			os.append( [99]*len(ALL_FILTERS) )
+    			oe.append( [9]*len(ALL_FILTERS) )
+    			om.append( -1 )
+    	save_catalog( oc, os, oe, om, output_file )
+    	
     return zp, mad
-
-
+    
+if __name__ == "__main__":
+    zeropoint(*sys.argv[1:])

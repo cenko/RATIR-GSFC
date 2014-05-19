@@ -85,8 +85,6 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 		endfor
 		
 	endif
-	
-	print, biascamera
 
 	;For each file (that doesn't have an existing p file or can be overwritten), run pipeprepare on it with
 	;output file being saved into the imworkingdir, will run bias subtraction if bias master available (checks
