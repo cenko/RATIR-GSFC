@@ -42,7 +42,7 @@ def calcoff():
 			filter = filter.lower()
 	
 		#Reads file and saves columns into variables
-		[x,y,ra,dec,mag_aper,magerr_aper,e,fwhm] = np.loadtxt(files, unpack=True)
+		[x,y,ra,dec,mag_aper,magerr_aper,e,fwhm,flag] = np.loadtxt(files, unpack=True)
 	
 		#Put limits on the magnitude aperture, magnitude aperture error, and fwhm
 		tmp = (mag_aper > 10) & (mag_aper < 20) & (magerr_aper < 0.4) & (fwhm < 9)

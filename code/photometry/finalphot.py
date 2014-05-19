@@ -36,7 +36,7 @@ def finalphot():
 		ifile  = 'irafoffset'+filter
 	
 		[ABoffset, err] = np.loadtxt(ifile, unpack=True)
-		[x,y,ra,dec,mag,magerr,e,fwhm] = np.loadtxt(file, unpack=True)
+		[x,y,ra,dec,mag,magerr,e,fwhm,flag] = np.loadtxt(file, unpack=True)
 	
 		#Converts to absolute magnitude (calibrates with catalog values from offset file)
 		amfile = 'finalphot'+filter+'.am'
