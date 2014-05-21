@@ -168,7 +168,7 @@ autoredux()
 1.  Creates same sampling and crop for all files, creates multicolor image and using multicolor image to find all sources, then finds photometry
 	of these sources for each (resampled) file using sextractor (with corrected zeropoint).  
 
-	- icoords.py
+	- photom.py
 
 	- Output: aperture photometry
 

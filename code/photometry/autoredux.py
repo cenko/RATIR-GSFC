@@ -1,8 +1,8 @@
-import icoords
+import photom
 import plotratir
 
 def autoredux():
-	print 'icoords'
-	icoords.icoords()
+	print 'photom'
+	photom.photom()
 	print 'plotratir'
 	plotratir.plotratir()
