@@ -1,12 +1,8 @@
 import icoords
-import calcoff
-import assoc
-import finalphot
 import plotratir
 
 def autoredux():
+	print 'icoords'
 	icoords.icoords()
-	calcoff.calcoff()
-	assoc.assoc()
-	finalphot.finalphot()
+	print 'plotratir'
 	plotratir.plotratir()

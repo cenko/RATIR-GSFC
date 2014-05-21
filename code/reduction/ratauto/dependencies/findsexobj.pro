@@ -10,7 +10,7 @@ pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=z
 	if (not keyword_set(fwhm))		then fwhm 		= 1.5	
 	if (not keyword_set(pix)) 		then pix 		= 0.3787	
 	if (not keyword_set(gain)) 		then gain 		= 25.0	
-	if (not keyword_set(aperture)) 	then aperture 	= 25.0	
+	if (not keyword_set(aperture)) 	then aperture 	= 5.0	
 	if (not keyword_set(class_cut)) then class_cut 	= 0.80	
 	if (not keyword_set(elong_cut)) then elong_cut 	= 1.30	
 	

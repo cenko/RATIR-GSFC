@@ -34,6 +34,8 @@ Outline
 	- SExtractor
 
 	- SWarp
+	
+	- Scamp (INSERT DETAILS FOR INSTALL)
 
 	- cdsclient package  
 
@@ -140,11 +142,11 @@ Description of each step:
 		
 6. Astrometry (*autopipeastrometry.pro*, *vlt_autoastrometry.py*)
 
-	- Fixes WCS coordinates by using pair-distance matching and asterism matching
+	- Fixes WCS coordinates by using pair-distance matching and asterism matching (also runs Scamp for extra astrometry correction)
 	
 7. Stack (*autopipestack.pro*)
 
-	- Uses SWarp to stack images with same filter
+	- Uses SWarp to stack images with same filter and calculates both relative and absolute zeropoint info (absolute only for coadded)
 
 3. Photometry
 -------------
@@ -163,27 +165,16 @@ autoredux()
 
 *autoredux.py* runs the following programs in this order:
 
-1. Identify point sources in individual frames after cropping (automatic crop using weight files, can run manual crop using manualcrop keyword).
+1.  Creates same sampling and crop for all files, creates multicolor image and using multicolor image to find all sources, then finds photometry
+	of these sources for each (resampled) file using sextractor (with corrected zeropoint).  
 
 	- icoords.py
 
-	- Output: initially cropped files (.crop.fits)
+	- Output: aperture photometry
 
-		- coords files for w/ RA and DEC identified by sextractor
+		- *.am (absolute magnitude) files for w/ RA and DEC identified by sextractor
 
-2. Run photometry and calculate zero points
-
-	- calcoff.py
-
-3. Run association program to make a master star list
-
-	- assoc.py
-
-4. run final photometry
-
-	- finalphot.py
-
-5. create webpage
+2. create webpage
 
 	- plotratir.py
 
