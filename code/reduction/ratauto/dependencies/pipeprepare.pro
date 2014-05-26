@@ -150,7 +150,7 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
  					'EXPTIME','INSTRUME','OBSERVAT','TELESCOP','ORIGIN', $
  					'LATITUDE','LONGITUD','CCD_TYPE','CCD_SER','SATURATE',$
  					'RDNOISE','BINNING','BINY','BINX','WAVELENG','TARGNAME',$
- 					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PXSCALE',$
+ 					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PIXSCALE',$
  					'SUN_ALT','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
  					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
  					'SOFTGAIN','FILTER','AVERAGE','STDEV','GAIN','AIRMASS','CCD_NAME']

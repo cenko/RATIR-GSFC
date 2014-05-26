@@ -79,7 +79,6 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 	
 		for i = 0, n_elements(biasfiles)-1 do begin
 			header = headfits(biasfiles[i])
-			;camera = sxpar(header,'CCD_NAME')
 			camera = strmid(biasfiles[i], strpos(biasfiles[i], '.', /reverse_search)-1,1)
 			biascamera = [biascamera,camera]
 		endfor

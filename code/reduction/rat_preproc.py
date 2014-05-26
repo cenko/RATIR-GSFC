@@ -515,6 +515,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 						if direction.lower() == 'y':
 							
 							# set keyword values
+							h['PIXSCALE'] = af.CAM_PXSCALE[cam_i]
 							h['WAVELENG'] = 'OPT'
 							h['GAIN'] = (af.CAM_GAIN[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
 							h['SATURATE'] = (af.CAM_SATUR[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
@@ -661,6 +662,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 							direction = raw_input("\nType E for EAST, W for WEST, N for NEXT, Q for QUIT: ")
 
 						if direction.lower() == 'e' or direction.lower() == 'w': # selected
+							h['PIXSCALE'] = af.CAM_PXSCALE[cam_i]							
 							h['WAVELENG'] = 'IR'
 							h['GAIN'] = (af.CAM_GAIN[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')
 							h['SATURATE'] = (af.CAM_SATUR[cam_i]( h['SOFTGAIN'] ), 'in electrons/DN')

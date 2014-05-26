@@ -51,8 +51,8 @@ def photom():
 	for i in range(numfiles):		
 		swarpstr = swarpstr + zffiles[i] + ' '
 
-	stackcmd = 'swarp ' + swarpstr + '-DELETE_TMPFILES N -WRITE_XML N -SUBTRACT_BACK N -WEIGHT_TYPE MAP_WEIGHT -PIXEL_SCALE 0.32 -IMAGEOUT_NAME multicolor.fits -WEIGHTOUT_NAME multicolor.weight.fits'
-	stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,INSTRUME,OBSERVAT,ORIGIN,CCD_TYPE,JD,SOFTGAIN,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE,SEEPIX,ABSZPT,ABSZPTSC,ABSZPRMS'
+	stackcmd = 'swarp ' + swarpstr + '-DELETE_TMPFILES N -WRITE_XML N -SUBTRACT_BACK N -WEIGHT_TYPE MAP_WEIGHT -IMAGEOUT_NAME multicolor.fits -WEIGHTOUT_NAME multicolor.weight.fits'
+	stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,INSTRUME,OBSERVAT,PIXSCALE,ORIGIN,CCD_TYPE,JD,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE,SEEPIX,ABSZPT,ABSZPTSC,ABSZPRMS'
 	print stackcmd
 	os.system( stackcmd )
 
@@ -167,10 +167,11 @@ def photom():
 	#Saves this information into 'fluxes_*.txt' files
 	for files in coaddfiles:
 
-		hdr = pf.getheader(zffiles[i])
+		hdr = pf.getheader(files)
 		filter = hdr['FILTER']
 		abszpt = hdr['ABSZPT']
 		abszprms = hdr['ABSZPRMS']
+		pixscale = hdr['PIXSCALE']
 
 		#Finds filter name and makes sure it is capitalized correctly		
 		filter = files.split('_')[1].split('.')[0]
@@ -183,8 +184,10 @@ def photom():
 		compfile = files[:-4]+'multi.fits'
 
 		#Call to sextractor in double image mode (image1 used for detection of sources, image2 only for measurements - must be same size) 
-		#"sex image1, image2 -c configuration file" uses multicolor file for source detection and filter file for magnitude measurements
-		os.system('sex ' + mixfile + ', ' + compfile + ' -WEIGHT_IMAGE '+ wmixfile+','+compfile[:-4]+'weight.fits' + ' -c ratir_weighted.sex -SEEING_FWHM 1.5 -PIXEL_SCALE 0.32 -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 -PHOT_APERTURES ' + str(hdr['SEEPIX']*1.38)+ ' -MAG_ZEROPOINT ' + str(hdr['ABSZPT']))
+		#"sex image1,image2 -c configuration file" uses multicolor file for source detection and filter file for magnitude measurements
+		os.system('sex ' + mixfile + ',' + compfile + ' -WEIGHT_IMAGE '+ wmixfile+','+compfile[:-4]+'weight.fits' + \
+			' -c ratir_weighted.sex -SEEING_FWHM 1.5 -PIXEL_SCALE '+str(pixscale)+' -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 -PHOT_APERTURES ' + \
+			str(hdr['SEEPIX']*1.38)+ ' -MAG_ZEROPOINT ' + str(hdr['ABSZPT']))
 		os.system('mv -f temp.cat fluxes_'+filter+'.txt')
 		
 		#Columns unpacked for fluxes*.txt are: (x,y,ra,dec,mag,magerr,e,fwhm,flags)
@@ -194,6 +197,9 @@ def photom():
 		magerrcol = 5
 		
 		tout = np.transpose(sexout[0:6,:]) #Only include through magerr
+		for i in np.arange(len(tout[:,magerrcol])):
+			tout[i,magerrcol] = max(tout[i,magerrcol], 0.01)
+		
 		tout[:,magerrcol] = np.sqrt(tout[:,magerrcol]**2 + abszprms**2)
 
 		tsorted =  tout[np.argsort(tout[:,magcol])]

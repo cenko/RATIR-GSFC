@@ -8,17 +8,13 @@
 ;   ratautoproc, [settings]
 ;
 ; INPUTS (all optional):
-;   datadir      - Location of raw data (current directory if unspecified)
-;   modestr      - Mode to process (imaging or spectroscopy)
-;   camerastr    - Camera to process (red or blue)
-;   chipstr      - Chip to process (left or right)
-;   start        - Start with this step, skipping previous ones
-;   stop         - End with this step, skipping subsequent ones
-;   only         - Do only this step
-;   step         -  (completely identical to only, takes precedence)
-;   chip         - Process only one chip (left or right)
-;   redo         - Repeat step(s), overwriting any existing files
-;   nocrclean    - Do not zap cosmic rays
+;   datadir 	- Location of raw data (current directory if unspecified)
+;   start		- Start with this step, skipping previous ones
+;   stop    	- End with this step, skipping subsequent ones
+;   only    	- Do only this step
+;   step    	-  (completely identical to only, takes precedence)
+;   redo    	- Repeat step(s), overwriting any existing files
+;   nocrclean	- Do not zap cosmic rays
 ;
 ; ADDITIONAL OPTIONS:
 ;   If any of the following files are found in the directory where lrisautoproc
@@ -394,16 +390,8 @@
 ; matching of apertures for multiple reobservations and red/blue...?
 ; ------------------------
 
-; -------------------------
-; need to restore the gain correction.
 
-;   start        - Start with this step, skipping previous ones
-;   stop         - End with this step, skipping subsequent ones
-;   only         - Do only this step
-;   step         -  (completely identical to only, takes precedence)
-;   redo         - Overwrite any existing products
-;   nocrclean    - Do not zap cosmic rays
-pro ratautoproc, datadirectory=datadirectory, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo
+pro ratautoproc, datadir=datadir, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo
 
 	!quiet = 1
 	close, /all
@@ -415,7 +403,7 @@ pro ratautoproc, datadirectory=datadirectory, start=start, stop=stop, only=only,
 					pipeautopath:'' , refdatapath:'', defaultspath:''}
 	
 	if keyword_set(redo) then pipevar.overwrite=1
-	if n_elements(datadirectory) gt 0 then pipevar.datadir = datadirectory		
+	if n_elements(datadir) gt 0 then pipevar.datadir = datadir		
 
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar
 
