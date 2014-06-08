@@ -26,7 +26,7 @@ function calc_zpt, trumag, obsmag, wts, sigma=sigma
 		new1 = where(wts[*,i] gt 0, n1ct)
 		if n1ct eq 0 then continue
 		newd1 = adiff1[new1,i]
-		scat1 = sMAD(newd1)
+		scat1 = 1.48 * median(abs(newd1-median(newd1)))
 		for j = 0, nstars-1 do begin
 			if abs(adiff1[j,i] - median(newd1)) gt (sigma * scat1) then begin
 				wts[j,i] = 0
@@ -50,7 +50,7 @@ function calc_zpt, trumag, obsmag, wts, sigma=sigma
 		new2 = where(wts[*,p] gt 0, n2ct)
 		if n2ct eq 0 then continue
 		newd2 = adiff2[new2,p]
-		scats[p] = sMAD(newd2)
+		scats[p] = 1.48 * median(abs(newd2-median(newd2)))
 		rmss[p] = stddev(newd2)
 	endfor
 	

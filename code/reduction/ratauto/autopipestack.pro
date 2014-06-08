@@ -106,7 +106,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       		;Keywords to carry through, change for RIMAS
       		stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,'+$
                              	'INSTRUME,OBSERVAT,ORIGIN,CCD_TYPE,JD,SOFTGAIN,'+$
-                             	'WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
+                             	'PIXSCALE,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
       		
       		 if (file_test(outfile) eq 0) or pipevar.overwrite then begin
       			;TESTING 5/14/12
@@ -117,12 +117,13 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       			istackcmd = stackcmd + ' -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' ' + textslist
       			print, istackcmd
       			spawn, istackcmd
-      		
+      			h = headfits(outfile)
+      			pixscl = sxpar(h, 'PIXSCALE')
       			;Run sextractor on coadded frame (outfile) and find stars with good PSF aperture
-      			findsexobj, outfile, 10.0, pipevar, skyval=0.0, pix=0.32, aperture=20.0, wtimage=outweightfile
+      			findsexobj, outfile, 10.0, pipevar, skyval=0.0, pix=pixscl, aperture=20.0, wtimage=outweightfile
       			h = headfits(outfile)
       			cpsfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
-      			findsexobj, outfile, 10.0, pipevar, skyval=0.0, pix=0.32, aperture=cpsfdiam, wtimage=outweightfile
+      			findsexobj, outfile, 10.0, pipevar, skyval=0.0, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile
 				refstars1 = outfile+'.stars'
 				readcol, refstars1, refnum, refxim, refyim, refmagaper, refmagerraper, refflag, refaim, refbim, refelon, reffwhmim, refclass,refxwor,refywor, reffluxaper, reffluxerraper
 				xyad, h, refxim, refyim, refra, refdec
@@ -177,10 +178,13 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				goodframes = where(finite(zpts) eq 1)
 				removedframes = []
 				newstacklist=stacklist
+				
 				if nfinct ne 0 then begin
-					for b = 0, n_elements(badframes) do begin
-						removedframes = [removedframes, stacklist[b]]
-						spawn, 'rm -f ' +stacklist[b]
+					if dir_exist(pipevar.imworkingdir+'/badzptfit') eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/badzptfit'
+
+					for b = 0, n_elements(badframes)-1 do begin
+						removedframes = [removedframes, stacklist[badframes[b]]]
+						spawn, 'mv ' + stacklist[badframes[b]] +' '+ pipevar.imworkingdir+'badzptfit/'
 					endfor
 					
 					zpts  = zpts[goodframes]
@@ -216,6 +220,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				imfile  = outfile + '.im'
 				catfile = outfile + '.cat'
 				writecol, imfile, imra, imdec, magaper
+				
+				if filter eq 'Z' or filter eq 'Y' then filter = strlowcase(filter)
 			
 				sedcmd = "python /Users/vickitoy/Research/RATIR-GSFC/code/photometry/dependencies/get_SEDs.py " + imfile + ' ' + filter + ' ' + catfile + " 15 True"
 				print, sedcmd
@@ -227,7 +233,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			
 				maghash = hash('g_mag', g_mag, 'r_mag', r_mag, 'i_mag', i_mag, 'z_mag', z_mag, 'y_mag', y_mag, 'J_mag', J_mag, 'H_mag', H_mag, 'K_mag', K_mag)
 				errhash = hash('g_err', g_err, 'r_err', r_err, 'i_err', i_err, 'z_err', z_err, 'y_err', y_err, 'J_err', J_err, 'H_err', H_err, 'K_err', K_err)
-			
+				
+				
 				refmag = maghash[filter+'_mag']
 				goodind = where(mode ne -1 and refmag lt 90.0)
 			 

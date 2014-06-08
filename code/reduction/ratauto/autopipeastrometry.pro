@@ -65,6 +65,9 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
     targets = unique(filetargets)
     filters = unique(filefilt)
 
+	dothis=0
+	if dothis eq 1 then begin
+
     ; Make a reference catalog using a representative image out of an image block (several images of the same field)
 	;For each unique target and unique filter
     for t = 0, n_elements(targets)-1 do begin
@@ -86,15 +89,17 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
              	print, targets[t], ' is a shallow field (standard or sky): not making a reference catalog.'
              	continue
           	endif
-          
+                  
           	;Use middle file from list
+
           	imagesthistarg = zffiles[thistarget]
           	refimagename = imagesthistarg[n_elements(imagesthistarg)/2]
+          	h = headfits(refimagename, /silent)
           	
           	;Run astrometry correction on this middle file that is assumed to be representative of the filter
-          	print, 'Making reference catalog for ', targets[t], ' using ', refimagename
-          	print, pipevar.autoastrocommand+' '+refimagename
-          	spawn, pipevar.autoastrocommand+' '+refimagename
+          	;print, 'Making reference catalog for ', targets[t], ' using ', refimagename
+          	;print, pipevar.autoastrocommand + refimagename
+          	;spawn, pipevar.autoastrocommand + refimagename
 
 			;The new astrometry corrected file should be saved with the same name, but with 'a' prefix
           	outfile = fileappend(refimagename,'a')
@@ -102,13 +107,13 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
           	;If astrometry corrected file was not created add to list of failed files
           	;If it was created, run truncated astrometry on corrected file (will just run sextractor
           	;and pull good sources out) using saturation level as input for sextractor
-          	if file_test(outfile) eq 0 then begin
-             	pipevar.catastrofail = pipevar.catastrofail +' '+ refimagename
-             	print, 'WARNING - astrometry on the reference image was unsuccessful!'
-          	endif else begin
-             	print, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l 55000 -q'
-             	spawn, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l 55000 -q'
-          	endelse
+          	;if file_test(outfile) eq 0 then begin
+            ; 	pipevar.catastrofail = pipevar.catastrofail +' '+ refimagename
+            ; 	print, 'WARNING - astrometry on the reference image was unsuccessful!'
+          	;endif else begin
+            ; 	print, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l 55000 -q'
+            ; 	spawn, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l 55000 -q'
+          	;endelse
           	
        	endfor
     endfor
@@ -132,6 +137,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
        	;and if was not add to failure list.
        	;If count rate too high or exposure time is too low, run astrometry using catalog of sources
        	;created from middle file of filter.  If catalog doesn't work, try direct astrometry
+       	
        	if counts/exptime gt 5000. or exptime lt 5 then begin 
          	; only do catalog astrometry for short exposures (no catalog).
           
@@ -153,15 +159,15 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
           	if strpos(targname,'flat') ge 0 then continue
           	refcatfile = strcompress(pipevar.imworkingdir+targname+'.'+filt+'.cat',/remove_all)
 
-          	if file_test(refcatfile) then begin
-             	print, targname
-             	print, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
-             	spawn, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
-          	endif else begin
-             	print, 'No reference catalog '+refcatfile+' exists for this field.'
-          	endelse
+          	;if file_test(refcatfile) then begin
+            ; 	print, targname
+            ; 	print, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
+            ; 	spawn, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
+          	;endif else begin
+            ; 	print, 'No reference catalog '+refcatfile+' exists for this field.'
+          	;endelse
           		if file_test(outfile) eq 0 then begin
-             		print, 'Refined astrometry of ', zffiles[f], ' was not successful.  Trying direct astrometry:'
+             		;print, 'Refined astrometry of ', zffiles[f], ' was not successful.  Trying direct astrometry:'
              		print, pipevar.autoastrocommand+' '+zffiles[f]
              		spawn, pipevar.autoastrocommand+' '+zffiles[f]
              		if file_test(outfile) then pipevar.relastrofail  = pipevar.relastrofail + ' ' +  zffiles[f] $
@@ -170,6 +176,12 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
        	endelse
     endfor
     
+    endif
+    
+
+	stop    
+    
+    
 	;TESTING 5/12/14
 	if file_test('astrom.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/astrom.param .'
 	if file_test('astrom.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/astrom.conv .'
@@ -177,29 +189,92 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 	;Second run of astrometry using Scamp.  First identify objects using sextractor, then Scamp will solve
 	;by comparing reference catalog (currently set by default to SDSS) to sources found by sextractor
 	;Then add the WCS corrections and second astrometry parameters to header
-	acatlist = ''
 	afiles = choosefiles(prefchar+'*_img_?.fits',pipevar.imworkingdir+'azsfp',pipevar.imworkingdir+'asfp')
-	for i = 0, n_elements(afiles)-1 do begin
-		cfile = afiles[i]
-		extpos = strpos(cfile, '.')
-		trunfile = strmid(cfile, 0, extpos)
-		sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -PIXEL_SCALE 0.32 ' + cfile
-		print, sexcom
-		spawn, sexcom
-		acatlist = acatlist + ' ' + trunfile + '.cat'
-	endfor
 
-	scampcmd = "scamp -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
-	print, scampcmd
-	spawn, scampcmd
+	afilefilt = strarr(n_elements(afiles))
+	afiletarg = strarr(n_elements(afiles))
+
+    for f = 0, n_elements(afiles)-1 do begin
+       	if afiles[f] eq '' then continue
+       	h = headfits(afiles[f], /silent)
+       	afiletarg[f]   = repstr(repstr(strtrim(sxpar(h,'TARGNAME'),2),' ', '_'),'/','_')  ; spaces cause barfing in filenames
+       	afilefilt[f]      = sxpar(h,'FILTER')
+    endfor
+
+	atargets = unique(afiletarg)
+    afilters = unique(afilefilt)
 	
-	for j = 0,n_elements(afiles)-1 do begin
-		im = afiles[j]
-		extpos = strpos(im, '.')
-		imtrunfile = strmid(im, 0, extpos)
+	for t = 0, n_elements(atargets)-1 do begin
+       	
+       	for f = 0, n_elements(afilters)-1 do begin
+			acatlist = ''
 		
-		spawn, "missfits " + im
-		spawn, "rm " + imtrunfile + '.head ' + im + '.back'
+			thisatarget = where(afiletarg eq atargets[t] and afilefilt eq afilters[f])
+			atfimages = afiles[thisatarget]
+		
+			c11arr = strarr(n_elements(atfimages))
+			c12arr = strarr(n_elements(atfimages))
+			c21arr = strarr(n_elements(atfimages))
+			c22arr = strarr(n_elements(atfimages))
+
+			for i = 0, n_elements(atfimages)-1 do begin
+				cfile = atfimages[i]	
+				h = headfits(cfile, /silent)
+       	
+       			c11arr[i] = sxpar(h, 'CD1_1')
+       			c12arr[i] = sxpar(h, 'CD1_2')
+       			c21arr[i] = sxpar(h, 'CD2_1')
+       			c22arr[i] = sxpar(h, 'CD2_2')
+			endfor
+	
+			;Remove poor astrometry fits (those straying too far from median WCS values - 10 sigma)
+			scat11 = 1.48 * median(abs(c11arr-median(c11arr)))
+			scat12 = 1.48 * median(abs(c12arr-median(c12arr)))
+			scat21 = 1.48 * median(abs(c21arr-median(c21arr)))
+			scat22 = 1.48 * median(abs(c22arr-median(c22arr)))
+			clipsig = 5.0
+			bad = where( (abs(c11arr - median(c11arr)) gt clipsig*scat11) or (abs(c12arr - median(c12arr)) gt clipsig*scat12) or $
+			  			(abs(c21arr - median(c21arr)) gt clipsig*scat21) or (abs(c22arr - median(c22arr)) gt clipsig*scat22), complement=good, ct )
+			
+			if ct gt 0 then begin
+				if dir_exist(pipevar.imworkingdir+'/badastromfit') eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/badastromfit'
+				for i=0,ct-1 do begin
+					pipevar.fullastrofail = pipevar.fullastrofail  + ' ' + atfimages[bad[i]]
+					spawn, 'mv ' + atfimages[bad[i]] +' '+ pipevar.imworkingdir+'badastromfit/'
+				endfor
+		
+				atfimages = atfimages[good]
+			endif		
+		
+			for i = 0, n_elements(atfimages)-1 do begin
+				cfile = atfimages[i]
+				extpos = strpos(cfile, '.')
+				trunfile = strmid(cfile, 0, extpos)
+		
+				h = headfits(cfile, /silent)
+       			pixscale = sxpar(h,'PIXSCALE')
+       	
+				sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -PIXEL_SCALE ' +$
+				 		strcompress(pixscale, /REMOVE_ALL) + ' ' + cfile
+				print, sexcom
+				spawn, sexcom
+				if sxpar(h, 'ASTR_NUM') gt 0 then acatlist = acatlist + ' ' + trunfile + '.cat'
+			endfor
+			
+			scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
+			print, scampcmd
+			spawn, scampcmd
+			
+	
+			for j = 0,n_elements(atfimages)-1 do begin
+				im = atfimages[j]
+				extpos = strpos(im, '.')
+				imtrunfile = strmid(im, 0, extpos)
+		
+				spawn, "missfits -WRITE_XML N " + im
+				spawn, "rm " + imtrunfile + '.head ' + im + '.back'
+			endfor
+		endfor
 	endfor
 	
     outpipevar = pipevar
