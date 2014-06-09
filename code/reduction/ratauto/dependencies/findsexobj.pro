@@ -44,7 +44,7 @@ pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=z
 			' -SEEING_FWHM ' + strcompress(fwhm, /REMOVE_ALL) + ' -CHECKIMAGE_TYPE OBJECTS' + ' -CHECKIMAGE_NAME ' + mskimg
 			
 		if keyword_set(wtimage) then begin
-			sexcommand = sexcommand + ' -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE ' + wtimage + ' -WEIGHT_THRESH ' + strcompress(wtcut,/REMOVE_ALL)
+			sexcommand = sexcommand + ' -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE ' + wtimage + ' '
 		endif
 		
 		sexcommand = sexcommand + ' ' + image
@@ -56,8 +56,8 @@ pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=z
 		
 		if file_test(starfile) then begin
 			readcol, starfile, num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper
-			keep = where( (flag eq 0) and (elon lt elong_cut) and (fwhmim gt 0.25) and (fwhmim lt 20.0) and )
-			seepix = median(fwhmim[keep])
+			keep = where( (flag eq 0) and (elon lt elong_cut) and (fwhmim gt 0.25) and (fwhmim lt 20.0), keepct )
+			if keepct le 1 then seepix=!values.f_nan else seepix = median(fwhmim[keep])
 			regfile = trunim + '.reg'
 		endif else begin
 			print, 'Failed to find Sextractor output file!'
