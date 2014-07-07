@@ -150,7 +150,13 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     #OC: Might also be good to screen for false detections created by bad columns/rows
     
     fwhmlist = fwhm[mask]
-
+    
+    #REMOVE after testing
+    print 'fwhmlist: '
+    print fwhmlist
+    print 'length of fwhmlist: '
+    print len(fwhmlist)
+	
     #Calculates the 20% value of the sextractor masked FWHM and the mode 
     #to distinguish stars from galaxies (removed by ellipticity) and cosmic rays
     if len(fwhmlist) > 5:
@@ -160,6 +166,9 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     else:
     	fwhmmode  = minfwhm
     	fwhm20    = minfwhm
+    	
+    #REMOVE after testing
+    print '0.75*fwhmmode = ', 0.75*fwhmmode, '0.9*fwhm20 = ', 0.9*fwhm20, 'minfwhm = ', minfwhm 
     
 	#Creates new FWHM cutoff to distinguish stars from cosmic rays
 	#This method done from trial and error from original program to calculate typical cutoffs between stars and cosmic

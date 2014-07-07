@@ -360,11 +360,18 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
        if parity == -1: print '   inverse parity'
        print '   center:        RA=%10.6f, dec=%9.6f' % (centerra, centerdec)
        print '   field width: %10.6f' % (fieldwidth)
-
-	#Run sextract (runs sextractor) to produce image star catalog
-    goodsexlist = astrometrysources.sextract(sfilename, nxpix, nypix, 3, 12, minfwhm=minfwhm, maxfwhm=maxfwhm, maxellip=maxellip, saturation=saturation, sexpath=sexpath)
+       
+    #START HERE!!!!!!!!
     
-    #If there are less than 4 good objects, ends program and writes images to txt and region files
+    #Run sextract (runs sextractor) to produce image star catalog
+    
+    #REMOVE following line after test
+    print 'Calling astrometrysources.sextract ', nxpix, nypix, 3, 12, minfwhm, maxfwhm, maxellip, saturation, sexpath
+    print 'Format: sextract, nxpix,nypix, border, corner, minfwhm, maxfwhm, maxellip, saturation, sexpath'
+    
+    goodsexlist = astrometrysources.sextract(sfilename, nxpix, nypix, 3, 12, minfwhm=minfwhm, maxfwhm=maxfwhm, maxellip=maxellip, saturation=saturation, sexpath=sexpath)
+	
+	#If there are less than 4 good objects, ends program and writes images to txt and region files
     ngood = len(goodsexlist)
     if ngood < 4:
        print 'Only', ngood, 'good stars were found in the image.  The image is too small or shallow, the detection'
@@ -389,9 +396,11 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     #If no catalog found after that, end program
     if catalog == '':
     
-        trycats = ['tmpsc','sdss', 'ub2', 'tmc']
+        #trycats = ['tmpsc','sdss', 'ub2', 'tmc']
+        trycats = ['tmpsc', 'ub2', 'tmc']
         for trycat in trycats:
             testqueryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + trycat +  "&ra=" + str(centerra) + "&dec=" + str(centerdec) + "&system=J2000&rad=" + str(-90)
+            print testqueryurl
             check = urllib.urlopen(testqueryurl)
             checklines = check.readlines()
             check.close()
@@ -413,6 +422,8 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     catdensity = ncat / (2*boxsize/60.)**2
     print ncat, 'good catalog objects.'
     print 'Source density of %f4 /arcmin^2' % catdensity
+    
+    #END HERE!!!!
     
     #Throws up warning if very few catalog objects, stops program if no catalog objects found
     if 0 < ncat < 5:
