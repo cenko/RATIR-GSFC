@@ -31,11 +31,13 @@ Outline
 
 		+ **ADD PACKAGE DEPENDENCIES?**
 
-	- SExtractor
+	- SExtractor (v2.19.5)
 
-	- SWarp
+	- SWarp (v2.38.0)
 	
-	- Scamp (INSERT DETAILS FOR INSTALL)
+	- Scamp (v2.0.1) (For installing with macports dependencies see http://geha.commons.yale.edu/resources/installing-photometry-tools-on-a-recent-mac/, may need to replace deprecated PLplot functions with find and replace)
+	
+	- Missfits (v2.8.0)
 
 	- cdsclient package  
 
@@ -74,6 +76,9 @@ Outline
 	In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )
 	```
 	
+	where amin, amax are used in automode to find minimum and maximum median allowed values (of saturation level) for calibration frames
+	and ftype is the type of calibration (ie. 'flat', 'bias')
+	
 5. Select science frames you want to use:
 
 	```python
@@ -86,11 +91,13 @@ Outline
 	In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )
 	```
 	
+	where fmin in the minimum number of frames allowed.
+	
 More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *rat_preproc.py* and *astro_functs.py*.
 
 ### 2.2 Run *ratautoproc.pro*
 
-This IDL script should be run from the data directory (the directory above processed data and reduction folder)
+This IDL script should be run from the data directory (the directory above processed data and reduction folder).  
 
 ```IDL
 ratautoproc, datadir='raw/', redo=1
@@ -99,6 +106,8 @@ ratautoproc, datadir='raw/', redo=1
 * *datadir* specifies where processed data is stored (should be in lower directory), will run all data in this directory  
 
 * Will save to specified directory (imworkingdir) in pipeautoproc.par
+
+* Need to move master flats and master biases into imworkingdir for bias subtraction and flat fielding
 
 * *redo* keyword overwrites previously reduction processed files
 
@@ -153,6 +162,7 @@ Description of each step:
 
 ### 3.1 Run autoredux.py
 
+Move desired coadd files ('coadd????.fits', 'coadd???.weight.fits') into a separate photometry folder.
 Run this python script from the photometry folder.
 
 Can automatically run full photometry reduction using *autoredux.py*  

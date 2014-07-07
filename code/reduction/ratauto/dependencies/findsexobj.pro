@@ -1,27 +1,58 @@
-pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=zeropt, $
-	wtimage=wtimage, wtcut=wtcut, fwhm=fwhm, pix=pix, gain=gain, aperture=aperture, $
-	minlim=minlim, minval=minval, class_cut=class_cut, elong_cut=elong_cut
+;+
+; NAME:
+;	findsexobj
+;
+; PURPOSE:
+;	Finds sextractor objects with optional input parameters and default values.  Saves
+;	object mask, starfile, and estimates the seeing from the stars found. 
+;
+; INPUTS:
+;	inlist  - input list of fits files or single fits file to run sextractor on
+;	sigma   - detection threshold and analysis threshold for sextractor
+;	pipevar - pipeline parameters (typically set in autopipedefaults.pro or ratautoproc.pro)
+;
+; OPTIONAL KEYWORDS:
+;	masksfx   - text string identifier for input for sextractor CHECKIMAGE_NAME (default is 'mask': will save mask file as filename.mask.fits)
+;	zeropt    - input value for sextractor MAG_ZEROPOINT (default is 25.0)
+;	wtimage   - file for input for sextractor WEIGHT_IMAGE (uses weight map)
+;	fwhm      - input value for sextractor SEEING_FWHM (default is 1.5)
+;	pix       - input value for sextractor PIXEL_SCALE (default is 0.3787)
+;	aperture  - input value for sextractor PHOT_APERTURES (default is 5.0)
+;	elong_cut - cutoff limit for use in FWHM calculation of elongation to eliminate non-stars (default is 1.3)
+;
+; EXAMPLE:
+;	findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile
+;
+; DEPENDENCIES:
+;	Sextractor
+;
+; Written by Brad Cenko 
+; Abridged version written by Vicki Toy 7/7/2014
+;
+; FUTURE IMPROVEMENTS:
+;	More keywords to sextractor?
+;-
+
+pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
+	wtimage=wtimage, fwhm=fwhm, pix=pix, aperture=aperture, elong_cut=elong_cut
 
 	;Set default values if keywords not set
-	if (not keyword_set(skyval)) 	then skyval		= 0.0
 	if (not keyword_set(masksfx)) 	then masksfx 	= 'mask'
 	if (not keyword_set(zeropt)) 	then zeropt 	= 25.0
 	if (not keyword_set(wtcut)) 	then wtcut 		= 0.1	
 	if (not keyword_set(fwhm))		then fwhm 		= 1.5	
 	if (not keyword_set(pix)) 		then pix 		= 0.3787	
-	if (not keyword_set(gain)) 		then gain 		= 25.0	
 	if (not keyword_set(aperture)) 	then aperture 	= 5.0	
-	if (not keyword_set(class_cut)) then class_cut 	= 0.80	
 	if (not keyword_set(elong_cut)) then elong_cut 	= 1.30	
 	
-	redo = pipevar.overwrite
-	
+	;Move necessary sextractor configuration files if they are not in current directory
 	if file_test('coadd.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/coadd.param .'
 	if file_test('coadd.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/coadd.conv .'
 	if file_test('coadd.config') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/coadd.config .'
 	if file_test('default.nnw') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.nnw .'
 
-	
+	;For each fits file run sextractor with given input parameters. Saves temp.cat as starfile, 
+	;saves starmask, and calculates seeing from starlike objects. Saves necessary parameters to header
 	for i = 0, n_elements(inlist)-1 do begin
 		if inlist[i] eq '' then continue
 		image = inlist[i]
@@ -33,18 +64,13 @@ pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=z
 		trunim = strmid(image, 0, extpos)
 		mskimg = trunim + '_' + masksfx + '.fits'
 		
-		;if file_test(starfile) and redo eq 0 then continue
-		;if file_test(mskimg)   and redo eq 0 then continue	
-		
-		;if keyword_set(minlim) then begin
-			
-		;endif
 		sexcommand = pipevar.sexcommand + ' -c coadd.config -DETECT_THRESH ' + strcompress(sigma, /REMOVE_ALL) + ' -ANALYSIS_THRESH ' + strcompress(sigma, /REMOVE_ALL) + $
 			' -PHOT_APERTURES ' + strcompress(aperture, /REMOVE_ALL) + ' -MAG_ZEROPOINT ' + strcompress(zeropt, /REMOVE_ALL) + ' -PIXEL_SCALE ' + strcompress(pix, /REMOVE_ALL) + $
 			' -SEEING_FWHM ' + strcompress(fwhm, /REMOVE_ALL) + ' -CHECKIMAGE_TYPE OBJECTS' + ' -CHECKIMAGE_NAME ' + mskimg
 			
 		if keyword_set(wtimage) then begin
-			sexcommand = sexcommand + ' -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE ' + wtimage + ' '
+			if n_elements(wtimage) eq 0 then iwtimage = wtimage else iwtimage = wtimage[i]
+			sexcommand = sexcommand + ' -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE ' + iwtimage + ' '
 		endif
 		
 		sexcommand = sexcommand + ' ' + image
@@ -54,16 +80,17 @@ pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=z
 		print, 'mv -f test.cat ' + starfile
 		spawn, 'mv -f test.cat ' + starfile
 		
+		;Calculates seeing with starlike objects
 		if file_test(starfile) then begin
 			readcol, starfile, num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper
 			keep = where( (flag eq 0) and (elon lt elong_cut) and (fwhmim gt 0.25) and (fwhmim lt 20.0), keepct )
 			if keepct le 1 then seepix=!values.f_nan else seepix = median(fwhmim[keep])
-			regfile = trunim + '.reg'
 		endif else begin
 			print, 'Failed to find Sextractor output file!'
 			seepix=!values.f_nan
 		endelse
-			
+		
+		;Writes to header	
 		h = headfits(image)
 		sxaddpar, h, 'MASKNAME', mskimg, "Object mask image from Sextractor"
 		sxaddpar, h, "STARFILE", starfile, "Objects file from Sextractor" 
@@ -74,6 +101,7 @@ pro findsexobj, inlist, sigma, pipevar, skyval=skyval, masksfx=masksfx, zeropt=z
 						
 	endfor
 	
+	;Removes config files after done
 	spawn, 'rm -f coadd.param'
 	spawn, 'rm -f coadd.conv'
 	spawn, 'rm -f coadd.config'	
