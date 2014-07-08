@@ -14,7 +14,7 @@
 ;	autopipemakesky, outpipevar=pipevar, inpipevar=pipevar
 ;
 ; DEPENDENCIES:
-;	skypipecombine, sigclipstats_vt, djs_iterstat
+;	skypipecombine_altsex, sigclipstats_vt, djs_iterstat, Sextractor
 ;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/18/2013

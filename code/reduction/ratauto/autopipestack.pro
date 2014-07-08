@@ -278,17 +278,22 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				sxaddpar, hc, 'ABSZPRMS', crmss, 'RMS of absolute zeropoint'
 			
 				;Add summary of stack information to header
-				sxaddpar, h, 'DATE'    , datestr
-        		sxaddpar, h, 'NSTACK'  , nstack
-        		sxaddpar, h, 'AIRMASS' , medair, 'Median exposure airmass'
-        		sxaddpar, h, 'AIRMIN'  , minair, 'Minimum exposure airmass'
-        		sxaddpar, h, 'AIRMAX'  , maxair, 'Maximum exposure airmass'
-        		sxaddpar, h, 'EXPOSURE', medianexp, 'Effective rescaled exposure time'
-        		sxaddpar, h, 'TOTALEXP', totalexp, 'Total summed integration time'
-        		sxaddpar, h, 'MAXEXP'  , max(stackexps), 'Length of longest exposure'
-        		sxaddpar, h, 'MINEXP'  , min(stackexps), 'Length of shortest exposure'
-        		sxaddpar, h, 'SATURATE', min(filesatval[stacki]-fileskyval[stacki])
-        		sxaddpar, h, 'MEDSKY'  , median(fileskyval[stacki], /even)
+				sxaddpar, hc, 'DATE'    , datestr
+        		sxaddpar, hc, 'NSTACK'  , nstack
+        		sxaddpar, hc, 'AIRMASS' , medair, 'Median exposure airmass'
+        		sxaddpar, hc, 'AIRMIN'  , minair, 'Minimum exposure airmass'
+        		sxaddpar, hc, 'AIRMAX'  , maxair, 'Maximum exposure airmass'
+        		sxaddpar, hc, 'EXPOSURE', medianexp, 'Effective rescaled exposure time'
+        		sxaddpar, hc, 'TOTALEXP', totalexp, 'Total summed integration time'
+        		sxaddpar, hc, 'MAXEXP'  , max(stackexps), 'Length of longest exposure'
+        		sxaddpar, hc, 'MINEXP'  , min(stackexps), 'Length of shortest exposure'
+        		sxaddpar, hc, 'SATURATE', min(filesatval[stacki]-fileskyval[stacki])
+        		sxaddpar, hc, 'MEDSKY'  , median(fileskyval[stacki], /even)
+        		
+        		for f = 0, n_elements(newstacklist)-1 do begin
+  					sxaddpar, hc, 'STACK'+strtrim(string(f),2), removepath(newstacklist[f])
+  					print, removepath(newstacklist[f])
+				endfor
         		
 				modfits, outfile, 0, hc
 				

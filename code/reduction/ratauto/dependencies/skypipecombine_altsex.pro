@@ -30,7 +30,7 @@
 ;	skypipecombine, list, 'outfile.fits', /removeobjects, type='sky'
 ;
 ; DEPENDENCIES:
-;	sigclipstats_vt.pro, djs_iterstat.pro
+;	sigclipstats_vt.pro, djs_iterstat.pro, Sextractor
 ;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/18/2013
