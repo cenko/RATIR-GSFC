@@ -22,7 +22,7 @@
 ;
 ; FUTURE IMPROVEMENTS:
 ;	MOST REFER TO pipeprepare.pro: Need to check what additional keywords need to propagate, and check if values that are set with 
-;	magic numbers can be set from existing keywords.  Possibly include prefix character into variable structure?
+;	magic numbers can be set from existing keywords.
 ;	Check pipeprepare for RIMAS, RATIR, or VLT/VT to see changes that need to be made for RIMAS pipeline
 ;	Bias subtraction based on parameter file?
 ;-
@@ -34,23 +34,20 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 ,$
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse 	
 	
-	;Prefix character for data files CHANGE NEEDED FOR RIMAS VT 
-	;Looks for existing files in given data directory using prefchar and tells user how many files found
-	
-  	prefchar = '2'
-	
-  	files  = findfile(pipevar.datadir+prefchar+'*.fits')
-  	pfiles = findfile(pipevar.imworkingdir+'p'+prefchar+'*.fits')
+	;Looks for existing files in given data directory using prefix and tells user how many files found	
+  	files  = findfile(pipevar.datadir+pipevar.prefix+'*.fits')
+  	pfiles = findfile(pipevar.imworkingdir+'p'+pipevar.prefix+'*.fits')
   	
   	if pipevar.datadir ne '' then  begin
   	
-     	print, 'Looking for raw data at: ', pipevar.datadir+prefchar+'*.fits'
+     	print, 'Looking for raw data at: ', pipevar.datadir+pipevar.prefix+'*.fits'
 
      	if n_elements(files) gt 0 then begin
         	print, 'Found ', clip(n_elements(files)), ' files'

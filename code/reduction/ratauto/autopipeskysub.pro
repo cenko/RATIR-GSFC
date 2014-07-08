@@ -20,9 +20,8 @@
 ; Modified by Vicki Toy 11/18/2013
 ;
 ; FUTURE IMPROVEMENTS:
-;	prefchar in variable structure? in skypipeproc crops to hand chosen RATIR size (different
+;	in skypipeproc crops to hand chosen RATIR size (different
 ;	for optical and infrared), automate cropping (MUST CHANGE FOR RIMAS)? 
-;	1000 offset after subtraction necessary?
 ;-
 
 pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar
@@ -32,20 +31,16 @@ pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
 
-	;CHANGE FOR RIMAS VLT
-   	prefchar = '2'
-
-	print, pipevar.imworkingdir
-
 	;Find data that needs to be sky subtracted
-   	files = findfile(pipevar.imworkingdir+'fp'+prefchar+'*img*.fits')
-   	sfiles = findfile(pipevar.imworkingdir+'sfp'+prefchar+'*img*.fits')
+   	files = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*img*.fits')
+   	sfiles = findfile(pipevar.imworkingdir+'sfp'+pipevar.prefix+'*img*.fits')
    	if n_elements(files) eq 1 and files[0] eq '' then return
 
    	

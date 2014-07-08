@@ -397,10 +397,11 @@ pro ratautoproc, datadir=datadir, start=start, stop=stop, only=only, step=step, 
 	close, /all
 	
 	; Load default parameters and interpret user arguments.
-	pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 ,$
+	pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
-					pipeautopath:'' , refdatapath:'', defaultspath:''}
+					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	
 	if keyword_set(redo) then pipevar.overwrite=1
 	if n_elements(datadir) gt 0 then pipevar.datadir = datadir		

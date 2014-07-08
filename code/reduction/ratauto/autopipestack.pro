@@ -21,7 +21,7 @@
 ; Modified by Vicki Toy 12/08/2013
 ;
 ; FUTURE IMPROVEMENTS:
-;	prefchar in variable structure?, header keywords to keep
+;	header keywords to keep
 ;-
 
 pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
@@ -31,8 +31,9 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -42,9 +43,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
     	spawn, pipevar.swarpcommand+' -d > default.swarp'
  	
  	;Find files that have had astrometry performed on them, stop program if don't exist
- 	;VLT CHANGE FOR RIMAS
-  	prefchar = '2'
-  	azffiles = findfile(pipevar.imworkingdir+'a*'+prefchar+'*_img_?.fits')
+  	azffiles = findfile(pipevar.imworkingdir+'a*'+pipevar.prefix+'*_img_?.fits')
   	if azffiles[0] eq '' then return
 
   	filetargets   = strarr(n_elements(azffiles))
@@ -233,8 +232,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				;Filter name correction
 				if filter eq 'Z' or filter eq 'Y' then filter = strlowcase(filter)
 			
-				;Create catalog star file
-				sedcmd = "python /Users/vickitoy/Research/RATIR-GSFC/code/photometry/dependencies/get_SEDs.py " + imfile + ' ' + filter + ' ' + catfile + " 15 True"
+				;Create catalog star file (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars
+				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 True"
 				print, sedcmd
 				spawn, sedcmd
 			

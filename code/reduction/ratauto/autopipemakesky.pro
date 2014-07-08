@@ -20,7 +20,7 @@
 ; Modified by Vicki Toy 11/18/2013
 ;
 ; FUTURE IMPROVEMENTS:
-;	prefchar in variable structure?, change max iteration for sigma clipping? change default values of skypipecombine?
+;	change max iteration for sigma clipping? change default values of skypipecombine?
 ;	Change source identification to be user modified?
 ;-
 
@@ -32,8 +32,9 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -45,10 +46,8 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 	if file_test('sex.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/sex.conv .'
 	if file_test('default.nnw') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.nnw .'
 	
-	;Finds files with given prefix CHANGE FOR RIMAS VLT
-	prefchar = '2'
-
-    files = findfile(pipevar.imworkingdir+'fp'+prefchar+'*sky*.fits')
+	;Finds files with given prefix
+    files = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*sky*.fits')
     
     filters =  strarr(n_elements(files))   
     

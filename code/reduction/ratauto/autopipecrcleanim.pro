@@ -21,7 +21,7 @@
 ; Modified by Vicki Toy 11/21/2013
 ;
 ; FUTURE IMPROVEMENTS:
-;	prefchar in variable structure? New zapping function??? 
+;	New zapping function??? 
 ;-
 
 pro autopipecrcleanim, outpipevar=outpipevar, inpipevar=inpipevar
@@ -31,18 +31,16 @@ pro autopipecrcleanim, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
 
-	;CHANGE FOR RIMAS VLT
-   	prefchar = '2'
-
 	;Choose files that have been flatfielded and sky subtracted, if overwrite not set
 	;then the files are altered to remove any that have already been zapped
-   	files = choosefiles(prefchar+'*_img_?.fits',pipevar.imworkingdir+'sfp')
+   	files = choosefiles(pipevar.prefix+'*_img_?.fits',pipevar.imworkingdir+'sfp')
    	if pipevar.overwrite eq 0 then files = unmatched(files,'z')
    
    	;For each file read in the header and check that objects meet count limits and exposure time
@@ -71,7 +69,7 @@ pro autopipecrcleanim, outpipevar=outpipevar, inpipevar=inpipevar
       	dir = strmid(files[f],0,slashpos+1)
       	outname = dir + 'z' + strmid(files[f],slashpos+1)
       	if file_test(outname) and pipevar.overwrite eq 0 then continue
-      	pzap_perley, files[f], /weight, zeal=zeal, usamp=usamp, /quiet
+      	pzap_perley, files[f], zeal=zeal, usamp=usamp, /quiet
    	endfor
 
 	outpipevar = pipevar

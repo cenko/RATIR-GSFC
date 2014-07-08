@@ -19,7 +19,7 @@
 ; Modified by Vicki Toy 11/18/2013
 ;
 ; FUTURE IMPROVEMENTS:
-;	prefchar in variable structure?
+;	None
 ;-
 
 pro autopipeimflatten, outpipevar=outpipevar, inpipevar=inpipevar
@@ -29,19 +29,17 @@ pro autopipeimflatten, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse 
 
-	;CHANGE FOR RIMAS VLT  	
-	prefchar = '2'
-
 	;Finds prepared files and checks to see if there are any existing flattened files
 	;Find flats in imworkingdir with name flat somewhere in a fits file name
-   	files  = findfile(pipevar.imworkingdir+'p'+prefchar+'*.fits')
-   	ffiles = findfile(pipevar.imworkingdir+'fp'+prefchar+'*.fits')
+   	files  = findfile(pipevar.imworkingdir+'p'+pipevar.prefix+'*.fits')
+   	ffiles = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*.fits')
    	flats  = findfile(pipevar.imworkingdir+'*flat*.fits')
    	
    	;End program if there are no prepared files

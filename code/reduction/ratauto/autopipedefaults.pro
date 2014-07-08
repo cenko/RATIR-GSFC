@@ -19,8 +19,9 @@ pro autopipedefaults, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry' , sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+					sexcommand:'sex' , swarpcommand:'swarp' , $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -65,11 +66,12 @@ pro autopipedefaults, outpipevar=outpipevar, inpipevar=inpipevar
             	if varname eq 'refdatadir' 		 then pipevar.datapath = varset
             	if varname eq 'defaultsdir' 	 then pipevar.defaultspath = varset
             	if varname eq 'autoastrocommand' then pipevar.autoastrocommand = varset
+            	if varname eq 'getsedcommand'	 then pipevar.getsedcommand = varset
             	if varname eq 'swarpcommand' 	 then pipevar.swarpcommand = varset
             	if varname eq 'sexcommand' 		 then pipevar.sexcommand = varset
+            	if varname eq 'prefix'			 then pipevar.prefix = varset
             	if varname eq 'datadir' and pipevar.datadir eq '' then pipevar.datadir = varset
             	if varname eq 'imworkingdir' 	 then pipevar.imworkingdir = varset
-            	if varname eq 'imoutputdir'  	 then pipevar.imoutputdir = varset
          	endwhile
          	
          	free_lun,5 

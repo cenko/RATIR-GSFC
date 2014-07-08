@@ -244,9 +244,11 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
        			endfor		
        		endfor
        	
-       		;Replace bad pixels with 1
+       		;Replace bad pixels with median of entire sky
+       		good = where(finite(reflat eq 1))
+       		allmed = median(reflat[good])
      		bad = where(finite(reflat) eq 0, ct)
-     		if ct gt 0 then reflat[bad] = 1
+     		if ct gt 0 then reflat[bad] = allmed
      	
 		endif
 
