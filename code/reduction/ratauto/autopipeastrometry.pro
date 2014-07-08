@@ -266,6 +266,8 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 			print, scampcmd
 			spawn, scampcmd
 	
+			spawn, 'rm ' + acatlist
+			
 			for j = 0,n_elements(atfimages)-1 do begin
 				im = atfimages[j]
 				extpos = strpos(im, '.')

@@ -12,9 +12,9 @@
 ;	pipevar - pipeline parameters (typically set in autopipedefaults.pro or ratautoproc.pro)
 ;
 ; OPTIONAL KEYWORDS:
-;	masksfx   - text string identifier for input for sextractor CHECKIMAGE_NAME (default is 'mask': will save mask file as filename.mask.fits)
+;	masksfx   - text string identifier for sextractor CHECKIMAGE_NAME (no default: ex. masksfx='mask' saves file as filename.mask.fits)
 ;	zeropt    - input value for sextractor MAG_ZEROPOINT (default is 25.0)
-;	wtimage   - file for input for sextractor WEIGHT_IMAGE (uses weight map)
+;	wtimage   - file for input for sextractor WEIGHT_IMAGE (uses weight map, no default)
 ;	fwhm      - input value for sextractor SEEING_FWHM (default is 1.5)
 ;	pix       - input value for sextractor PIXEL_SCALE (default is 0.3787)
 ;	aperture  - input value for sextractor PHOT_APERTURES (default is 5.0)
@@ -37,7 +37,6 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 	wtimage=wtimage, fwhm=fwhm, pix=pix, aperture=aperture, elong_cut=elong_cut
 
 	;Set default values if keywords not set
-	if (not keyword_set(masksfx)) 	then masksfx 	= 'mask'
 	if (not keyword_set(zeropt)) 	then zeropt 	= 25.0
 	if (not keyword_set(wtcut)) 	then wtcut 		= 0.1	
 	if (not keyword_set(fwhm))		then fwhm 		= 1.5	
@@ -62,11 +61,15 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 		
 		extpos = strpos(image, '.')
 		trunim = strmid(image, 0, extpos)
-		mskimg = trunim + '_' + masksfx + '.fits'
 		
 		sexcommand = pipevar.sexcommand + ' -c coadd.config -DETECT_THRESH ' + strcompress(sigma, /REMOVE_ALL) + ' -ANALYSIS_THRESH ' + strcompress(sigma, /REMOVE_ALL) + $
 			' -PHOT_APERTURES ' + strcompress(aperture, /REMOVE_ALL) + ' -MAG_ZEROPOINT ' + strcompress(zeropt, /REMOVE_ALL) + ' -PIXEL_SCALE ' + strcompress(pix, /REMOVE_ALL) + $
-			' -SEEING_FWHM ' + strcompress(fwhm, /REMOVE_ALL) + ' -CHECKIMAGE_TYPE OBJECTS' + ' -CHECKIMAGE_NAME ' + mskimg
+			' -SEEING_FWHM ' + strcompress(fwhm, /REMOVE_ALL) 
+		
+		if keyword_set(masksfx) then begin
+			mskimg = trunim + '_' + masksfx + '.fits'	
+			sexcommand = sexcommand + ' -CHECKIMAGE_TYPE OBJECTS' + ' -CHECKIMAGE_NAME ' + mskimg
+		endif
 			
 		if keyword_set(wtimage) then begin
 			if n_elements(wtimage) eq 0 then iwtimage = wtimage else iwtimage = wtimage[i]
@@ -92,7 +95,11 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 		
 		;Writes to header	
 		h = headfits(image)
-		sxaddpar, h, 'MASKNAME', mskimg, "Object mask image from Sextractor"
+		
+		if keyword_set(masksfx) then begin
+			sxaddpar, h, 'MASKNAME', mskimg, "Object mask image from Sextractor"
+		endif
+		
 		sxaddpar, h, "STARFILE", starfile, "Objects file from Sextractor" 
         sxaddpar, h, "ZEROPT", zeropt,   "Photometric zero-point used for Sextractor"
         sxaddpar, h, "SEEPIX", seepix,   "Estimated seeing from Sextractor objects (pix)"
