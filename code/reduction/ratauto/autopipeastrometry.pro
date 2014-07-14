@@ -29,15 +29,16 @@
 ;-
 pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 
+	print, 'ASTROMETRY'
 	
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , $
+					datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -96,9 +97,14 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
           	refsatlev = sxpar(h,'SATURATE')
           	
           	;Run astrometry correction on this middle file that is assumed to be representative of the filter
-          	print, 'Making reference catalog for ', targets[t], ' using ', refimagename
-          	print, pipevar.autoastrocommand +' '+ refimagename
-          	spawn, pipevar.autoastrocommand +' '+ refimagename
+          	if pipevar.verbose gt 0 then begin
+          		print, 'Making reference catalog for ', targets[t], ' using ', refimagename
+          		print, pipevar.autoastrocommand +' '+ refimagename
+          		print, pipevar.autoastrocommand+' '+ refimagename +' -l '+strcompress(refsatlev,/REMOVE_ALL)+' -q'
+          	endif
+          	
+          	spawn, pipevar.autoastrocommand+' '+ refimagename +' -l '+strcompress(refsatlev,/REMOVE_ALL)+' -q'
+          	
 
 			;The new astrometry corrected file should be saved with the same name, but with 'a' prefix
           	outfile = fileappend(refimagename,'a')
@@ -110,7 +116,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
              	pipevar.catastrofail = pipevar.catastrofail +' '+ refimagename
              	print, 'WARNING - astrometry on the reference image was unsuccessful!'
           	endif else begin
-             	print, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l ' +strcompress(refsatlev, /REMOVE_ALL)+' -q'
+             	if pipevar.verbose gt 0 then print, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l ' +strcompress(refsatlev, /REMOVE_ALL);+' -q'
              	spawn, pipevar.autoastrocommand+' '+outfile+' -n '+refcatfile + ' -l ' +strcompress(refsatlev, /REMOVE_ALL)+' -q'
           	endelse
           	
@@ -129,7 +135,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
        	exptime = sxpar(h,'ELAPTIME')
        	counts  = sxpar(h,'COUNTS')
        	filt    = sxpar(h,'FILTER')
-       	satlev = sxpar(h,'SATURATE')
+       	satlev  = sxpar(h,'SATURATE')
        	
        	;If count rate is high or exposure time is low then run astrometry as long as there aren't too many counts
        	;combined with a short exposure time (very bright frame).  Check that new astrometry file created (prefix 'a')
@@ -147,7 +153,6 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
           
           	print, zffiles[f], ' is a twilight/standard frame, solving astrometry directly against a catalog.'
           	print, pipevar.autoastrocommand+' '+zffiles[f]
-          	stop
           	spawn, pipevar.autoastrocommand+' '+zffiles[f]
 
           	if file_test(outfile) eq 0 then pipevar.fullastrofail = pipevar.fullastrofail +' '+ zffiles[f]
@@ -158,19 +163,31 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
           	if targname eq '' then continue
           	if strpos(targname,'flat') ge 0 then continue
           	refcatfile = strcompress(pipevar.imworkingdir+targname+'.'+filt+'.cat',/remove_all)
-
+						
           	if file_test(refcatfile) then begin
-             	print, targname
-             	print, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
-             	spawn, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
+          	
+             	if pipevar.verbose gt 0 then begin
+             		print, targname
+             		print, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
+             		spawn, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile
+             	endif else begin
+             		spawn, pipevar.autoastrocommand+' '+zffiles[f]+' -c '+refcatfile+' -q'
+             	endelse
+             	
           	endif else begin
              	print, 'No reference catalog '+refcatfile+' exists for this field.'
           	endelse
           	
           	if file_test(outfile) eq 0 then begin
-             	;print, 'Refined astrometry of ', zffiles[f], ' was not successful.  Trying direct astrometry:'
+             	print, 'Refined astrometry of ', zffiles[f], ' was not successful.  Trying direct astrometry:'
              	print, pipevar.autoastrocommand+' '+zffiles[f] + ' -l ' +strcompress(satlev, /REMOVE_ALL)
-        		spawn, pipevar.autoastrocommand+' '+zffiles[f] + ' -l ' +strcompress(satlev, /REMOVE_ALL)
+             	
+             	if pipevar.verbose gt 0 then begin
+             		spawn, pipevar.autoastrocommand+' '+zffiles[f] + ' -l ' +strcompress(satlev, /REMOVE_ALL)
+             	endif else begin
+             		spawn, pipevar.autoastrocommand+' '+zffiles[f] + ' -l ' +strcompress(satlev, /REMOVE_ALL) + ' -q'
+             	endelse
+             	
          		if file_test(outfile) then pipevar.relastrofail  = pipevar.relastrofail + ' ' +  zffiles[f] $
          			else pipevar.fullastrofail = pipevar.fullastrofail  + ' ' + zffiles[f] 
           	endif
@@ -180,12 +197,11 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
     endif
     
 
-	stop    
-    
-    
-	;TESTING 5/12/14
 	if file_test('astrom.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/astrom.param .'
 	if file_test('astrom.conv') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/astrom.conv .'
+	if file_test('default.sex') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.sex .'
+	if file_test('default.missfits') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.missfits .'
+	if file_test('scamp.conf') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/scamp.conf .'
 	
 	;Second run of astrometry using Scamp.  First identify objects using sextractor, then Scamp will solve
 	;by comparing reference catalog (currently set by default to SDSS) to sources found by sextractor
@@ -255,30 +271,50 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 				h = headfits(cfile, /silent)
        			pixscale = sxpar(h,'PIXSCALE')
        	
-				sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -PIXEL_SCALE ' +$
-				 		strcompress(pixscale, /REMOVE_ALL) + ' ' + cfile
-				print, sexcom
+       			if pipevar.verbose gt 0 then begin
+					sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -PIXEL_SCALE ' +$
+				 			strcompress(pixscale, /REMOVE_ALL) + ' ' + cfile
+				 	print, sexcom
+				endif else begin
+					sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -VERBOSE_TYPE QUIET -PIXEL_SCALE ' +$
+				 			strcompress(pixscale, /REMOVE_ALL) + ' ' + cfile
+				endelse
+
 				spawn, sexcom
 				if sxpar(h, 'ASTR_NUM') gt 0 then acatlist = acatlist + ' ' + trunfile + '.cat'
 			endfor
 			
-			scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
-			print, scampcmd
+			if pipevar.verbose gt 0 then begin
+				scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
+				print, scampcmd
+			endif else begin
+				scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE QUIET " + acatlist
+			endelse
+			
 			spawn, scampcmd
-	
 			spawn, 'rm ' + acatlist
 			
 			for j = 0,n_elements(atfimages)-1 do begin
 				im = atfimages[j]
 				extpos = strpos(im, '.')
 				imtrunfile = strmid(im, 0, extpos)
-		
-				spawn, "missfits -WRITE_XML N " + im
+
+				if pipevar.verbose gt 0 then begin
+					spawn, "missfits -WRITE_XML N " + im
+				endif else begin
+					spawn, "missfits -WRITE_XML N -VERBOSE_TYPE QUIET " + im
+				endelse
+
 				spawn, "rm " + imtrunfile + '.head ' + im + '.back'
+				
+				him = headfits(im, /silent)
+				sxdelpar, him, 'FLXSCALE'
+				modfits, im, 0, him
+				
 			endfor
 		endfor
 	endfor
-	
+
     outpipevar = pipevar
 end
 

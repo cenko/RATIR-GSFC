@@ -24,14 +24,16 @@
 
 pro autopipeimflatten, outpipevar=outpipevar, inpipevar=inpipevar
 
+	print, 'FLATTEN'
+	
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse 
@@ -81,7 +83,7 @@ pro autopipeimflatten, outpipevar=outpipevar, inpipevar=inpipevar
          	endif
          
          	flatfile = flats[flatfileno[0]]
-         	print, 'Flattening ', removepath(files[f]), ' using ', removepath(flatfile)
+         	if pipevar.verbose gt 0 then print, 'Flattening ', removepath(files[f]), ' using ', removepath(flatfile)
          	flatpipeproc, files[f], flatfile, flatminval=0.3
 
      	endif

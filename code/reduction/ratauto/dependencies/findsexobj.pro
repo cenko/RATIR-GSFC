@@ -19,6 +19,7 @@
 ;	pix       - input value for sextractor PIXEL_SCALE (default is 0.3787)
 ;	aperture  - input value for sextractor PHOT_APERTURES (default is 5.0)
 ;	elong_cut - cutoff limit for use in FWHM calculation of elongation to eliminate non-stars (default is 1.3)
+;	quiet     - no output from sextractor if set
 ;
 ; EXAMPLE:
 ;	findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile
@@ -34,7 +35,7 @@
 ;-
 
 pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
-	wtimage=wtimage, fwhm=fwhm, pix=pix, aperture=aperture, elong_cut=elong_cut
+	wtimage=wtimage, fwhm=fwhm, pix=pix, aperture=aperture, elong_cut=elong_cut, quiet=quiet
 
 	;Set default values if keywords not set
 	if (not keyword_set(zeropt)) 	then zeropt 	= 25.0
@@ -43,6 +44,7 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 	if (not keyword_set(pix)) 		then pix 		= 0.3787	
 	if (not keyword_set(aperture)) 	then aperture 	= 5.0	
 	if (not keyword_set(elong_cut)) then elong_cut 	= 1.30	
+	if (not keyword_set(quiet))		then quiet		= 0
 	
 	;Move necessary sextractor configuration files if they are not in current directory
 	if file_test('coadd.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/coadd.param .'
@@ -50,6 +52,8 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 	if file_test('coadd.config') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/coadd.config .'
 	if file_test('default.nnw') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.nnw .'
 
+	if quiet gt 0 then verbosetype = 'QUIET' else verbosetype = 'NORMAL'
+	
 	;For each fits file run sextractor with given input parameters. Saves temp.cat as starfile, 
 	;saves starmask, and calculates seeing from starlike objects. Saves necessary parameters to header
 	for i = 0, n_elements(inlist)-1 do begin
@@ -64,7 +68,7 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 		
 		sexcommand = pipevar.sexcommand + ' -c coadd.config -DETECT_THRESH ' + strcompress(sigma, /REMOVE_ALL) + ' -ANALYSIS_THRESH ' + strcompress(sigma, /REMOVE_ALL) + $
 			' -PHOT_APERTURES ' + strcompress(aperture, /REMOVE_ALL) + ' -MAG_ZEROPOINT ' + strcompress(zeropt, /REMOVE_ALL) + ' -PIXEL_SCALE ' + strcompress(pix, /REMOVE_ALL) + $
-			' -SEEING_FWHM ' + strcompress(fwhm, /REMOVE_ALL) 
+			' -SEEING_FWHM ' + strcompress(fwhm, /REMOVE_ALL) + ' -VERBOSE_TYPE ' +verbosetype
 		
 		if keyword_set(masksfx) then begin
 			mskimg = trunim + '_' + masksfx + '.fits'	
@@ -77,10 +81,10 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 		endif
 		
 		sexcommand = sexcommand + ' ' + image
-		print, sexcommand
+		if quiet eq 0 then print, sexcommand
 		spawn, sexcommand
 		
-		print, 'mv -f test.cat ' + starfile
+		if quiet eq 0 then print, 'mv -f test.cat ' + starfile
 		spawn, 'mv -f test.cat ' + starfile
 		
 		;Calculates seeing with starlike objects

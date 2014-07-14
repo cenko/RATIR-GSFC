@@ -88,7 +88,7 @@ EXAMPLE:
 	goodsexlist = sextract(slist, 1024, 1024, border=3, corner=12, minfwhm=1.5, maxfwhm=25, maxellip=0.5, saturation=55000, sexpath='')
 """
 
-def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwhm=25, maxellip=0.5, saturation=-1, sexpath=''):
+def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwhm=25, maxellip=0.5, saturation=-1, sexpath='', quiet=False):
 
     if maxellip == -1: maxellip = 0.5
     
@@ -100,7 +100,8 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
 	#Runs sextractor and reads in sextractor output file (temp.cat) 
     try:
        # Sextract the image !
-       print sexpath+"sex " + sexfilename + " -c sex.config -SATUR_LEVEL "+str(sexsaturation)
+       if quiet == False:
+       	print sexpath+"sex " + sexfilename + " -c sex.config -SATUR_LEVEL "+str(sexsaturation)
        os.system(sexpath+"sex " + sexfilename + " -c sex.config -SATUR_LEVEL "+str(sexsaturation))
     except:
        print ' Error: Problem running sextractor'
@@ -150,12 +151,6 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     #OC: Might also be good to screen for false detections created by bad columns/rows
     
     fwhmlist = fwhm[mask]
-    
-    #REMOVE after testing
-    print 'fwhmlist: '
-    print fwhmlist
-    print 'length of fwhmlist: '
-    print len(fwhmlist)
 	
     #Calculates the 20% value of the sextractor masked FWHM and the mode 
     #to distinguish stars from galaxies (removed by ellipticity) and cosmic rays
@@ -166,15 +161,13 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     else:
     	fwhmmode  = minfwhm
     	fwhm20    = minfwhm
-    	
-    #REMOVE after testing
-    print '0.75*fwhmmode = ', 0.75*fwhmmode, '0.9*fwhm20 = ', 0.9*fwhm20, 'minfwhm = ', minfwhm 
     
 	#Creates new FWHM cutoff to distinguish stars from cosmic rays
 	#This method done from trial and error from original program to calculate typical cutoffs between stars and cosmic
 	#OC: if CR's are bigger and more common than stars, this is dangerous...
     refinedminfwhm = numpy.median([0.75*fwhmmode,0.9*fwhm20,minfwhm]) 
-    print 'Refined min FWHM:', refinedminfwhm, 'pix'
+    if quiet == False:
+    	print 'Refined min FWHM:', refinedminfwhm, 'pix'
     
     #Masks out fwhm with more stringent fwhm condition and creates newmask
     #that combines the new masked out fwhm values
@@ -185,7 +178,8 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     goodsext = cat[newmask]
     sortedgoodsext = goodsext[goodsext[:,4].argsort()]
     
-    print len(fwhmlist), 'objects detected in image ('+ str(len(fwhmlist)-len(sortedgoodsext)) +' discarded)'
+    if quiet == False:
+    	print len(fwhmlist), 'objects detected in image ('+ str(len(fwhmlist)-len(sortedgoodsext)) +' discarded)'
     
     #Save RA, DEC, and mag into class and save class objects into list
     goodsexlist = []
@@ -240,7 +234,6 @@ def getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.):
         pmracolumn 	= 10
         pmdeccolumn = 11    
         queryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + catalog +  "&ra=" + str(ra) + "&dec=" + str(dec) + "&system=J2000&rad=" + str(-boxsize) + "&sort=mag&epoch=2000.00000&nstar=6400"
-        print queryurl
         cat = urllib.urlopen(queryurl)
         catlines = cat.readlines()
         cat.close()

@@ -14,14 +14,16 @@
 
 pro autopipedefaults, outpipevar=outpipevar, inpipevar=inpipevar
 
+	print, 'Setting pipeline parameters (DEFAULTS)'
+	
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse

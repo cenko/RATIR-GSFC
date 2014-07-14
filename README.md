@@ -123,6 +123,8 @@ ratautoproc, datadir='raw/', redo=1
 
 	- nocrclean (if set skips cosmic ray cleaning)	
 	
+	- quiet (mainly silent operation unless errors)
+	
 * Runs these steps in this order unless specified:	
 
 	- steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']

@@ -26,17 +26,21 @@
 
 pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 
+	print, 'STACK'
+
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
+  	
+  	if pipevar.verbose gt 0 then quiet = 0 else quiet = 1
   
   	; if swarp configuration file is not present as 'default.swarp', have swarp output default configuration to this file name
   	if file_test('default.swarp') eq 0 then $
@@ -71,7 +75,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
     	fileastrrms2[f]  = sxpar(h,'ASTRRMS2')
     	    
   	endfor
-  
+  	
   	targets = unique(filetargets)
   	for t = 0, n_elements(targets)-1 do begin
   	
@@ -109,6 +113,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       		stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,'+$
                              	'INSTRUME,OBSERVAT,ORIGIN,CCD_TYPE,JD,SOFTGAIN,'+$
                              	'PIXSCALE,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
+            
+            if pipevar.verbose gt 0 then stackcmd = stackcmd + ' -VERBOSE_TYPE NORMAL ' else stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET ' 
       		
       		 if (file_test(outfile) eq 0) or pipevar.overwrite then begin
       			filter = strcompress(filter, /REMOVE_ALL)
@@ -116,17 +122,19 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       			
       			;Run initial weighted stack with all files to make coadded file
       			istackcmd = stackcmd + ' -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' ' + textslist
-      			print, istackcmd
+      			
+      			if pipevar.verbose gt 0 then print, istackcmd
       			spawn, istackcmd
       			h = headfits(outfile)
       			pixscl = sxpar(h, 'PIXSCALE')
       			
       			;Run sextractor twice on coadded frame (outfile) and find stars with good PSF aperture 
       			;(first run to find aperture to use, 1.34*seeing)
-      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile
+      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile, quiet=quiet
+
       			h = headfits(outfile)
       			cpsfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
-      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile
+      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile, quiet=quiet
 				refstars1 = outfile+'.stars'
 				readcol, refstars1, refnum, refxim, refyim, refmagaper, refmagerraper, refflag, refaim, refbim, refelon, reffwhmim, refclass,refxwor,refywor, reffluxaper, reffluxerraper
 				xyad, h, refxim, refyim, refra, refdec
@@ -147,10 +155,10 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 					im = stacklist[i]
 					h  = headfits(im)
 					ipixscl = sxpar(h, 'PIXSCALE')
-					findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=20.0
+					findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=20.0, quiet=quiet
 					h = headfits(im)
 					psfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
-					findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=psfdiam
+					findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=psfdiam, quiet=quiet
 					starfile = im + '.stars'
 				
 					newmags = fltarr(n_elements(refmagaper))
@@ -214,11 +222,11 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				;Second stacked coadd but now with FSCALE
 				istackcmd2 = stackcmd + ' -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' -FSCALE_KEYWORD NEWFLXSCALE ' + newtextslist
 
-				print, istackcmd2
+				if pipevar.verbose gt 0 then print, istackcmd2
       			spawn, istackcmd2
 		
 				;Run sextractor again on new coadd file
-      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile      		
+      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile, quiet=quiet      		
       			h = headfits(outfile)
 
 				readcol, outfile + '.stars', num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper
@@ -233,8 +241,9 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				if filter eq 'Z' or filter eq 'Y' then filter = strlowcase(filter)
 			
 				;Create catalog star file (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars
-				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 True"
-				print, sedcmd
+				if pipevar.verbose gt 0 then qtcmd = 'True' else qtcmd = 'False'
+				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 True "+ qtcmd
+				if pipevar.verbose gt 0 then print, sedcmd
 				spawn, sedcmd
 			
 				readcol, catfile, refra,refdec,u_mag,g_mag,r_mag,i_mag,z_mag,y_mag,bigB_mag,bigV_mag,bigR_mag,$
@@ -292,13 +301,13 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
         		
         		for f = 0, n_elements(newstacklist)-1 do begin
   					sxaddpar, hc, 'STACK'+strtrim(string(f),2), removepath(newstacklist[f])
-  					print, removepath(newstacklist[f])
 				endfor
         		
 				modfits, outfile, 0, hc
-				
-				print, 'Removed frames with no overlapping stars: ' 
-				print, removedframes
+				if removedframes ne [] then begin
+					print, 'Removed frames with no overlapping stars: ' 
+					print, removedframes
+				endif
 			endif
     	endfor
   	endfor

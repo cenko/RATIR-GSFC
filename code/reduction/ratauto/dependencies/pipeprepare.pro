@@ -10,6 +10,7 @@
 ;
 ; INPUTS:
 ;	filename - name of the FITS file to prepare, or array of filenames, or file w/list of filenames
+;	pipevar  - pipeline parameters (typically set in autopipedefaults.pro or ratautoproc.pro, but can be set to default) 
 ;
 ; OPTIONAL INPUT KEYWORD PARAMETERS:
 ;	outname  - specify output file to write to disk
@@ -39,7 +40,7 @@
 ;-
 
 ;----------------------------------------------------------------------------------------
-pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=header, biasfile=biasfile
+pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, header=header, biasfile=biasfile
 
 ; ---------- Process input filename(s), call recursively if necessary----------
 
@@ -84,7 +85,7 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
   		return
 	endif
 	
-	print, filename, format='($,A)'
+	if pipevar.verbose gt 0 then print, filename, format='($,A)'
 	
 
 ; ---------- Read data and process header information ----------
@@ -184,8 +185,12 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 			print, filename + ' could not be bias subtracted because it is not the same size as the master bias, remove file to avoid confusion'
 			return
 		endif
-		print, ' '
-		print, '   bias subtracting'
+		
+		if pipevar.verbose gt 0 then begin
+			print, ' '
+			print, '   bias subtracting'
+		endif
+		
 		newdata = array-bias
 	endif else begin
 		newdata = array
@@ -194,6 +199,7 @@ pro pipeprepare, filename, outname=outname, namefixfiles=namefixfiles, header=he
 	;Write changes to disk
 	outfilename = outname
 	mwrfits, newdata, outfilename, newheader, /create
-	print, ' -> ', outfilename
+	
+	if pipevar.verbose gt 0 then print, ' -> ', outfilename
 
 end

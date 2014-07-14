@@ -28,15 +28,16 @@
 ;-
 
 pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
-
+	print, 'PREPARE'
+	
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse 	
@@ -47,10 +48,10 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
   	
   	if pipevar.datadir ne '' then  begin
   	
-     	print, 'Looking for raw data at: ', pipevar.datadir+pipevar.prefix+'*.fits'
+     	if pipevar.verbose gt 0 then print, 'Looking for raw data at: ', pipevar.datadir+pipevar.prefix+'*.fits'
 
      	if n_elements(files) gt 0 then begin
-        	print, 'Found ', clip(n_elements(files)), ' files'
+        	if pipevar.verbose gt 0 then print, 'Found ', clip(n_elements(files)), ' files'
      	endif else begin
         	print, 'Did not find any files!  Check your data directory path!'
      	endelse
@@ -100,7 +101,7 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 		if realcam gt 0 then biasfile = biasfiles[camloc] else biasfile=''
 
      	if ct eq 0 or pipevar.overwrite gt 0 then begin
-			pipeprepare, files[f], outname=outnameim, namefixfiles=namefixfiles, biasfile=biasfile
+			pipeprepare, files[f], pipevar, outname=outnameim, namefixfiles=namefixfiles, biasfile=biasfile
      	endif
      	
   	endfor

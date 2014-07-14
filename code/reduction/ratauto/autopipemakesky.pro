@@ -26,15 +26,16 @@
 
 pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 
+	print, 'MAKE SKY'
 
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -70,10 +71,10 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
        	outflatname = pipevar.imworkingdir+'sky-'+filt+'.fits'
        
        	if ctsky ge 2 then begin
-       		print, filt, '-band sky flats.'
+       		if pipevar.verbose gt 0 then print, filt, '-band sky flats.'
             if file_test(outflatname) and pipevar.overwrite eq 0 then continue
             
-            print, files[skyflats]
+            if pipevar.verbose gt 0 then print, files[skyflats]
             
             ;COMMENTED OUT 12/30
             ;skypipecombine, files[skyflats], outflatname, /removeobjects, type='sky'

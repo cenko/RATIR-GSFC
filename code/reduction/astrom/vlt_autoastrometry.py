@@ -135,6 +135,7 @@ import urllib
 import astrometrydist
 import astrometrystats
 import astrometrysources
+import warnings
 
 try:
    import ephem
@@ -349,10 +350,10 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     #Calculate the RA and DEC at center of field to correct initial guess
     centerra  = cra  - centerdx*xscale*numpy.cos(initpa*numpy.pi/180.) + centerdy*yscale*numpy.sin(initpa*numpy.pi/180.)
     centerdec = cdec + parity*centerdx*xscale*numpy.sin(-initpa*numpy.pi/180.) + centerdy*yscale*numpy.cos(initpa*numpy.pi/180.)
-    print 'cra=%10.6f, centerdx=%10.6f, xscale=%10.6f, centerdy=%10.6f, yscale=%10.6f' % (cra,centerdx,xscale,centerdy,yscale)
     # this has only been checked for a PA of zero.
-  
+    
     if quiet == False:
+       print 'cra=%10.6f, centerdx=%10.6f, xscale=%10.6f, centerdy=%10.6f, yscale=%10.6f' % (cra,centerdx,xscale,centerdy,yscale)
        print 'Initial WCS info:'
        print '   pixel scale:     x=%.4f"/pix,   y=%.4f"/pix' % (xscale*3600, yscale*3600)
        print '   position angle: PA=%.2f' % initpa
@@ -360,16 +361,9 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
        if parity == -1: print '   inverse parity'
        print '   center:        RA=%10.6f, dec=%9.6f' % (centerra, centerdec)
        print '   field width: %10.6f' % (fieldwidth)
-       
-    #START HERE!!!!!!!!
     
-    #Run sextract (runs sextractor) to produce image star catalog
-    
-    #REMOVE following line after test
-    print 'Calling astrometrysources.sextract ', nxpix, nypix, 3, 12, minfwhm, maxfwhm, maxellip, saturation, sexpath
-    print 'Format: sextract, nxpix,nypix, border, corner, minfwhm, maxfwhm, maxellip, saturation, sexpath'
-    
-    goodsexlist = astrometrysources.sextract(sfilename, nxpix, nypix, 3, 12, minfwhm=minfwhm, maxfwhm=maxfwhm, maxellip=maxellip, saturation=saturation, sexpath=sexpath)
+    #Run sextract (runs sextractor) to produce image star catalog    
+    goodsexlist = astrometrysources.sextract(sfilename, nxpix, nypix, 3, 12, minfwhm=minfwhm, maxfwhm=maxfwhm, maxellip=maxellip, saturation=saturation, sexpath=sexpath, quiet=quiet)
 	
 	#If there are less than 4 good objects, ends program and writes images to txt and region files
     ngood = len(goodsexlist)
@@ -383,7 +377,9 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
 
 	#Finds source number density
     density = len(goodsexlist) / area_sqmin
-    print 'Source density of %f4 /arcmin^2' % density
+    
+    if quiet == False:
+    	print 'Source density of %f4 /arcmin^2' % density
     
     #If set to only solve for catalog and not astrometry, save good list
     if nosolve == 1: 
@@ -396,17 +392,19 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     #If no catalog found after that, end program
     if catalog == '':
     
-        #trycats = ['tmpsc','sdss', 'ub2', 'tmc']
+    	#trycats = ['tmpsc','sdss', 'ub2', 'tmc']
+        #REMOVE AFTER TESTING
         trycats = ['tmpsc', 'ub2', 'tmc']
         for trycat in trycats:
             testqueryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + trycat +  "&ra=" + str(centerra) + "&dec=" + str(centerdec) + "&system=J2000&rad=" + str(-90)
-            print testqueryurl
             check = urllib.urlopen(testqueryurl)
             checklines = check.readlines()
             check.close()
             if len(checklines) > 15:
                 catalog = trycat
-                print 'Using catalog', catalog
+                if quiet == False:
+                	print testqueryurl
+                	print 'Using catalog', catalog
                 break
         if (catalog == ''):
             print 'No catalog is available.  Check your internet connection.'
@@ -420,10 +418,10 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     
     ncat = len(catlist)
     catdensity = ncat / (2*boxsize/60.)**2
-    print ncat, 'good catalog objects.'
-    print 'Source density of %f4 /arcmin^2' % catdensity
     
-    #END HERE!!!!
+    if quiet == False:
+    	print ncat, 'good catalog objects.'
+    	print 'Source density of %f4 /arcmin^2' % catdensity
     
     #Throws up warning if very few catalog objects, stops program if no catalog objects found
     if 0 < ncat < 5:
@@ -466,8 +464,8 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
                 catdensity = ncat / (2*boxsize/60.)**2   
     
     #Remove fainter object in close pairs for both lists
-    goodsexlist = astrometrydist.tooclose(goodsexlist, minsep=3)
-    catlist = astrometrydist.tooclose(catlist, minsep=3)
+    goodsexlist = astrometrydist.tooclose(goodsexlist, minsep=3, quiet=quiet)
+    catlist = astrometrydist.tooclose(catlist, minsep=3, quiet=quiet)
     
     #Saves text file that contains RA, DEC, and mag of sextractor list
     writetextfile('det.init.txt', goodsexlist)
@@ -495,10 +493,11 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     circdensity    = density * min([area_sqmin, circlearea])
     circcatdensity = catdensity * circlearea	#Finds number of catalog objects expected within circular area
     catperimage    = catdensity * area_sqmin	#Finds number of catalog objects expected within field
-
-    print 'After trimming: '
-    print '   ', len(goodsexlist), 'detected objects (%.2f/arcmin^2, %.1f/searchzone)' % (density, circdensity)
-    print '   ', len(catlist),     'catalog objects (%.2f/arcmin^2, %.1f/searchzone)' % (catdensity, circcatdensity)
+    
+    if quiet == False:
+    	print 'After trimming: '
+    	print '   ', len(goodsexlist), 'detected objects (%.2f/arcmin^2, %.1f/searchzone)' % (density, circdensity)
+    	print '   ', len(catlist),     'catalog objects (%.2f/arcmin^2, %.1f/searchzone)' % (catdensity, circcatdensity)
 	
 	#Sets position angle tolerance and calculates the expected number of false multiples
     patolerance = defaultpatolerance
@@ -518,11 +517,13 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     if catperimage <= 6 or ngood <= 6: reqmatch = 2 
     if catperimage <= 3 or ngood <= 3: reqmatch = 1
         #for an extremely small or shallow image
-
-	#Calculates the matched stars between sextractor and catalog
-    print 'Pair comparison search radius: %.2f"'%maxrad
-    print 'Using reqmatch =', reqmatch
-    (primarymatchs, primarymatchc, mpa) = astrometrydist.distmatch(goodsexlist, catlist, maxrad, minrad, reqmatch, patolerance, uncpa, showmatches=showmatches, fastmatch=fastmatch)
+        
+    #Calculates the matched stars between sextractor and catalog
+    if quiet == False:
+    	print 'Pair comparison search radius: %.2f"'%maxrad
+    	print 'Using reqmatch =', reqmatch
+    	
+    (primarymatchs, primarymatchc, mpa) = astrometrydist.distmatch(goodsexlist, catlist, maxrad, minrad, reqmatch, patolerance, uncpa, showmatches=showmatches, fastmatch=fastmatch, quiet=quiet)
     
     #Quits program if no matches or too few matches found (gives different error readouts)
     nmatch = len(primarymatchs)
@@ -548,9 +549,10 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     stdevpa = astrometrystats.stdev(mpa)
     
     skyoffpa = -parity*offpa # This appears to be necessary for the printed value to agree with our normal definition.
-
-    print 'PA offset:'
-    print '  dPA = %.3f  (unc. %.3f)' % (skyoffpa, stdevpa)
+    
+    if quiet == False:
+    	print 'PA offset:'
+    	print '  dPA = %.3f  (unc. %.3f)' % (skyoffpa, stdevpa)
 
     # Rotate the image to the new, correct PA
     #  NOTE: when CRPIX don't match CRVAL this shifts the center and screws things up.  
@@ -596,8 +598,9 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     totoffsetarcsec = (raoffsetarcsec**2 + decoffset**2)**0.5
     stdoffsetarcsec = stdoffset*3600
     
-    print 'Spatial offset:'
-    print '  dra = %.2f",  ddec = %.2f"  (unc. %.3f")' % (raoffsetarcsec, decoffsetarcsec, stdoffsetarcsec)
+    if quiet == False:
+    	print 'Spatial offset:'
+    	print '  dra = %.2f",  ddec = %.2f"  (unc. %.3f")' % (raoffsetarcsec, decoffsetarcsec, stdoffsetarcsec)
     
     #If standard deviation of total offset is larger than 10 arcseconds end program
     warning = 0
@@ -647,7 +650,9 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
         pass
     fits[0].header = h
     fits.writeto(outfile,output_verify='silentfix') #,clobber=True
-    print 'Written to '+outfile
+    
+    if quiet == False:
+    	print 'Written to '+outfile
 
     fits.close()
     
@@ -665,6 +670,7 @@ def usage():
 Parses out keywords from argv input and runs autoastrometry.  If multiple input files and
 set to solve, then prints out return values of autoastrometry
 """
+
 def main():
     
     files=[]
@@ -677,8 +683,7 @@ def main():
     nosolve = 0
     overwrite = 0
     outfile = ''
-
-    print 'sys.argv'
+    warnings.filterwarnings('ignore')
     
     #Sets up option flag parser with help files.  If unsure how to run run program with -h flag
     
@@ -800,9 +805,10 @@ def main():
     multiinfo = []    
 
     for file in files:
-        print 'Processing', file
-        print 'userra and dec'
-        print userra, userdec
+    	if options.quiet == False:
+        	print 'Processing', file
+        	print 'userra and dec'
+        	print userra, userdec
         
         fitinfo = autoastrometry(file,pixelscale=options.pix,pa=options.pa,inv=inv,
         						uncpa=options.upa,minfwhm=minfwhm,maxfwhm=maxfwhm,
@@ -829,7 +835,7 @@ def main():
     #Returns failed and questionable images.  Also prints all values out from multiinfo       
     if nimage > 1 and nosolve==0:
 
-        if len(failures) == 0 and len(questionable) == 0:
+        if len(failures) == 0 and len(questionable) == 0 and options.quiet == False:
             print 'Successfully processed all images!'
         else:
             print 'Finished processing all images.'

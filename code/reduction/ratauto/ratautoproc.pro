@@ -15,6 +15,7 @@
 ;   step    	-  (completely identical to only, takes precedence)
 ;   redo    	- Repeat step(s), overwriting any existing files
 ;   nocrclean	- Do not zap cosmic rays
+;	quiet		- (mainly) silent output unless errors
 ;
 ; ADDITIONAL OPTIONS:
 ;   If any of the following files are found in the directory where lrisautoproc
@@ -391,7 +392,7 @@
 ; ------------------------
 
 
-pro ratautoproc, datadir=datadir, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo
+pro ratautoproc, datadir=datadir, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo, quiet=quiet
 
 	!quiet = 1
 	close, /all
@@ -399,13 +400,13 @@ pro ratautoproc, datadir=datadir, start=start, stop=stop, only=only, step=step, 
 	; Load default parameters and interpret user arguments.
 	pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	
 	if keyword_set(redo) then pipevar.overwrite=1
-	if n_elements(datadir) gt 0 then pipevar.datadir = datadir		
-
+	if keyword_set(quiet) then pipevar.verbose = 0 else pipevar.verbose = 1
+	if n_elements(datadir) gt 0 then pipevar.datadir = datadir	
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar
 
 	;Step options

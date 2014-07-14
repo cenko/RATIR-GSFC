@@ -23,6 +23,7 @@ from time import time, strftime
 from urllib2 import urlopen
 import pickle
 import sys
+import warnings
 
 import multiprocessing as mp
 N_CORES = mp.cpu_count()  # use all the cpus you have
@@ -222,7 +223,7 @@ class online_catalog_query():
         #  sort by distance from coordinates, and return only those
         #  sources brighter than trim_mag
         request = 'findsdss8 -c "{} {}" -bs {} -lmr 0,{} -e0 -lc 4,6 -sr -m 1000000'.format( ra, dec, boxsize, trim_mag )
-        print "FINDSDSS8",ra,dec,boxsize,trim_mag
+        #print "FINDSDSS8",ra,dec,boxsize,trim_mag
 
         out = Popen(request, shell=True, stdout=PIPE, stderr=PIPE)
         o,e = out.communicate()
@@ -240,8 +241,6 @@ class online_catalog_query():
             return output
         else:
             container[ cont_index ] = output
-        print len(sdss_objects)
-    
     
     def _parse_2mass( self, s ):
         '''
@@ -479,8 +478,8 @@ def identify_matches( queried_stars, found_stars, match_radius=3. ):
     ret = tree2.query(xyz1.transpose(), 1, 0, 2, mindist)
     dist, ind = ret
     dist = np.rad2deg(2*np.arcsin(dist/2))
-    
     ind[ np.isnan(dist) ] = -9999
+    
     return ind, dist
 
 
@@ -988,7 +987,7 @@ def calc_zeropoint( input_coords, catalog_coords, input_mags, catalog_mags, clip
         
 
 
-def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=False ):
+def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=False, quiet=False):
     '''
     Calculate <band> zeropoint for stars in <input_file>.
     
@@ -1010,13 +1009,14 @@ def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=
     # check to see whether we need to use USNOB sources
     mask = np.array(c.modes)<2
     if sum( mask ) >= usnob_thresh:
-        print 'Using',sum(mask),'APASS and/or SDSS sources.'
+        if quiet == False: print 'Using',sum(mask),'APASS and/or SDSS sources.'
         cat_mags = c.SEDs[:, band_index][mask]
         cat_coords = c.coords[mask]
     else:
-        print 'Using',sum(mask),'USNOB, APASS, and/or SDSS sources.'
+        if quiet == False: print 'Using',sum(mask),'USNOB, APASS, and/or SDSS sources.'
         cat_mags = c.SEDs[:, band_index]
         cat_coords = c.coords
+        
     if alloptstars:
     	zp, mad, matches, ze = calc_zeropoint( input_coords, c.ccoords, input_mags, c.scat[:,band_index], return_zps=True )
     	errors = c.serr
@@ -1046,4 +1046,6 @@ def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=
     return zp, mad
     
 if __name__ == "__main__":
-    zeropoint(*sys.argv[1:])
+	warnings.filterwarnings('ignore')
+	
+	zeropoint(*sys.argv[1:])

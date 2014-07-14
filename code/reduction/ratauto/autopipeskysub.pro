@@ -25,15 +25,17 @@
 ;-
 
 pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar
-
+	
+	print, 'SKY-SUBTRACT'
+	
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
-		print, 'Using provided pipevar'
+		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , $
+					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -89,7 +91,7 @@ pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar
          	;If file has matching processed sky file then run skypipeproc RATIR specific crop CHANGE FOR RIMAS VLT
          	;This creates new sky subtracted fits file
          	skyfile = skys[skyfileno[0]]
-         	print, 'Sky Subtracting ', removepath(files[f]), ' using ', removepath(skyfile)
+         	if pipevar.verbose gt 0 then print, 'Sky Subtracting ', removepath(files[f]), ' using ', removepath(skyfile)
          	skypipeproc, files[f], skyfile
 
       	endif

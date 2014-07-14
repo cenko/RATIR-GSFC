@@ -43,7 +43,7 @@ OUTPUTS:
 EXAMPLE:
 	goodlist = tooclose(goodlist, minsep=5) 
 """
-def tooclose(glist, minsep = 3):
+def tooclose(glist, minsep = 3, quiet = False):
     deleteset = set()
     
     #Finds great circle distances between objects in the list and removes the dimmer object
@@ -61,7 +61,8 @@ def tooclose(glist, minsep = 3):
     deletelist = list(deleteset)
     for d in sorted(deletelist, reverse=True):
         del glist[d]
-        print 'deleted index '+ str(d)
+        if quiet == False:
+        	print 'deleted index '+ str(d)
         
     return glist
 
@@ -113,6 +114,22 @@ def posangle(obj1, obj2):
     
     return pa_deg                        # will have the number of matches cut by half at each comparison level
 
+########################################
+"""
+NAME:
+	imdistance
+PURPOSE:
+	Calculates the cartesian difference between two objects in the image
+INPUTS:
+	obj1, obj2 - Must be objects created from the Obj class specified in astrometrysources.py
+OUTPUTS:
+	Returns difference in pixels
+EXAMPLE:
+	imdis = imdistance(obj1, obj2)
+"""
+#Pixel distance
+def imdistance(obj1, obj2):
+    return ((obj1.x - obj2.x)**2 + (obj1.y - obj2.y)**2)**0.5
 ########################################
 """
 NAME: 
@@ -176,7 +193,7 @@ EXAMPLE:
 	(primarymatchs, primarymatchc, mpa) = distmatch(slist, clist, maxrad=130, minrad=20, 
 	reqmatch=3, patolerance=1.2, uncpa=-1, showmatches=0, fastmatch=1)
 """
-def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1.2,uncpa=-1, showmatches=0, fastmatch=1):
+def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1.2,uncpa=-1, showmatches=0, fastmatch=1, quiet=False):
     
     if reqmatch < 2:
        print 'Warning: reqmatch >=3 suggested'
@@ -343,7 +360,8 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 del nmatch[i]
           
     nmatches = len(smatch) # recalculate with the new reqmatch and with prunes supposedly removed
-    print 'Found',nmatches,'candidate matches.'
+    if quiet == False:
+    	print 'Found',nmatches,'candidate matches.'
 
     # Kill the bad matches
     rejects = 0
@@ -380,7 +398,7 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 del cmatch[i]
                 del nmatch[i]
                 rejects += 1  #these aren't necessarily bad, just making more manageable.
-    	
+
     # New verification step: calculate distances and PAs between central stars of matches
     ndistflags = [0]*len(primarymatchs)
     for v in range(2):  #two iterations
@@ -416,10 +434,12 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 del cmatch[i]
                 del nmatch[i]
                 rejects += 1
-
-    print 'Rejected', rejects, 'bad matches.'
+                
     nmatches = len(primarymatchs)
-    print 'Found', nmatches, 'good matches.'
+    
+    if quiet == False:
+    	print 'Rejected', rejects, 'bad matches.'
+    	print 'Found', nmatches, 'good matches.'
 
 	#If no remaining matches, return empty lists
     if nmatches == 0:
@@ -434,23 +454,27 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 ci = primarymatchc[i]
                 sj = primarymatchs[j]
                 cj = primarymatchc[j]
+                
                 try:
                     pixscalelist.append(distance(catlist[ci],catlist[cj])/imdistance(sexlist[si],sexlist[sj]))
                 except:
                     pass
+                    
         pixelscale = astrometrystats.median(pixscalelist)
         pixelscalestd = astrometrystats.stdev(pixscalelist)
-
-        if len(primarymatchs) >= 3:
-           print 'Refined pixel scale measurement: %.4f"/pix (+/- %.4f)' % (pixelscale, pixelscalestd)
-        else:
-           print 'Refined pixel scale measurement: %.4f"/pix' % pixelscale
-
+        
+        if quiet == False:
+        	if len(primarymatchs) >= 3:
+        		print 'Refined pixel scale measurement: %.4f"/pix (+/- %.4f)' % (pixelscale, pixelscalestd)
+        	else:
+        		print 'Refined pixel scale measurement: %.4f"/pix' % pixelscale
+           
 	#If showmatches keyword set then print which objects match
     for i in range(len(primarymatchs)):
         si = primarymatchs[i]
         ci = primarymatchc[i]
-        print  '%3i' % si, 'matches', '%3i' % ci, ' (dPA =%7.3f)' % mpa[i],
+        if quiet == False:
+        	print  '%3i' % si, 'matches', '%3i' % ci, ' (dPA =%7.3f)' % mpa[i],
         
         #Keyword set in main program
         if showmatches:
@@ -466,7 +490,8 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
               print (len(primarymatchs)-10), 'additional matches not shown.'
               break
         else:
-           print ':', str(len(smatch[i])).strip(), 'rays'
+           if quiet == False:
+              print ':', str(len(smatch[i])).strip(), 'rays'
       
 	#Create region files for DS9 with the sextractor sources (matchlines.im.reg) and catalog (matchlines.wcs.reg)
     out = open('matchlines.im.reg','w')

@@ -104,7 +104,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
    		;If median is within limits save data, otherwise exclude files
    		if inmed ge mincounts and inmed le maxcounts then begin
       		
-      		print, '  ' + removepath(files[f]) + ' (' + strtrim(long(inmed),2) + ' counts/pix)'
+      		if pipevar.verbose gt 0 then print, '  ' + removepath(files[f]) + ' (' + strtrim(long(inmed),2) + ' counts/pix)'
       		skymed[z]   = inmed
       		data[*,*,z] = float(indata)
       		usefiles[z] = files[f]
@@ -145,7 +145,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
 	;values above the saturation limit.
 	;Then find 3 sigma clipped median of each pixel with remaining values or mean of middle 50% of data
 	if keyword_set(removeobjects) then begin
-   		print, '  Identifying objects...'
+   		if pipevar.verbose gt 0 then print, '  Identifying objects...'
 
 		;Sets object threshold (sigma limit) and buffer
    		if n_elements(objthresh) eq 0 then objthresh = 6
@@ -162,7 +162,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
       		if (filt eq 'i') or (filt eq 'r') then begin
       		
       			;Runs sextractor with special commands for quick and dirty source extraction
-      			print,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
+      			if pipevar.verbose gt 0 then print,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
       			spawn,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
       			readcol, 'skysource.cat', x,y,ra,dec,mag,magerr,rad, fwhms,ell, cstar, flag
       			
@@ -231,7 +231,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
 		;If algorithm set to median, find 3 sigma clipped median of each pixel 
 		;(excluding saturated or above 6 sigma - NAN values which are eventually set to 1)
    		if algorithm eq 'median' then begin
-     		print, '  Median-combining...'
+     		if pipevar.verbose gt 0 then print, '  Median-combining...'
      		i = 0l
      	
      		for y = 0, ny-1 do begin
@@ -255,7 +255,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
 		;If algorithm set to mean, takes mean of sorted values that have been trimmed
 		;default is to trim 25% off top and bottom, if not enough good data, set trimming to 0
    		if algorithm eq 'mean' then begin
-     		print,  '  Combining via trimmed mean...'
+     		if pipevar.verbose gt 0 then print,  '  Combining via trimmed mean...'
      		i = 0l
      
      		for y = 0, ny-1 do begin
@@ -302,6 +302,6 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
 	;Saves new fits files with new sky flat
 	mwrfits, flat, outfile, h, /create
 
-	print, '  Written to ', outfile
+	if pipevar.verbose gt 0 then print, '  Written to ', outfile
 	
 end
