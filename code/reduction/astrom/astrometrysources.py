@@ -232,11 +232,23 @@ def getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.):
         magcolumn 	= 6
         if (catalog == 'tmpsc' or catalog == 'tmc'): magcolumn=3
         pmracolumn 	= 10
-        pmdeccolumn = 11    
-        queryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + catalog +  "&ra=" + str(ra) + "&dec=" + str(dec) + "&system=J2000&rad=" + str(-boxsize) + "&sort=mag&epoch=2000.00000&nstar=6400"
+        pmdeccolumn = 11   
+        
+        #SDSS direct query has different format than other scat queries
+        if catalog == 'sdss':
+        	queryurl = "http://cas.sdss.org/dr7/en/tools/search/x_radial.asp?ra="+str(ra)+"&dec="+str(dec)+"&radius="+str(boxsize/60.0)+"&entries=top&topnum=6400&format=csv"
+        	racolumn    = 7
+        	deccolumn   = 8
+        	magcolumn   = 12
+        	pmracolumn  = 99
+        	pmdeccolumn = 99
+        else:
+        	queryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + catalog +  "&ra=" + str(ra) + "&dec=" + str(dec) + "&system=J2000&rad=" + str(-boxsize) + "&sort=mag&epoch=2000.00000&nstar=6400"
+        
         cat = urllib.urlopen(queryurl)
         catlines = cat.readlines()
         cat.close()
+        
         if len(catlines) > 6400-20:
            print 'WARNING: Reached maximum catalog query size.'
            print '         Gaps may be present in the catalog, leading to a poor solution or no solution.'
@@ -266,10 +278,19 @@ def getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.):
     	comment = True
     catlist = []
     
+    #SDSS direct query has different format than other scat queries
+    if catalog == 'sdss':
+    	comment = False
+    	catlines = catlines[1:]
+    
     for line in catlines:
     
     	if not comment:
-    		cline = line.split()
+    		if catalog == 'sdss':
+    			cline = line.split(',')
+    		else:
+    			cline = line.split()
+
     		narg = len(cline)
     		
     		if line[0:2] == '#:':
@@ -310,7 +331,7 @@ def getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.):
         	iobj = Obj(ra, dec, mag) #process the line into an object
         	catlist.append(iobj)			
 			#Add to catalog array in vertical stack
-        			
+        				
     	if line.find('---') != -1:
     		comment = False
 

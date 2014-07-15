@@ -99,12 +99,10 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
           	;Run astrometry correction on this middle file that is assumed to be representative of the filter
           	if pipevar.verbose gt 0 then begin
           		print, 'Making reference catalog for ', targets[t], ' using ', refimagename
-          		print, pipevar.autoastrocommand +' '+ refimagename
           		print, pipevar.autoastrocommand+' '+ refimagename +' -l '+strcompress(refsatlev,/REMOVE_ALL)+' -q'
           	endif
           	
           	spawn, pipevar.autoastrocommand+' '+ refimagename +' -l '+strcompress(refsatlev,/REMOVE_ALL)+' -q'
-          	
 
 			;The new astrometry corrected file should be saved with the same name, but with 'a' prefix
           	outfile = fileappend(refimagename,'a')
@@ -269,7 +267,8 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 				trunfile = strmid(cfile, 0, extpos)
 		
 				h = headfits(cfile, /silent)
-       			pixscale = sxpar(h,'PIXSCALE')
+       			pixscale  = sxpar(h,'PIXSCALE')
+       			sourcecat = strcompress(sxpar(h, 'ASTR_CAT'),/REMOVE_ALL)
        	
        			if pipevar.verbose gt 0 then begin
 					sexcom = pipevar.sexcommand + ' -CATALOG_NAME ' + trunfile + '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv -PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 -ANALYSIS_THRESH 2.0 -PIXEL_SCALE ' +$
@@ -284,11 +283,24 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 				if sxpar(h, 'ASTR_NUM') gt 0 then acatlist = acatlist + ' ' + trunfile + '.cat'
 			endfor
 			
+			case sourcecat OF
+				'sdss':  cat_u = 'SDSS-R7'
+				'tmpsc': cat_u = '2MASS'
+				'tmc':   cat_u = '2MASS'
+				'ub2':   cat_u = 'USNO-B1'
+				else:	 cat_u = 'NONE'
+			endcase
+			
+			if cat_u eq 'NONE' then begin
+				print, 'No valid catalogs available for SCAMP, check that vlt_autoastrometry.py ran correctly'
+				return
+			endif
+			
 			if pipevar.verbose gt 0 then begin
-				scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
+				scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG "+cat_u+" -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
 				print, scampcmd
 			endif else begin
-				scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG SDSS-R7 -DISTORTDEG 1 -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE QUIET " + acatlist
+				scampcmd = "scamp -POSITION_MAXERR 0.2 -ASTREF_CATALOG "+cat_u+" -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE QUIET " + acatlist
 			endelse
 			
 			spawn, scampcmd

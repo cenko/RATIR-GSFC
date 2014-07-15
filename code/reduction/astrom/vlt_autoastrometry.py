@@ -392,15 +392,22 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     #If no catalog found after that, end program
     if catalog == '':
     
-    	#trycats = ['tmpsc','sdss', 'ub2', 'tmc']
-        #REMOVE AFTER TESTING
-        trycats = ['tmpsc', 'ub2', 'tmc']
+    	trycats = ['tmpsc','sdss', 'ub2', 'tmc']
+        #trycats = ['tmpsc', 'ub2', 'tmc']
         for trycat in trycats:
-            testqueryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + trycat +  "&ra=" + str(centerra) + "&dec=" + str(centerdec) + "&system=J2000&rad=" + str(-90)
+        
+            if trycat == 'sdss':
+            	testqueryurl = "http://cas.sdss.org/dr7/en/tools/search/x_radial.asp?ra="+str(centerra)+"&dec="+str(centerdec)+"&radius="+str(1.5)+"&entries=top&topnum=50000&format=csv"
+            	commentlen = 4
+            else:
+            	testqueryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + trycat +  "&ra=" + str(centerra) + "&dec=" + str(centerdec) + "&system=J2000&rad=" + str(-90)
+            	commentlen = 15
+            
             check = urllib.urlopen(testqueryurl)
             checklines = check.readlines()
             check.close()
-            if len(checklines) > 15:
+            
+            if len(checklines) > commentlen:
                 catalog = trycat
                 if quiet == False:
                 	print testqueryurl
