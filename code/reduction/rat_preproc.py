@@ -480,7 +480,6 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 						return
 
 					targname = '{}-vis{}'.format( prpslid, vstid )
-					targname_sky = '{}-sky'.format( targname )
 					
 					# rotate image or not
 					im = np.rot90( im, af.CAM_ROTAT[cam_i] )
@@ -525,14 +524,6 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 							h['TARGNAME'] = targname
 							hdulist.writeto( imfits, clobber=True ) # save object frame
 							fout = open( '{}/{}_{}.list'.format( targetdir, af.OBJ_NAME, h['FILTER'] ), 'a' ) # append if this filter's list exists
-							fout.write( fits_id + '\n' ) # write new file name to list
-							fout.close()
-
-							# sky frame
-							skyfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.SKY_NAME, cam_i )
-							h['TARGNAME'] = targname_sky
-							hdulist.writeto( skyfits, clobber=True ) # save sky frame
-							fout = open( '{}/{}_{}.list'.format( targetdir, af.SKY_NAME, h['FILTER'] ), 'a' ) # append if this filter's list exists
 							fout.write( fits_id + '\n' ) # write new file name to list
 							fout.close()
 							
@@ -603,7 +594,6 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 						return
 					
 					targname = '{}-vis{}'.format( prpslid, vstid )
-					targname_sky = '{}-sky'.format( targname )
 					
 					# rotate FITs data to align with filters (Z/J in E-left, Y/H in W-right)
 					im = np.rot90( im, af.CAM_ROTAT[cam_i] )
@@ -684,16 +674,16 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 							pf.writeto( imfits, im_img, header=h, clobber=True ) # save object frame
 							fout_img[0].write( '{}_{}_{}\n'.format( fits_id, af.OBJ_NAME, af.H2RG_FILTERS[f_img] ) ) # write new file name to list
 							
-							# filter side with sky
-							skyfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.SKY_NAME, af.H2RG_FILTERS[f_sky] )
+							# filter side with sky, now saved as object, but different list to keep track
+							skyfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, af.H2RG_FILTERS[f_sky] )
 							im_sky = im[af.H2RG_SLICES[f_sky]]
 							h['NAXIS1'] = af.H2RG_SLICES[f_sky][0].stop - af.H2RG_SLICES[f_sky][0].start # repeat incase filter sizes differ
 							h['NAXIS2'] = af.H2RG_SLICES[f_sky][1].stop - af.H2RG_SLICES[f_sky][1].start
 							h['FILTER'] = af.H2RG_FILTERS[f_sky]
-							h['TARGNAME'] = targname_sky
+							h['TARGNAME'] = targname
 							pf.writeto( skyfits, im_sky, header=h, clobber=True ) # save sky frame
 							fout_sky[0].write( '{}_{}_{}\n'.format( fits_id, af.SKY_NAME, af.H2RG_FILTERS[f_sky] ) ) # write new file name to list
-							
+														
 							valid_entry = True
 						
 						elif direction.lower() == 'q': # exit function

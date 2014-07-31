@@ -76,13 +76,17 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
        		if ct gt 0 then flat[w] = !values.f_nan
    		endif
    		
-   		;Subtract out skyflat, and subtract the median of the subsequent flat subtracted data
+   		;Scale skyflat, then subtract scaled skyflat, and subtract the median of the subsequent flat subtracted data
    		;Then calculate skycounts from data (above a minimum, or by default above 0.1)
-   		fdata  = data  - flat 
+   		flattmp = median(flat)
+   		imgtmp  = median(data)
+   		
+   		scalefr = imgtmp/flattmp
+   		fdata   = data - scalefr * flat 
    		tmp    = median(fdata)
    		fdata  = fdata - tmp
+   		
    		skycts = median(fdata[goodsignal])
-   
    
    		;Adds header keywords to denote new median counts and that we flatfielded with a sky flat
    		sxaddpar, h, 'SFLATFLD', flatname

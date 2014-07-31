@@ -48,7 +48,7 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
 	if file_test('default.nnw') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/default.nnw .'
 	
 	;Finds files with given prefix
-    files = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*sky*.fits')
+    files = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*img*.fits')
     
     filters =  strarr(n_elements(files))   
     

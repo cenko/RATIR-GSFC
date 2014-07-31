@@ -101,4 +101,5 @@ pro autopipedefaults, outpipevar=outpipevar, inpipevar=inpipevar
   	endif
 
 	outpipevar = pipevar
+
 end

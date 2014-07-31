@@ -59,8 +59,7 @@ pro autopipecrcleanim, outpipevar=outpipevar, inpipevar=inpipevar
       	if counts gt 30000. and exptime lt 10. then continue
       	if counts gt 20000. and exptime gt 5. and exptime lt 10. then continue
       	if target eq '' then continue   ; blank target is certainly not a science object.
-      	if strpos(target,'flat') ge 0 then continue
-      	if strpos(target,'sky') ge 0 then continue
+      	if strpos(target,'flat') ge 0 then continue      	
       	if strpos(target,'twilight') ge 0 then continue
 
 		;Cleans cosmic rays from file using hardcoded zeal number in pzap_perley
