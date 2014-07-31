@@ -1,8 +1,8 @@
 import photom
-import plotratir
+import plotphotom
 
 def autoredux():
 	print 'photom'
 	photom.photom()
-	print 'plotratir'
-	plotratir.plotratir()
+	print 'plotphotom'
+	plotphotom.plotphotom()

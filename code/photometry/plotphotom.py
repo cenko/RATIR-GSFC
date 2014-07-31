@@ -7,7 +7,8 @@ PURPOSE:
 	Saves this to finalmags.txt.  Creates color plot with all of the images overlaid
 	(red = J/H, green = z/y, blue = r/i) and creates plot of each filter field with
 	green circles around each object.  Saves as coadd*(FILTER).png
-	Calls printratirhtml which create HTML to view all information
+	Calls printhtml which create HTML to view all information
+	Can now take in different filters
 OUTPUTS:
 	finalmags.txt      - text file with all the magnitudes for each filter of each source
 	color.png          - overlay of all filters (red = J/H, green = z/y, blue = r/i)
@@ -15,9 +16,10 @@ OUTPUTS:
 	ratir.html         - html showing all information
 	
 Slowest part is saving image using pl.savefig, can't find a workaround
+Need to modify colors based on different types of filters being provided
 
 Translated from plotratir.pro by John Capone (jicapone@astro.umd.edu).
-Modified on 12/10/2013 by Vicki Toy (vtoy@astro.umd.edu)
+Modified on 7/31/2014 by Vicki Toy (vtoy@astro.umd.edu)
 """
 
 import numpy as np
@@ -29,9 +31,12 @@ import scipy as sp
 from astropy import wcs
 
 import photprocesslibrary as pplib
-import printratirhtml
+import printhtml
+import compcat
+import os
+import sys
 
-def plotratir():
+def plotphotom():
 
 	#Initialize arrays
     filters = ['r','i','z','y','J','H']
@@ -53,8 +58,6 @@ def plotratir():
     	plotdict[name] = np.zeros(arr_size)
 
     # retrieve detection files
-    
-    
     zffiles = pplib.choosefiles( 'coadd*_?.ref.multi.fits' )
 
     #Save filter and data from each file into arrays and find overlapping stars
@@ -84,9 +87,9 @@ def plotratir():
         
         #Read in finalphot[FILTER].am which has the instrument corrected photometry
         pfile = 'finalphot' + cfilter + '.am'
-        s_id, x, y, ra, dec, mag, magerr = np.loadtxt(pfile, unpack=True)
+        x, y, ra, dec, mag, magerr = np.loadtxt(pfile, unpack=True)
         
-        clen = len(s_id)
+        clen = len(mag)
         
         #For first file initialize variables for following files, use temporary variables
         #for comparison
@@ -290,6 +293,7 @@ def plotratir():
         fig.set_size_inches(figsize[0], figsize[1])
         ofile = ifile.split('.')[0] + '.png'
         pl.savefig( ofile, bbox_inches='tight', pad_inches=0, transparent=True, dpi=dpi )
-    
+        pl.close()
+   		
     #Create HTML to do quick look at data
-    printratirhtml.printratirhtml()
+    printhtml.printhtml(filters, names)

@@ -163,6 +163,7 @@ def photom():
 	if not os.path.exists('ratir_nir.nnw'): 
 		os.system('cp '+propath+'/defaults/ratir_nir.nnw .')
 
+	coaddfiles = pplib.choosefiles('coadd*_?.fits')
 	#Uses sextractor to find the magnitude and location of sources for each file
 	#Saves this information into 'fluxes_*.txt' files
 	for files in coaddfiles:
@@ -181,12 +182,12 @@ def photom():
 		else:
 			filter = filter.lower()
 		
-		compfile = files[:-4]+'multi.fits'
+		compfile = files
 
+		#Use individual image, not multi image now for individual detections
 		#Call to sextractor in double image mode (image1 used for detection of sources, image2 only for measurements - must be same size) 
-		#"sex image1,image2 -c configuration file" uses multicolor file for source detection and filter file for magnitude measurements
-		os.system('sex ' + mixfile + ',' + compfile + ' -WEIGHT_IMAGE '+ wmixfile+','+compfile[:-4]+'weight.fits' + \
-			' -c ratir_weighted.sex -SEEING_FWHM 1.5 -PIXEL_SCALE '+str(pixscale)+' -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 -PHOT_APERTURES ' + \
+		os.system('sex ' + compfile + ' -WEIGHT_IMAGE '+compfile[:-4]+'weight.fits' + \
+			' -c ratir_weighted.sex -SEEING_FWHM 1.5 -PIXEL_SCALE '+str(pixscale)+' -DETECT_THRESH 1.5 -ANALYSIS_THRESH 1.5 -PHOT_APERTURES ' + \
 			str(hdr['SEEPIX']*1.38)+ ' -MAG_ZEROPOINT ' + str(hdr['ABSZPT']))
 		os.system('mv -f temp.cat fluxes_'+filter+'.txt')
 		

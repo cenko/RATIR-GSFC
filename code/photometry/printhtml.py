@@ -1,35 +1,48 @@
 """
 NAME:
-	printratirhtml
+	printhtml
 PURPOSE:
 	Create photcomp.png comparing magnitude and errors as well as create HTML page that has
-	all of the data easily displayed
+	all of the data easily displayed for up to 9 filters
 OUTPUT:
 	photcomp.png - shows magnitude vs. error for each filter
-	ratir.html   - html page showing information about sources
+	photom.html   - html page showing information about sources
+DEPENDENCIES:
+	Images and files (finalmags.txt) created from plotphotom.py
 
 Translated from printratirhtml.pro by John Capone (jicapone@astro.umd.edu).
-Modified 12/10/2013 by Vicki Toy (vtoy@astro.umd.edu)
+Modified 7/31/2014 by Vicki Toy (vtoy@astro.umd.edu)
 """
 
 import numpy as np
 import pylab as pl
 import photprocesslibrary as pplib
 
-def printratirhtml():
+def printhtml(filters, colnames):
 	
 	#Reads in final magnitudes
-	plotra, plotdec, plotrmag, plotrmagerr, plotimag, plotimagerr, plotzmag, plotzmagerr, plotymag, plotymagerr, plotJmag, plotJmagerr, plotHmag, plotHmagerr = np.loadtxt('./finalmags.txt', unpack=True)
+	colgrab = np.loadtxt('./finalmags.txt', unpack=True)
+	
+	#Store each column into dictionary based on colnames and create header for HTML header from colnames
+	plotdict = {}
+	t = '<tr><th>#</th>'
+	for i in np.arange(len(colnames)):
+		plotdict[colnames[i]] = colgrab[i,:]		
+		t = t + '<th>' + colnames[i]+'</th>'
+	
+	t = t + '<tr>\n' 
+
+	colors = ['black', 'purple','blue','aqua','green','orange','red','yellow', 'magenta']
 
 	pl.figure()
 	pl.xlim([15,22])
 	pl.ylim([-0.01,0.2])
-	pl.plot(plotrmag, plotrmagerr, marker='o',linestyle='None', label='r', color='purple')
-	pl.plot(plotimag, plotimagerr, marker='o',linestyle='None', label='i', color='blue')
-	pl.plot(plotzmag, plotzmagerr, marker='o',linestyle='None', label='z', color='aqua')
-	pl.plot(plotymag, plotymagerr, marker='o',linestyle='None', label='y', color='green')
-	pl.plot(plotJmag, plotJmagerr, marker='o',linestyle='None', label='J', color='orange')
-	pl.plot(plotHmag, plotHmagerr, marker='o',linestyle='None', label='H', color='red')
+	
+	#For each filter, plot mag vs. error for photocomp.png
+	counter = 0
+	for filter in filters:
+		pl.plot(plotdict[filter+'mag'], plotdict[filter+'magerr'], marker='o',linestyle='None', label=filter, color=colors[counter])
+		counter = counter + 1
 	
 	pl.xlabel('AB Magnitude')
 	pl.ylabel(r"$\Delta$ Mag")
@@ -37,11 +50,12 @@ def printratirhtml():
 	pl.savefig( 'photcomp.png', bbox_inches='tight')
 	pl.clf()
 
-	f = open( './ratir.html', 'w' )
+	#Create html page that displays images made in plotphotom.py and values from finalmags.txt
+	f = open( './photom.html', 'w' )
 	f.write( '<!DOCTYPE HTML>\n' )
 	f.write( '<HTML>\n' )
 	f.write( '<HEAD>\n' )
-	f.write( '<TITLE>RATIR DATA</TITLE>\n' )
+	f.write( '<TITLE>PHOTOMETRY DATA</TITLE>\n' )
 	f.write( '</HEAD>\n' )
 	f.write( '<BODY BGCOLOR="#FFFFFF" TEXT="#003300">\n' )
 
@@ -62,13 +76,18 @@ def printratirhtml():
 	f.write( '		 Circles in images above match aperture size used in sextractor.<BR>\n' )
 	f.write( '<br />\n' )
 
+
 	#Writes table with all magnitudes
 	f.write( '<table border="1" width="100%">\n' )
-	f.write( '<tr><th>#</th><th>RA</th><th>DEC</th><th>r MAG</th><th>r MAG ERR</th><th>i MAG</th><th>i MAG ERR</th><th>z MAG</th><th>z MAG ERR</th><th>y MAG</th><th>y MAG ERR</th><th>J MAG</th><th>J MAG ERR</th><th>H MAG</th><th>H MAG ERR</th><tr>\n' )
-	for i in range(len(plotra)):
-	    f.write( '<tr><td>{:.0f}</td><td>{:.6f}</td><td>{:.6f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td><td>{:.2f}</td></tr>\n'.format(i,plotra[i],plotdec[i],plotrmag[i],plotrmagerr[i],plotimag[i],plotimagerr[i],plotzmag[i],plotzmagerr[i],plotymag[i],plotymagerr[i],plotJmag[i],plotJmagerr[i],plotHmag[i],plotHmagerr[i]) )
+	
+	f.write( t )
+	for j in np.arange(len(plotdict[colnames[0]])):
+		f.write('<tr><td>{:.0f}</td>'.format(j))
+		for col in colnames:
+			f.write('<td>{:.3f}</td>'.format(plotdict[col][j]))
+		f.write('<tr>\n')
 	f.write( '</table>\n' )
-
+	
 	f.write( '</PRE><BR><HR>\n' )
 	f.write( '<IMG SRC="photcomp.png">\n' )
 	f.write( '</PRE><BR><HR>\n' )
