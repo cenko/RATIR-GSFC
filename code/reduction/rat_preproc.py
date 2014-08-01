@@ -845,7 +845,10 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 				hdu.header[FITS_IN_KEY(i)] = fn # add flat fn to master flat header
 				print fn
 				hdulist = pf.open( fn )
-				data_arr.append(hdulist[0].data)
+				if mtype is af.FLAT_NAME: # normalize flat frames
+					data_arr.append(hdulist[0].data/np.median(hdulist[0].data))
+				else:
+					data_arr.append(hdulist[0].data)
 				filter_arr.append(hdulist[0].header['FILTER'])
 				i += 1
 			filt0 = None
@@ -863,10 +866,10 @@ def mkmaster( mtype, bands='ALL', workdir='.', fmin=5 ):
 			
 			master = af.imcombine( data_arr, type='median' )
 			dtemp = master.astype(np.float)
-			if mtype is af.BIAS_NAME:
-				hdu.data = dtemp
+			if mtype is af.FLAT_NAME:
+				hdu.data = dtemp/np.median(dtemp) # normalize master flat
 			else:
-				hdu.data = dtemp/np.median(dtemp) # scale is median
+				hdu.data = dtemp
 			hdulist = pf.HDUList( [hdu] )
 
 			hdulist.writeto( '{}_{}.fits'.format( mtype, band ), clobber=True )

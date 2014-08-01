@@ -86,7 +86,7 @@ def APCENTER( apstr, fnum):
 		sigma:		standard deviation of each pixel (optional)
 
 	Notes:
-		- 
+		- added normalization before combining
 
 	Future Improvements:
 		- add outlier rejection
