@@ -18,10 +18,7 @@
 ;	skypipeproc, filename, flatname
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 11/18/2013
-;
-; FUTURE IMPROVEMENTS:
-;	automated cropping of image?
+; Modified by Vicki Toy 8/15/14
 ;-
 
 pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxval
@@ -108,17 +105,6 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
      		outname = strmid(filenames[f],0,lastslashpos) + '/' + 's' + strmid(filenames[f],lastslashpos+1) $
    		else  $
      		outname = 's'+filenames[f]
-
-		;Different cropping regions for RATIR's CCDs vs. H2RGs CHANGE FOR RIMAS VLT
-		;Extracts subset of data and saves to outfile with same altered header
-   		s=size(fdata)
-   		camera = strcompress(sxpar(h, 'WAVELENG'), /REMOVE_ALL)
-
-   		if camera eq 'OPT' then begin
-   			hextract,fdata,h,fdata,h,50,975,50,975
-   		endif else begin
-   			hextract,fdata,h,fdata,h,75,s(1)-1,0,s(2)-1
-   		endelse
 
    		mwrfits, fdata, outname, h, /create
 	endfor

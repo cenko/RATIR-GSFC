@@ -18,10 +18,6 @@
 ;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/18/2013
-;
-; FUTURE IMPROVEMENTS:
-;	in skypipeproc crops to hand chosen RATIR size (different
-;	for optical and infrared), automate cropping (MUST CHANGE FOR RIMAS)? 
 ;-
 
 pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar

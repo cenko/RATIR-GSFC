@@ -27,24 +27,48 @@ from scipy.ndimage.interpolation import zoom
 # CONSTANTS
 PROPOSALS = { 'NIRstandard': '0000', 'OPTstandard': '00001', 'cluster': '0002', 'galaxy': '0003', 'blank': '0004', 'pointing': '0005', 'bias': '0006', 'dark': '0007', 'flat': '0008', 'focus': '0009', 'misc': '0010', 'GRB': '1000' } # 2012 proposal names and id numbers. source: rsync://ratir.astroscu.unam.mx/public/proposalidentifiers.txt
 CAM_NAMES = [ 'C0', 'C1', 'C2', 'C3' ] # RATIR camera names
-CAM_ROTAT = [ 0, 0, 1, 1 ] # frames are rotated by value * 90 degrees
-CAM_XFLIP = [ False, False, False, False ] # frames are flipped in x
-CAM_YFLIP = [ False, False, False, True ] # frames are flipped in y
+#CAM_ROTAT = [ 0, 0, 1, 1 ] # frames are rotated by value * 90 degrees
+#CAM_XFLIP = [ False, False, False, False ] # frames are flipped in x
+#CAM_YFLIP = [ False, False, False, True ] # frames are flipped in y
 CAM_PXSCALE = [0.32, 0.32, 0.3, 0.3] # C0, C1, C2, C3 in arcsec/px
-H2RG_FILTERS = [ 'Z', 'J', 'Y', 'H' ] # RATIR NIR bands.  0+2 are C2, 1+3 are C3
+SPLIT_FILTERS = [ 'Z', 'J', 'Y', 'H' ] # RATIR NIR bands.  0+2 are C2, 1+3 are C3
+CAM_BIAS   = [True, True, False, False]
+
+FILTERS_CAM = [1, 1, 2, 2]
 # RATIR H2RG filter slices
-Z_SLICE = np.s_[1:1700,1:900]
-Y_SLICE = np.s_[1:1700,1144:2043]
-J_SLICE = np.s_[1:1700,1:900]
-H_SLICE = np.s_[1:1700,1144:2043]
+Z_SLICE = np.s_[4:975,100:2000]
+Y_SLICE = np.s_[1135:2043,240:2043]
+J_SLICE = np.s_[50:1000,4:2000]
+H_SLICE = np.s_[1200:2043,4:1940]
+#Z_SLICE = np.s_[1:1700,1:900]
+#Y_SLICE = np.s_[1:1700,1144:2043]
+#J_SLICE = np.s_[1:1700,1:900]
+#H_SLICE = np.s_[1:1700,1144:2043]
 H2RG_SLICES = [ Z_SLICE, J_SLICE, Y_SLICE, H_SLICE ] # same order as H2RG_FILTERS.  0+2 are C2, 1+3 are C3
 OBJ_NAME = 'img' # designator for object frames
-SKY_NAME = 'sky' # designator for sky frames
+#SKY_NAME = 'sky' # designator for sky frames
 FLAT_NAME = 'flat' # designator for flat frames
 BIAS_NAME = 'bias' # designator for bias frames
 CONFIG_LOCATION = 'astro_functs.py' # name of file containing configuration information, currently this file.
+
+CAM_WAVE  = ['OPT', 'OPT', 'IR', 'IR']
+CAM_SPLIT = [False, False, True, True]
+#WCS relevant parameters (RATIR H2RGs have barrel distortions)
+a = -19.60381671
+b = -4128.15179797
+CAM_SECPIX1  = [0.3168, 0.3171, 0.2988, 0.2983]
+CAM_SECPIX2  = [0.3171, 0.3191, -0.2955, 0.2945]
+CAM_THETA    = [0.60, 2.40, 92.55, -89.25]
+CAM_X0       = [513, 513, 1177, 924]
+CAM_Y0		 = [513, 513, 1031, 982]
+
+H2RG_ASTR = {'PV1_1': 1.0, 'PV2_1': 1.0, 'PV1_17':a, 'PV2_17':a, 'PV1_19': 2.0*a, 'PV2_19':2.0*a, 'PV1_21':a, 'PV2_21':a, 'PV1_31':b, 'PV2_31': b, 'PV1_33':3.0*b, 'PV2_33':3.0*b, 'PV1_35':3.0*b, 'PV2_35':3.0*b, 'PV1_37':b, 'PV2_37': b}
+RA_KEY = 'ETRRQRA'
+DEC_KEY = 'ETRRQDE'
+
+
 CAM_GAIN = [ lambda SOFTGAIN: 16.80/SOFTGAIN, lambda SOFTGAIN: 18.64/SOFTGAIN, lambda SOFTGAIN: 2.2/SOFTGAIN, lambda SOFTGAIN: 2.4/SOFTGAIN ] # gain of each camera as a function of the SOFTGAIN keyword extracted from a frame's header
-CAM_SATUR = [ lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (32000./SOFTGAIN)-1, lambda SOFTGAIN: (32000./SOFTGAIN)-1 ] # saturation levels for each detector in DNs as a function of the SOFTGAIN keyword extracted from a frame's header
+CAM_SATUR = [ lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (2.**16/SOFTGAIN)-1, lambda SOFTGAIN: (36000./SOFTGAIN)-1, lambda SOFTGAIN: (36000./SOFTGAIN)-1 ] # saturation levels for each detector in DNs as a function of the SOFTGAIN keyword extracted from a frame's header
 CENTER_KEY = 'STRRQAP' # RATIR header keyword specifying which H2RG filters the target is focused on
 # frame corners in arcmin offset from center.  top-left, bottom-left, bottom-right, top-right.  top==north, left==east
 CAMOFFS = np.array([[[2.785,2.632], [2.604,-2.775], [-2.800,-2.615], [-2.635,2.789]],	# C0 corner offsets in arcmin
@@ -63,13 +87,13 @@ APOFFS	= {	"rcenter":		np.array([0,0]),
 			"ZJcenter":		np.array([2.2,0.7]),
 			"YHcenter":		np.array([-3.2,0.7])}
 # return aperture center in pixels from frame center
-def APCENTER( apstr, fnum):
-	ao = APOFFS[apstr] # offset of pointing in arcmin
-	fc = FRAMECENTER[fnum] # offset of frame center in arcmin
-	if fnum < 2: ps = CAM_PXSCALE[fnum]
-	elif fnum < 4: ps = CAM_PXSCALE[2]
-	else: ps = CAM_PXSCALE[3]
-	return ((ao - fc)*60./ps).astype(np.int)
+#def APCENTER( apstr, fnum):
+#	ao = APOFFS[apstr] # offset of pointing in arcmin
+#	fc = FRAMECENTER[fnum] # offset of frame center in arcmin
+#	if fnum < 2: ps = CAM_PXSCALE[fnum]
+#	elif fnum < 4: ps = CAM_PXSCALE[2]
+#	else: ps = CAM_PXSCALE[3]
+#	return ((ao - fc)*60./ps).astype(np.int)
 
 """
 	Written by John Capone (jicapone@astro.umd.edu).

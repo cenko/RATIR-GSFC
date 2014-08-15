@@ -106,44 +106,11 @@ pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, 
 	;and saves as AIRMASS.  CHANGE FOR RIMAS
 	am  = sxpar(header, 'STROBAM')
 	sxaddpar, header, 'AIRMASS', am
-	
-   	filter = strtrim(sxpar(header, 'FILTER'))
-   	
-	;Target requested RA and DEC CHANGE for RIMAS VLT - ending time coordinates
-	radeg  = sxpar(header,'ETRRQRA')
-	decdeg = sxpar(header,'ETRRQDE')
-	
-	;These keywords may need to be changed for RIMAS CHANGE VLT
-   	IF strcmp(filter,'J') OR strcmp (filter,'Z') then begin
-  		sxaddpar, header, 'CRPIX1', 700. 
-     	sxaddpar, header, 'CRPIX2', 900.
-      	sxaddpar, header, 'CD1_1',  -8.17218901106E-05
-      	sxaddpar, header, 'CD1_2',  3.7651099887E-06
-      	sxaddpar, header, 'CD2_1',  4.20827225712E-06
-      	sxaddpar, header, 'CD2_2',  8.26704009041E-05
-   	endif else if strcmp(filter,'H') OR strcmp (filter,'Y') then begin
-      	sxaddpar, header, 'CRPIX1', 200.
-      	sxaddpar, header, 'CRPIX2', 900.
-      	sxaddpar, header, 'CD1_1',  -8.17218901106E-05
-      	sxaddpar, header, 'CD1_2',  3.7651099887E-06
-      	sxaddpar, header, 'CD2_1',  4.20827225712E-06
-      	sxaddpar, header, 'CD2_2',  8.26704009041E-05
-   	endif else begin
-      	sxaddpar, header, 'CD1_1', -8.80977078079E-05 
-      	sxaddpar, header, 'CD1_2',  1.86753101419E-06 
-      	sxaddpar, header, 'CD2_1',  1.86716671065E-06
-      	sxaddpar, header, 'CD2_2',  8.81208878042E-05 
-      	sxaddpar, header, 'CRPIX1', 512.
-      	sxaddpar, header, 'CRPIX2', 512.
-   	endelse
-   		
-   	sxaddpar, header, 'CRVAL1', float(radeg), 'RA (deg)'
-   	sxaddpar, header, 'CRVAL2', float(decdeg), 'DEC (deg)'
-   	sxaddpar, header, 'CTYPE1', 'RA---TAN'
-   	sxaddpar, header, 'CTYPE2', 'DEC--TAN'
 
    	exptime = sxpar(header,'EXPTIME')
    	sxaddpar, header, 'ELAPTIME',exptime
+   	stime = sxpar(header, 'SDATE')
+   	sxaddpar, header, 'DATE-OBS', stime
 
 	;List of mandatory header keywords
 	mandatorykey = ['SIMPLE','BITPIX','NAXIS','NAXIS1','NAXIS2', $
@@ -154,8 +121,10 @@ pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, 
  					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PIXSCALE',$
  					'SUN_ALT','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
  					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
- 					'SOFTGAIN','FILTER','AVERAGE','STDEV','GAIN','AIRMASS','CCD_NAME']
- 
+ 					'SOFTGAIN','FILTER','AVERAGE','STDEV','GAIN','AIRMASS','CCD_NAME', $
+ 					'PV1_1','PV2_1','PV1_17','PV2_17','PV1_19','PV2_19','PV1_21','PV2_21',$
+ 					'PV1_31','PV2_31','PV1_33','PV2_33','PV1_35','PV2_35','PV1_37','PV2_37']
+
  	;Finds list of unnecessary keywords, then deletes entire list
 	unneckey = ''
 	newheader = header
