@@ -73,7 +73,7 @@ Outline
 4. Select calibration frames you want to use:
 
 	```python
-	In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.1, amax=0.8 )
+	In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.2, amax=0.8 )
 	```
 	
 	where amin, amax are used in automode to find minimum and maximum median allowed values (of saturation level) for calibration frames

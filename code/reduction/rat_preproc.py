@@ -152,25 +152,26 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 				# open data
 				hdulist = pf.open( fits_fn )
 				im = hdulist[0].data
-				h = hdulist[0].header
+				h  = hdulist[0].header
 					
 				if af.CAM_SPLIT[cam_i]:
 					#Overwrites list files that will contain new information
 					if count == 0:
 						fout = [open( '{}_{}.list'.format( ftype, af.SPLIT_FILTERS[cam_i-2] ), 'w' ), open( '{}_{}.list'.format( ftype, af.SPLIT_FILTERS[cam_i] ), 'w' )] # create list files for new img FITs files (e, w)	
 						for f in fout: f.close()
-					im1 = im[af.H2RG_SLICES[cam_i-2]]
-					m1 = np.median( im1 )
-					s1 = af.robust_sigma( im1 )
-					im2 = im[af.H2RG_SLICES[cam_i]]
-					m2 = np.median( im2 )
-					s2 = af.robust_sigma( im2 )
+					im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
+					m1  = np.median( im1 )
+					s1  = af.robust_sigma( im1 )
+					im2 = im[af.SLICES[af.SPLIT_FILTERS[cam_i]]]
+					m2  = np.median( im2 )
+					s2  = af.robust_sigma( im2 )
 					print '\t* Median of left side is {} counts'.format( m1 )
 					print '\t* Median of right side is {} counts'.format( m2 )	
 									
 				else:
-					m = np.median( im )
-					s = af.robust_sigma( im )
+					im1 = im[af.SLICES['C'+str(cam_i)]]
+					m   = np.median( im1 )
+					s   = af.robust_sigma( im1 )
 					print '\t* Median is {} counts.'.format( m )								
 					print '\t* Filter used: {}'.format( h['FILTER'] )	
 					
@@ -184,8 +185,10 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 				if auto:
 					if ftype is af.BIAS_NAME:	
 						# all bias frames are selected
+						imfits = '{}_{}.fits'.format( fits_id, ftype)
+						pf.writeto( imfits, im1, header=h, clobber=True ) # save object frame
 						fout = open( '{}_{}.list'.format( ftype, cam_i ), 'a' ) # append if this filter's list exists
-						fout.write( fits_id + '\n' ) # write new file name to list
+						fout.write( '{}_{}\n'.format( fits_id, ftype ) ) # write new file name to list
 						fout.close()
 													
 					if ftype is af.FLAT_NAME:
@@ -229,8 +232,10 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 							# check whether median value is in specified range
 							if m > vmin and m < vmax:
 								print "\t* Frame selected."
+								imfits = '{}_{}.fits'.format( fits_id, ftype)
+								pf.writeto( imfits, im1, header=h, clobber=True ) # save object frame
 								fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
-								fout.write( fits_id + '\n' ) # write new file name to list
+								fout.write( '{}_{}\n'.format( fits_id, ftype ) ) # write new file name to list
 								fout.close()
 							else:
 								if m < vmin:
@@ -247,12 +252,12 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 						axim.axes.set_yticks([])
 						pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m1), s1 ) )
 						pl.subplot(212)
-						axim = pl.imshow( im1, vmin=m1-5*s1, vmax=m1+5*s1, origin='lower', cmap=pl.cm.gray )
+						axim = pl.imshow( im2, vmin=m2-5*s2, vmax=m2+5*s2, origin='lower', cmap=pl.cm.gray )
 						axim.axes.set_xticks([])
 						axim.axes.set_yticks([])
 						pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m1), s1 ) )						
 					else:
-						axim = pl.imshow( im, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
+						axim = pl.imshow( im1, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
 						axim.axes.set_xticks([])
 						axim.axes.set_yticks([])						
 						pl.title( r"Median = {}, $\sigma$ = {:.1f}".format( int(m), s ) )
@@ -277,9 +282,9 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 								fout[1].write( '{}_{}_{}\n'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i] ) ) # write new file name to list
 								fout[1].close()
 							else:
-								
+								imfits = '{}_{}.fits'.format( fits_id, ftype )
 								fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
-								fout.write( fits_id + '\n' ) # write new file name to list
+								fout.write( '{}_{}\n'.format( fits_id, ftype ) ) # write new file name to list
 								fout.close()
 									
 							valid_entry = True
@@ -383,9 +388,6 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 		
 		# print current camera number
 		print "\n* * * CAMERA {} * * *".format( cam_i )
-
-		# CCDs
-		#if cam_i in [0,1]:
 		
 		fn_list = '{}_{}.list'.format( af.CAM_NAMES[cam_i], d )
 		try:
@@ -435,15 +437,16 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 									
 				# get image statistics
 				if af.CAM_SPLIT[cam_i]:
-					im1 = im[af.H2RG_SLICES[cam_i-2]]
-					m1 = np.median( im1 )
-					s1 = af.robust_sigma( im1 )
-					im2 = im[af.H2RG_SLICES[cam_i]]
-					m2 = np.median( im2 )
-					s2 = af.robust_sigma( im2 )
-				else:				
-					m = np.median( im )
-					s = af.robust_sigma( im )
+					im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
+					m1  = np.median( im1 )
+					s1  = af.robust_sigma( im1 )
+					im2 = im[af.SLICES[af.SPLIT_FILTERS[cam_i]]]
+					m2  = np.median( im2 )
+					s2  = af.robust_sigma( im2 )
+				else:
+					im1 = im[af.SLICES['C'+str(cam_i)]]				
+					m = np.median( im1 )
+					s = af.robust_sigma( im1 )
 						
 				# display image and prompt user
 				if not auto:
@@ -462,8 +465,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 						axim.axes.set_yticks([])
 						pl.title( r"{} band".format( af.SPLIT_FILTERS[cam_i] ) + ': ' + "Median = {}, $\sigma$ = {:.1f}".format( int(m2), s2 ) )
 					else:					
-						implot = zoom( im, ZOOM_LVL ) # change image size for display
-						axim = pl.imshow( implot, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
+						axim = pl.imshow( im1, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
 						axim.axes.set_xticks([])
 						axim.axes.set_yticks([])
 						pl.title( r"{} band: Median = {}, $\sigma$ = {:.1f}".format( h['FILTER'], int(m), s ) )
@@ -503,6 +505,7 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 					if user.lower() == 'y':
 							
 						# set keyword values
+						h['CAMERA']   = cam_i
 						h['TARGNAME'] = targname
 						h['PIXSCALE'] = af.CAM_PXSCALE[cam_i]
 						h['WAVELENG'] = af.CAM_WAVE[cam_i]
@@ -512,10 +515,12 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 						h['CRPIX2']   = af.CAM_Y0[cam_i]
 						h['CTYPE1']   = 'RA---TAN'
 						h['CTYPE2']   = 'DEC--TAN'
-						h['CD1_1']  =  af.CAM_SECPIX1[cam_i]*np.cos(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.
-						h['CD2_1']  = -af.CAM_SECPIX1[cam_i]*np.sin(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.
-						h['CD1_2']  =  af.CAM_SECPIX2[cam_i]*np.sin(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.
-						h['CD2_2']  =  af.CAM_SECPIX2[cam_i]*np.cos(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.  
+						h['CD1_1']    =  -af.CAM_SECPIX1[cam_i]*np.cos(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.
+						h['CD2_1']    =   af.CAM_SECPIX1[cam_i]*np.sin(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.
+						h['CD1_2']    =   af.CAM_SECPIX2[cam_i]*np.sin(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.
+						h['CD2_2']    =   af.CAM_SECPIX2[cam_i]*np.cos(af.CAM_THETA[cam_i]*np.pi/180.0)/3600.  
+						h['CRVAL1']   =  h[af.RA_KEY]  - af.APOFFS[h[af.CENTER_KEY]][0]/60.0 + h[af.OFFRA_KEY] #includes aperture offsets and target offsets (ie. dithering)
+						h['CRVAL2']   =  h[af.DEC_KEY] - af.APOFFS[h[af.CENTER_KEY]][1]/60.0 + h[af.OFFDEC_KEY]
 
 						if af.CAM_SPLIT[cam_i]:
 							for key in af.H2RG_ASTR:
@@ -527,31 +532,35 @@ def ratdisp( workdir='.', targetdir='.', cams=[0,1,2,3], auto=False ):
 							else:
 								f_img = cam_i
 								f_sky = cam_i-2
-								
+						
 						if af.CAM_SPLIT[cam_i]:
 							imfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, af.SPLIT_FILTERS[f_img] )
-							im_img = im[af.H2RG_SLICES[f_img]]
-							h['NAXIS1'] = af.H2RG_SLICES[f_img][1].stop - af.H2RG_SLICES[f_img][1].start
-							h['NAXIS2'] = af.H2RG_SLICES[f_img][0].stop - af.H2RG_SLICES[f_img][0].start
 							h['FILTER'] = af.SPLIT_FILTERS[f_img]
-							h['CRPIX1'] = af.CAM_X0[cam_i] - af.H2RG_SLICES[f_img][1].start
-							h['CRPIX2'] = af.CAM_Y0[cam_i] - af.H2RG_SLICES[f_img][0].start							
+							im_img = im[af.SLICES[h['FILTER']]]
+							h['NAXIS1'] = af.SLICES[h['FILTER']][1].stop - af.SLICES[h['FILTER']][1].start
+							h['NAXIS2'] = af.SLICES[h['FILTER']][0].stop - af.SLICES[h['FILTER']][0].start
+							h['CRPIX1'] = af.CAM_X0[cam_i] - af.SLICES[h['FILTER']][1].start
+							h['CRPIX2'] = af.CAM_Y0[cam_i] - af.SLICES[h['FILTER']][0].start
 							pf.writeto( imfits, im_img, header=h, clobber=True ) # save object frame
 							
 							# filter side with sky, now saved as object, but different list to keep track
 							skyfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, af.SPLIT_FILTERS[f_sky] )
-							im_sky = im[af.H2RG_SLICES[f_sky]]
-							h['NAXIS1'] = af.H2RG_SLICES[f_sky][1].stop - af.H2RG_SLICES[f_sky][1].start # repeat incase filter sizes differ
-							h['NAXIS2'] = af.H2RG_SLICES[f_sky][0].stop - af.H2RG_SLICES[f_sky][0].start
-							h['CRPIX1'] = af.CAM_X0[cam_i] - af.H2RG_SLICES[f_sky][1].start
-							h['CRPIX2'] = af.CAM_X0[cam_i] - af.H2RG_SLICES[f_sky][0].start 																				
 							h['FILTER'] = af.SPLIT_FILTERS[f_sky]
-							pf.writeto( skyfits, im_sky, header=h, clobber=True ) # save sky frame														
+							im_sky = im[af.SLICES[h['FILTER']]]
+							h['NAXIS1'] = af.SLICES[h['FILTER']][1].stop - af.SLICES[h['FILTER']][1].start #Repeat incase filter sizes different
+							h['NAXIS2'] = af.SLICES[h['FILTER']][0].stop - af.SLICES[h['FILTER']][0].start
+							h['CRPIX1'] = af.CAM_X0[cam_i] - af.SLICES[h['FILTER']][1].start
+							h['CRPIX2'] = af.CAM_Y0[cam_i] - af.SLICES[h['FILTER']][0].start
+							pf.writeto( skyfits, im_sky, header=h, clobber=True ) # save sky frame
 							valid_entry = True
-						else:												
-							# object frame
-							imfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, cam_i )		
-							hdulist.writeto( imfits, clobber=True ) # save object frame
+						else:
+							imfits = '{}/{}_{}_{}.fits'.format( targetdir, fits_id, af.OBJ_NAME, cam_i )
+							im_img = im[af.SLICES['C'+str(cam_i)]]
+							h['NAXIS1'] = af.SLICES['C'+str(cam_i)][1].stop - af.SLICES['C'+str(cam_i)][1].start
+							h['NAXIS2'] = af.SLICES['C'+str(cam_i)][0].stop - af.SLICES['C'+str(cam_i)][0].start
+							h['CRPIX1'] = af.CAM_X0[cam_i] - af.SLICES['C'+str(cam_i)][1].start
+							h['CRPIX2'] = af.CAM_Y0[cam_i] - af.SLICES['C'+str(cam_i)][0].start
+							pf.writeto( imfits, im_img, header=h, clobber=True )
 							valid_entry = True						
 						
 					elif user.lower() == 'q': # exit function
