@@ -186,9 +186,9 @@ def photom():
 
 		#Use individual image, not multi image now for individual detections
 		#Call to sextractor in double image mode (image1 used for detection of sources, image2 only for measurements - must be same size) 
-		os.system('sex ' + compfile + ' -WEIGHT_IMAGE '+compfile[:-4]+'weight.fits' + \
+		os.system('sex -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE '+compfile[:-4]+'weight.fits' + \
 			' -c ratir_weighted.sex -SEEING_FWHM 1.5 -PIXEL_SCALE '+str(pixscale)+' -DETECT_THRESH 1.5 -ANALYSIS_THRESH 1.5 -PHOT_APERTURES ' + \
-			str(hdr['SEEPIX']*1.38)+ ' -MAG_ZEROPOINT ' + str(hdr['ABSZPT']))
+			str(hdr['SEEPIX']*1.34)+ ' -MAG_ZEROPOINT ' + str(hdr['ABSZPT'])+' ' + compfile)
 		os.system('mv -f temp.cat fluxes_'+filter+'.txt')
 		
 		#Columns unpacked for fluxes*.txt are: (x,y,ra,dec,mag,magerr,e,fwhm,flags)

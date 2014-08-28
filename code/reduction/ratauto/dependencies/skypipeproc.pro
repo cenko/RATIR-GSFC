@@ -88,7 +88,6 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
    		;Adds header keywords to denote new median counts and that we flatfielded with a sky flat
    		sxaddpar, h, 'SFLATFLD', flatname
    		skycts = median(fdata[goodsignal])
-   		sxaddpar, h, 'COUNTS', skycts
    		sxaddpar, h, 'SKYCTS', skycts, 'Sky counts'
    
    		if sxpar(h,'EXPTIME') gt 0 then $

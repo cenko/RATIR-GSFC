@@ -34,7 +34,7 @@
 ;	More keywords to sextractor?
 ;-
 
-pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
+pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, maptype=maptype, $
 	wtimage=wtimage, fwhm=fwhm, pix=pix, aperture=aperture, elong_cut=elong_cut, quiet=quiet
 
 	;Set default values if keywords not set
@@ -45,6 +45,7 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 	if (not keyword_set(aperture)) 	then aperture 	= 5.0	
 	if (not keyword_set(elong_cut)) then elong_cut 	= 1.30	
 	if (not keyword_set(quiet))		then quiet		= 0
+	if (not keyword_set(maptype))	then maptype	= 'MAP_WEIGHT'
 	
 	;Move necessary sextractor configuration files if they are not in current directory
 	if file_test('coadd.param') eq 0 then spawn, 'cp '+ pipevar.defaultspath +'/coadd.param .'
@@ -77,7 +78,7 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 			
 		if keyword_set(wtimage) then begin
 			if n_elements(wtimage) eq 0 then iwtimage = wtimage else iwtimage = wtimage[i]
-			sexcommand = sexcommand + ' -WEIGHT_TYPE MAP_WEIGHT -WEIGHT_IMAGE ' + iwtimage + ' '
+			sexcommand = sexcommand + ' -WEIGHT_TYPE '+maptype+' -WEIGHT_IMAGE ' + iwtimage + ' '
 		endif
 		
 		sexcommand = sexcommand + ' ' + image
@@ -89,8 +90,8 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, $
 		
 		;Calculates seeing with starlike objects
 		if file_test(starfile) then begin
-			readcol, starfile, num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper
-			keep = where( (flag eq 0) and (elon lt elong_cut) and (fwhmim gt 0.25) and (fwhmim lt 20.0), keepct )
+			readcol, starfile, num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper, /silent
+			keep = where( (flag lt 0) and (elon lt elong_cut) and (fwhmim gt fwhm) and (fwhmim lt 20.0), keepct )
 			if keepct le 1 then seepix=!values.f_nan else seepix = median(fwhmim[keep])
 		endif else begin
 			print, 'Failed to find Sextractor output file!'

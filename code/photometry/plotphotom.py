@@ -32,7 +32,6 @@ from astropy import wcs
 
 import photprocesslibrary as pplib
 import printhtml
-import compcat
 import os
 import sys
 

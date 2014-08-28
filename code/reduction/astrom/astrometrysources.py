@@ -3,6 +3,8 @@ import numpy
 import os
 import astrometrystats
 import urllib
+import pyfits as pf
+from astropy import wcs
 
 ########################################
 class Obj:
@@ -141,11 +143,11 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     		& (x >= minx) & (x <= maxx) & (y >= miny) & (y <= maxy) \
     		& (x+y >= corner) & (x+nypix-y >= corner) \
     		& (nxpix-x >= corner) & (nxpix-x+nypix-y >= corner)
-    		
+ 	
     #Removes flagged values if saturation level set
     if saturation > 0:
     	mask = mask & (flag == 0)   
-      
+    
     #VLT Removed code from autoastrometry.py line 387-432 that rules out false detections
     #If too many false positives need to rewrite section in more coherent way
     #OC: Might also be good to screen for false detections created by bad columns/rows

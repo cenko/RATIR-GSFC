@@ -32,6 +32,9 @@
 ; DEPENDENCIES:
 ;	sigclipstats_vt.pro, djs_iterstat.pro, Sextractor
 ;
+; FUTURE IMPROVEMENTS:
+;   Uses different method for CCDs than H2RGs, separates by filter, change for RIMAS, very RATIR dependent
+;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/18/2013
 ;-
@@ -131,9 +134,9 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
 	
 	;Multiply each fits file data by the median of sigma clipped medians divided by the median of the data (NOT sigma clipped)
 	;Simply scales each data set to the median of all datasets
+
 	for f = 0, z-1 do begin
-   		inmed = median(data[*,*,f], /even) ; if each flat has a changing sky background
-   		factor=medsky/inmed
+   		factor=medsky/skymed[f]		; if each flat has a changing sky background
    		data[*,*,f]=data[*,*,f]*factor(0)
 	endfor
 
@@ -229,7 +232,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
    		reflat = fltarr(nx, ny)
 
 		;If algorithm set to median, find 3 sigma clipped median of each pixel 
-		;(excluding saturated or above 6 sigma - NAN values which are eventually set to 1)
+		;(excluding saturated or above 6 sigma - NAN values which are eventually set to median)
    		if algorithm eq 'median' then begin
      		if pipevar.verbose gt 0 then print, '  Median-combining...'
      		i = 0l

@@ -72,12 +72,8 @@ pro autopipemakesky, outpipevar=outpipevar, inpipevar=inpipevar
        
        	if ctsky ge 2 then begin
        		if pipevar.verbose gt 0 then print, filt, '-band sky flats.'
-            if file_test(outflatname) and pipevar.overwrite eq 0 then continue
-            
+            if file_test(outflatname) and pipevar.overwrite eq 0 then continue       
             if pipevar.verbose gt 0 then print, files[skyflats]
-            
-            ;COMMENTED OUT 12/30
-            ;skypipecombine, files[skyflats], outflatname, /removeobjects, type='sky'
             
             skypipecombine_altsex, files[skyflats], outflatname, filt, pipevar,/removeobjects, type='sky'
 
