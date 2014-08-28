@@ -307,7 +307,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
         print 'Cannot find necessary WCS header keyword CRVAL*, CRPIX*, or CD*_*'
         print 'Must specify pixel scale (-px VAL) or provide provisional basic WCS info via CD matrix.'
         sys.exit(1)
-
+        
 	#This section deals with manipulating WCS coordinates, for thorough description see:
 	#iraf.noao.edu/iraf/ftp/misc/fitswcs_draft.ps
 
@@ -316,7 +316,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
        parity = -1
     else:
        parity = 1
-        
+
     #Calculates CDELTA1 (xscale) and CDELTA2 (yscale) which is how much RA or DEC 
     #changes when you move along a column or row
     xscale = numpy.sqrt(cd11**2 + cd21**2)
@@ -329,7 +329,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     #as well as the pixel scale in arcseconds
     xscale = abs(xscale)
     yscale = abs(yscale)
-    fieldwidth = max(xscale * nxpix, yscale * nypix) * 3600.    
+    fieldwidth = max(xscale * nxpix, yscale * nypix) * 3600. /2.0   
     area_sqdeg = xscale * nxpix * yscale * nypix
     area_sqmin = area_sqdeg * 3600. 
     area_sqsec = area_sqmin * 3600. 
@@ -374,7 +374,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
        writetextfile('det.init.txt', goodsexlist)
        writeregionfile('det.im.reg', goodsexlist, 'red', 'img')
        return -1
-
+       
 	#Finds source number density
     density = len(goodsexlist) / area_sqmin
     
@@ -392,8 +392,8 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     #If no catalog found after that, end program
     if catalog == '':
     
-    	trycats = ['tmpsc','sdss', 'ub2', 'tmc']
-        #trycats = ['tmpsc', 'ub2', 'tmc']
+    	#trycats = ['sdss', 'tmpsc','ub2', 'tmc']
+        trycats = ['sdss','tmpsc', 'ub2', 'tmc']
         for trycat in trycats:
         
             if trycat == 'sdss':
@@ -448,14 +448,14 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
             catlist = catlist[0:len(catlist)*4/5]
             ncat = len(catlist)
             catdensity = ncat / (2*boxsize/60.)**2
-        
+      
     #If the image is way deeper than USNO, trim the image catalog down
-    if ngood > 8 and density > 4 * catdensity:
-        print 'Image is deep.  Trimming image catalog...'
-        while density > 4 * catdensity and ngood > 8:
-            goodsexlist = goodsexlist[0:len(goodsexlist)*4/5]
-            ngood = len(goodsexlist)
-            density = ngood / area_sqmin
+    #if ngood > 8 and density > 4 * catdensity:
+    #    print 'Image is deep.  Trimming image catalog...'
+    #    while density > 4 * catdensity and ngood > 8:
+    #        goodsexlist = goodsexlist[0:len(goodsexlist)*4/5]
+    #        ngood = len(goodsexlist)
+    #        density = ngood / area_sqmin
 
     #If too many objects, do some more trimming
     if ngood*ncat > 120*120*4:
@@ -469,11 +469,11 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
                 catlist = catlist[0:len(catlist)*4/5]
                 ncat = len(catlist)
                 catdensity = ncat / (2*boxsize/60.)**2   
-    
+
     #Remove fainter object in close pairs for both lists
     goodsexlist = astrometrydist.tooclose(goodsexlist, minsep=3, quiet=quiet)
     catlist = astrometrydist.tooclose(catlist, minsep=3, quiet=quiet)
-    
+
     #Saves text file that contains RA, DEC, and mag of sextractor list
     writetextfile('det.init.txt', goodsexlist)
     writeregionfile('det.im.reg', goodsexlist, 'red', 'img')
@@ -548,7 +548,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
         print 'Warning: only', nmatch, 'match(es).  Astrometry may be unreliable.'
         if quiet == False:
            print '   Check the pixel scale and parity and consider re-running.'
-        return -1
+        #return -1
         warning = 1
 
     #We now have the PA and a list of stars that are almost certain matches.

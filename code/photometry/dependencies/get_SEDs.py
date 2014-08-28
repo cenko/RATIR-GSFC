@@ -206,7 +206,7 @@ class online_catalog_query():
         return np.array(out)
     
     
-    def _query_sdss( self, container=None, cont_index=1, trim_mag=25. ):
+    def _query_sdss( self, container=None, cont_index=1, trim_mag=21. ):
         '''
         Query sdss8 server for sources found in a box of width self.boxsize (arcsecs)
         around self.coords.
@@ -228,7 +228,8 @@ class online_catalog_query():
         out = Popen(request, shell=True, stdout=PIPE, stderr=PIPE)
         o,e = out.communicate()
         if e:
-            raise IOError('findsdss8 problem: '+e)
+        	if e[:8] != '#...url=':
+        		raise IOError('findsdss8 problem: '+e)
         # parse the response
         sdss_objects = self._parse_sdss(o)
         if len(sdss_objects) == 0:
@@ -297,7 +298,8 @@ class online_catalog_query():
         out = Popen(request, shell=True, stdout=PIPE, stderr=PIPE)
         o,e = out.communicate()
         if e:
-            raise IOError('find2mass problem: '+e)
+        	if e[:8] != '#...url=':
+        		raise IOError('find2mass problem: '+e)
         # parse the response
         mass_objects = self._parse_2mass(o)
         if len(mass_objects) == 0:
@@ -401,8 +403,10 @@ class online_catalog_query():
         request = 'findusnob1 -c {} {} -bs {} -eb -sr -m 1000000'.format( ra, dec, boxsize )
         out = Popen(request, shell=True, stdout=PIPE, stderr=PIPE)
         o,e = out.communicate()
+
         if e:
-            raise IOError('findusnob1 problem: '+e)
+        	if e[:8] != '#...url=':
+        		raise IOError('findusnob1 problem: '+e)
         usnob1_objects = self._parse_usnob1(o)
         if len(usnob1_objects) == 0:
             # no matches
@@ -998,6 +1002,10 @@ def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=
     If an output_file name is given, it saves the entire catalog to that file.
     usnob_thresh: the minium number of APASS+SDSS sources required before starting to use USNOB sources
     '''
+    
+    if quiet == 'False': quiet = False
+    if alloptstars == 'False': alloptstars = False
+
     # load the data and produce a catalog
     in_data = np.loadtxt( input_file )
     input_coords = in_data[:, :2]

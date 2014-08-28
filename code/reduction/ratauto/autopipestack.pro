@@ -18,7 +18,7 @@
 ;	SWarp, get_SEDs, calc_zpt, findsexobj
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 12/08/2013
+; Modified by Vicki Toy 8/25/2014
 ;
 ; FUTURE IMPROVEMENTS:
 ;	header keywords to keep
@@ -27,7 +27,7 @@
 pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 
 	print, 'STACK'
-
+	spawn, 'export CDSCLIENT=http' ;Fix for problem with timeout with CDSCLIENT
 	;Setup pipeline variables that carry throughout the pipeline
 	if keyword_set(inpipevar) then begin
 		pipevar = inpipevar
@@ -90,7 +90,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
     	;Puts constraints on how good of an astrometric fit we have from Scamp
     	for l = 0, n_elements(thistargetfilts)-1 do begin
       		filter = thistargetfilts[l]
-      		stacki = where(filetargets eq target and filefilters eq filter and (fileastrrms1 lt 1.0e-4 and fileastrrms1 gt 5.0e-6) and (fileastrrms2 lt 1.0e-4 and fileastrrms2 gt 5.0e-6), ctstack)
+      		stacki = where(filetargets eq target and filefilters eq filter and (fileastrrms1 lt 2.0e-4 and fileastrrms1 gt 5.0e-6) and (fileastrrms2 lt 2.0e-4 and fileastrrms2 gt 5.0e-6), ctstack)
+      		;stacki = where(filetargets eq target and filefilters eq filter, ctstack)
 
       		if ctstack eq 0 then continue
       		
@@ -107,7 +108,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			;Create output variables that will be used by SWarp
       		outfile       = pipevar.imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.fits'
       		outweightfile = pipevar.imworkingdir + 'coadd' + strtrim(target,2) +'_'+ strtrim(filter,2) + '.weight.fits'
-      		stackcmd      = pipevar.swarpcommand+' '      		
+      		stackcmd      = pipevar.swarpcommand+' '     		
       		
       		;Keywords to carry through, change for RIMAS
       		stackcmd = stackcmd + ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,'+$
@@ -116,39 +117,41 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
             
             if pipevar.verbose gt 0 then stackcmd = stackcmd + ' -VERBOSE_TYPE NORMAL ' else stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET ' 
       		
-      		 if (file_test(outfile) eq 0) or pipevar.overwrite then begin
+      		;if (file_test(outfile) eq 0) or pipevar.overwrite then begin
       			filter = strcompress(filter, /REMOVE_ALL)
       			textslist = strjoin(stacklist, ' ')
       			
       			;Run initial weighted stack with all files to make coadded file
-      			istackcmd = stackcmd + ' -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' ' + textslist
+      			istackcmd = stackcmd + ' -SUBTRACT_BACK N -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' ' + textslist
       			
-      			if pipevar.verbose gt 0 then print, istackcmd
-      			spawn, istackcmd
-      			h = headfits(outfile)
-      			pixscl = sxpar(h, 'PIXSCALE')
+      			;if pipevar.verbose gt 0 then print, istackcmd
+      			;spawn, istackcmd
+      			
+      			;h = headfits(outfile)
+      			;pixscl = sxpar(h, 'PIXSCALE')
       			
       			;Run sextractor twice on coadded frame (outfile) and find stars with good PSF aperture 
       			;(first run to find aperture to use, 1.34*seeing)
-      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile, quiet=quiet
+      			;findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile, quiet=quiet
 
-      			h = headfits(outfile)
-      			cpsfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
-      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile, quiet=quiet
-				refstars1 = outfile+'.stars'
-				readcol, refstars1, refnum, refxim, refyim, refmagaper, refmagerraper, refflag, refaim, refbim, refelon, reffwhmim, refclass,refxwor,refywor, reffluxaper, reffluxerraper
-				xyad, h, refxim, refyim, refra, refdec
-			
+      			;h = headfits(outfile)
+      			;cpsfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
+      			;findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile, quiet=quiet
+				;refstars1 = outfile+'.stars'
+				;readcol, refstars1, refnum, refxim, refyim, refmagaper, refmagerraper, refflag, refaim, refbim, refelon, reffwhmim, refclass,refxwor,refywor, reffluxaper, reffluxerraper
+				;xyad, h, refxim, refyim, refra, refdec
+				
 				;Only keep reference information where there is an actual sextractor detection
-				goodref = where(refmagaper lt 99)
-				refdec = refdec[goodref]
-				refra  = refra[goodref]
-				refmagaper = refmagaper[goodref]
+				;goodref = where(refmagaper lt 99)
+				;refdec = refdec[goodref]
+				;refra  = refra[goodref]
+				;refmagaper = refmagaper[goodref]
 			
 				reflist = []
 				maglist = []
 				errlist = []
-			
+
+				zpts = []			
 				;Find stars for each individual frame and try to find matches with coadded frame with each
 				;frame optimized with PSF size
 				for i = 0, n_elements(stacklist)-1 do begin
@@ -156,34 +159,107 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 					h  = headfits(im)
 					ipixscl = sxpar(h, 'PIXSCALE')
 					findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=20.0, quiet=quiet
-					h = headfits(im)
-					psfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
-					findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=psfdiam, quiet=quiet
+					;h = headfits(im)
+					;psfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
+					;findsexobj, im, 3.0, pipevar, pix=ipixscl, aperture=psfdiam, quiet=quiet
 					starfile = im + '.stars'
 				
-					newmags = fltarr(n_elements(refmagaper))
-					newwts  = fltarr(n_elements(refmagaper))
+					;newmags = fltarr(n_elements(refmagaper))
+					;newwts  = fltarr(n_elements(refmagaper))
 				
 					readcol, starfile, num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper
 					xyad, h, xim, yim, imra, imdec
-					for u = 0, n_elements(xim)-1 do begin
-						matchind = nearest(imra[u] * cos(imdec[u]*!pi/180.), imdec[u], refra * cos(refdec*!pi/180.), refdec, 10.0/3600.0) 
-						if matchind eq -1 then continue
-						newmags[matchind] = magaper[u]
-						newwts[matchind]  = 1.0/(max([magerraper[u], 0.01])^2)
-					endfor
-				
-					maglist = [ [maglist], [newmags] ]
-					errlist = [ [errlist], [newwts] ]
-					reflist = [ [reflist], [refmagaper] ]
-				endfor
-			
-				;Calculate zeropoint information for each frame and store in header
-				mix = calc_zpt(reflist, maglist, errlist, sigma=3.0)
+					
+					;imfile  = im + '.im'
+					;writecol, imfile, imra, imdec, magaper
+							
+					
+;*****************
 
-				zpts  = mix[*,0]
-				scats = mix[*,1]			
-				rmss  = mix[*,2]	
+				;Save image file
+				imfile  = im + '.im'
+				catfile = im + '.cat'
+				writecol, imfile, imra, imdec, magaper
+				
+				;Filter name correction
+				if filter eq 'Z' or filter eq 'Y' then filter = strlowcase(filter)
+			
+				;Create catalog star file (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars
+				if pipevar.verbose gt 0 then qtcmd = 'True' else qtcmd = 'False'
+				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 False "+ qtcmd
+				if pipevar.verbose gt 0 then print, sedcmd
+				spawn, sedcmd
+				print, sedcmd
+				
+				if not(file_test(catfile)) then begin
+					zpts = [zpts,!Values.F_NAN]
+					continue
+				endif			
+				readcol, catfile, refra,refdec,u_mag,g_mag,r_mag,i_mag,z_mag,y_mag,bigB_mag,bigV_mag,bigR_mag,$
+					bigI_mag,J_mag,H_mag,K_mag,u_err,g_err,r_err,i_err,z_err,y_err,bigB_err,bigV_err, $
+					bigR_err,bigI_err,J_err,H_err,K_err,mode
+			
+				;Hash table/dictionary to use various filters
+				maghash = hash('g_mag', g_mag, 'r_mag', r_mag, 'i_mag', i_mag, 'z_mag', z_mag, 'y_mag', y_mag, 'J_mag', J_mag, 'H_mag', H_mag, 'K_mag', K_mag)
+				errhash = hash('g_err', g_err, 'r_err', r_err, 'i_err', i_err, 'z_err', z_err, 'y_err', y_err, 'J_err', J_err, 'H_err', H_err, 'K_err', K_err)
+				
+				;Find relevant catalog filter values and only use values or actual detections
+				refmag = maghash[filter+'_mag']
+				goodind = where(mode ne -1 and refmag lt 90.0 and flag lt 8 and elon le 1.3)
+			 
+				refmag = refmag[goodind]			
+				obsmag = magaper[goodind]
+				obserr = magerraper[goodind]
+				obswts = fltarr(n_elements(obserr))
+				obskeepmag = fltarr(n_elements(obsmag))
+				
+				;Store magnitudes and weights (with minimum magnitude error of 0.01)
+				for j = 0, n_elements(obserr)-1 do begin
+					if obserr[j] lt 0.1 then begin
+						obskeepmag[j] = obsmag[j]
+						obswts[j] = 1.0/(max([obserr[j], 0.01])^2)
+					endif
+				endfor
+				mix = calc_zpt(refmag, obskeepmag, obswts, sigma=3.0)
+				zpt = mix[0]
+				scats = mix[1]
+				rmss = mix[2]
+				;stop
+				
+				sxaddpar, h, 'ABSZPT', zpt + 25.0, 'Relative zeropoint from calc_zpt'
+				sxaddpar, h, 'ABSZPTSC', scats, 'Robust scatter of relative zeropoint'
+				sxaddpar, h, 'ABSZPRMS', rmss, 'RMS of relative zeropoint'
+				
+				modfits, im, 0, h
+				zpts = [zpts,zpt]
+;****************
+					
+					
+					
+					
+					
+					
+					;for u = 0, n_elements(xim)-1 do begin
+					;	matchind = nearest(imra[u] * cos(imdec[u]*!pi/180.), imdec[u], refra * cos(refdec*!pi/180.), refdec, 10.0/3600.0) 
+					;	if matchind eq -1 then continue
+					;	newmags[matchind] = magaper[u]
+					;	if flag[u] eq 0 then begin
+					;		newwts[matchind]  = 1.0/(max([magerraper[u], 0.01])^2)
+					;	endif else begin
+					;		newwts[matchind] = 0.0
+					;	endelse
+					;endfor
+				
+					;maglist = [ [maglist], [newmags] ]
+					;errlist = [ [errlist], [newwts] ]
+					;reflist = [ [reflist], [refmagaper] ]
+				endfor
+				;Calculate zeropoint information for each frame and store in header
+				;mix = calc_zpt(reflist, maglist, errlist, sigma=3.0)
+				
+				;zpts  = mix[*,0]
+				;scats = mix[*,1]			
+				;rmss  = mix[*,2]	
 				
 				;Move files with bad zeropoint calculations to folder 'badzptfit' and do not use those frames
 				badframes = where(finite(zpts) eq 0,nfinct)
@@ -200,8 +276,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 					endfor
 					
 					zpts  = zpts[goodframes]
-					scats = scats[goodframes]
-					rmss  = rmss[goodframes]
+					;scats = scats[goodframes]
+					;rmss  = rmss[goodframes]
 					newstacklist = stacklist[goodframes]
 				endif
 
@@ -212,21 +288,28 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				for i = 0, n_elements(newstacklist)-1 do begin
 					im = newstacklist[i]
 					h  = headfits(im)
-					sxaddpar, h, 'RELZPT', zpts[i], 'Relative zeropoint from calc_zpt'
-					sxaddpar, h, 'RELZPTSC', scats[i], 'Robust scatter of relative zeropoint'
-					sxaddpar, h, 'RELZPRMS', rmss[i], 'RMS of relative zeropoint'
-					sxaddpar, h, 'NEWFLXSCALE', 1.0/(10.0^( (zpts[i]-medzp)/2.5 ) ), 'Flux scaling based on median zp'
+				;	sxaddpar, h, 'RELZPT', zpts[i], 'Relative zeropoint from calc_zpt'
+				;	sxaddpar, h, 'RELZPTSC', scats[i], 'Robust scatter of relative zeropoint'
+				;	sxaddpar, h, 'RELZPRMS', rmss[i], 'RMS of relative zeropoint'
+					sxaddpar, h, 'NEWFLXSC', 1.0/(10.0^( (zpts[i]-medzp)/2.5 ) ), 'Flux scaling based on median zp'
 					modfits, im, 0, h
 				endfor
 			
 				;Second stacked coadd but now with FSCALE
-				istackcmd2 = stackcmd + ' -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' -FSCALE_KEYWORD NEWFLXSCALE ' + newtextslist
+				istackcmd2 = stackcmd + ' -SUBTRACT_BACK N -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' -FSCALE_KEYWORD NEWFLXSC ' + newtextslist
 
 				if pipevar.verbose gt 0 then print, istackcmd2
       			spawn, istackcmd2
+      			
+      			h = headfits(outfile)
+      			pixscl = sxpar(h, 'PIXSCALE')
+      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=20.0, wtimage=outweightfile, quiet=quiet
+
+      			h = headfits(outfile)
+      			cpsfdiam = 1.34 * float(sxpar(h, 'SEEPIX'))
 		
 				;Run sextractor again on new coadd file
-      			findsexobj, outfile, 10.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile, quiet=quiet      		
+      			findsexobj, outfile, 3.0, pipevar, pix=pixscl, aperture=cpsfdiam, wtimage=outweightfile, quiet=quiet      		
       			h = headfits(outfile)
 
 				readcol, outfile + '.stars', num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper
@@ -242,7 +325,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			
 				;Create catalog star file (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars
 				if pipevar.verbose gt 0 then qtcmd = 'True' else qtcmd = 'False'
-				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 True "+ qtcmd
+				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 False "+ qtcmd
 				if pipevar.verbose gt 0 then print, sedcmd
 				spawn, sedcmd
 			
@@ -256,7 +339,9 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				
 				;Find relevant catalog filter values and only use values or actual detections
 				refmag = maghash[filter+'_mag']
-				goodind = where(mode ne -1 and refmag lt 90.0)
+				goodind = where(mode ne -1 and refmag lt 90.0 and flag eq 0 and elon le 1.3)
+				
+				writecol, outfile + '.stars.trun', xim[goodind], yim[goodind], magaper[goodind], magerraper[goodind], flag[goodind], elon[goodind], fwhmim[goodind], class[goodind]
 			 
 				refmag = refmag[goodind]			
 				obsmag = magaper[goodind]
@@ -266,15 +351,15 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				
 				;Store magnitudes and weights (with minimum magnitude error of 0.01)
 				for j = 0, n_elements(obserr)-1 do begin
-					if obserr[j] lt 90.0 then begin
+					if obserr[j] lt 0.1 then begin
 						obskeepmag[j] = obsmag[j]
 						obswts[j] = 1.0/(max([obserr[j], 0.01])^2)
 					endif
 				endfor
-			
+				
 				;Calculate zeropoint of coadded frame with catalog and observed
-				mix2 = calc_zpt([refmag], [obsmag], [obswts], sigma=3.0)
-
+				mix2 = calc_zpt([refmag], [obskeepmag], [obswts], sigma=3.0)
+				stop
 				czpts  = mix2[0]
 				cscats = mix2[1]			
 				crmss  = mix2[2]
@@ -308,7 +393,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 					print, 'Removed frames with no overlapping stars: ' 
 					print, removedframes
 				endif
-			endif
+			;endif
     	endfor
   	endfor
 
