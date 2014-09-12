@@ -119,11 +119,9 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 		print "\n* * * automatically selecting {} frames in {} * * *".format(ftype, d)
 
 	# delete existing calibration lists
-	fntemp = glob( ftype+'*.list' )
-	for fn in fntemp: os.remove( fn )
-	
+	#fntemp = glob( ftype+'*.list' )
+	#for fn in fntemp: os.remove( fn )
 
-	
 	# work on FITs files for specified cameras
 	for cam_i in cams:
 
@@ -158,7 +156,6 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 					#Overwrites list files that will contain new information
 					if count == 0:
 						fout = [open( '{}_{}.list'.format( ftype, af.SPLIT_FILTERS[cam_i-2] ), 'w' ), open( '{}_{}.list'.format( ftype, af.SPLIT_FILTERS[cam_i] ), 'w' )] # create list files for new img FITs files (e, w)	
-						for f in fout: f.close()
 					im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
 					m1  = np.median( im1 )
 					s1  = af.robust_sigma( im1 )
@@ -177,10 +174,10 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 					
 					#Overwrites list files that will contain new information
 					if ftype is af.FLAT_NAME and count == 0:
-						fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'w' ) # append if this filter's list exists	
+						fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'w' )
 						fout.close()
 					if ftype is af.BIAS_NAME and count == 0:
-						fout = open( '{}_{}.list'.format( ftype, cam_i), 'w' ) # append if this filter's list exists	
+						fout = open( '{}_{}.list'.format( ftype, cam_i), 'w' )
 						fout.close()											
 				if auto:
 					if ftype is af.BIAS_NAME:	
@@ -206,7 +203,6 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 								h['FILTER'] = af.SPLIT_FILTERS[cam_i-2]
 								pf.writeto( imfits_1, im1, header=h, clobber=True ) # save left frame
 								fout[0].write( '{}_{}_{}\n'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i-2] ) ) # write new file name to list
-								fout[0].close()
 							else:
 								if m1 < vmin:
 									print "\t* Bottom side rejected:\tUNDEREXPOSED."
@@ -220,7 +216,6 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 								h['FILTER'] = af.SPLIT_FILTERS[cam_i]
 								pf.writeto( imfits_2, im2, header=h, clobber=True ) # save object frame
 								fout[1].write( '{}_{}_{}\n'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i] ) ) # write new file name to list
-								fout[1].close()
 							else:
 								if m2 < vmin:
 									print "\t* Top side rejected:\tUNDEREXPOSED."
@@ -270,17 +265,16 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 						if user.lower() == 'y':
 									
 							if af.CAM_SPLIT[cam_i]:
+								print '{}_{}_{}.fits'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i-2] )
 								imfits_left = '{}_{}_{}.fits'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i-2] )
 								h['FILTER'] = af.SPLIT_FILTERS[cam_i-2]
-								pf.writeto( imfits_left, imleft, header=h, clobber=True ) # save object frame
+								pf.writeto( imfits_left, im1, header=h, clobber=True ) # save object frame
 								fout[0].write( '{}_{}_{}\n'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i-2] ) ) # write new file name to list
-								fout[0].close()
 									
 								imfits_right = '{}_{}_{}.fits'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i] )
 								h['FILTER'] = af.SPLIT_FILTERS[cam_i]
-								pf.writeto( imfits_right, imright, header=h, clobber=True ) # save object frame
+								pf.writeto( imfits_right, im2, header=h, clobber=True ) # save object frame
 								fout[1].write( '{}_{}_{}\n'.format( fits_id, ftype, af.SPLIT_FILTERS[cam_i] ) ) # write new file name to list
-								fout[1].close()
 							else:
 								imfits = '{}_{}.fits'.format( fits_id, ftype )
 								fout = open( '{}_{}.list'.format( ftype, h['FILTER'] ), 'a' ) # append if this filter's list exists
@@ -305,7 +299,10 @@ def ratdisp_calib( ftype=af.FLAT_NAME, workdir='.', cams=[0,1,2,3], overwrite=Tr
 				pl.close('all') # close image to free memory
 
 			# close files
+			if af.CAM_SPLIT[cam_i]:
+				for f in fout: f.close()
 			fin.close()
+			
 	# move back to starting directory
 	os.chdir( start_dir )
 
