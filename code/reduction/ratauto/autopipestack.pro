@@ -359,7 +359,6 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				
 				;Calculate zeropoint of coadded frame with catalog and observed
 				mix2 = calc_zpt([refmag], [obskeepmag], [obswts], sigma=3.0)
-				stop
 				czpts  = mix2[0]
 				cscats = mix2[1]			
 				crmss  = mix2[2]
@@ -367,6 +366,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				hc = headfits(outfile)
 				
 				;Add zeropoint keywords to header
+				sxaddpar, hc, 'SPIX', cpsfdiam, 'Final aperture size'
 				sxaddpar, hc, 'ABSZPT', czpts+25.0, 'Absolute zeropoint from calc_zpt'
 				sxaddpar, hc, 'ABSZPTSC', cscats, 'Robust scatter of absolute zeropoint'
 				sxaddpar, hc, 'ABSZPRMS', crmss, 'RMS of absolute zeropoint'
