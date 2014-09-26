@@ -5,7 +5,10 @@
 ; PURPOSE:
 ;	Calculate astrometry of image files to fix WCS coordinates (shift and rotation) in header.
 ;	Using fast astrometry solver (vlt_autoastrometry.py) that using pair-distance matching 
-;	and asterism matching.  Returns file with corrected WCS coordinates saved as 'a'+fitsfile
+;	and asterism matching.  Returns file with corrected WCS coordinates saved as 'a'+fitsfile.
+;   Run Scamp for additional astrometry corrections, twice, once for basic individual LOOSE
+;   correction, second correct all together.  Uses distortion of 3 as default, but uses 7 if distortion
+;   parameters high (i.e. RATIR H2RG)
 ;
 ; OUTPUT:
 ;	Creates output file with name 'a'+fitsfile for all files that astrometry could correct.
@@ -18,10 +21,10 @@
 ;	autopipeastrometry, outpipevar=pipevar, inpipevar=pipevar
 ;
 ; DEPENDENCIES:
-;	vlt_autoastrometry.py (run as an executable, with various calls to other python scripts)
+;	vlt_autoastrometry.py (run as an executable, with various calls to other python scripts), scamp
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 11/19/2013
+; Modified by Vicki Toy 9/26/2014
 ;
 ; FUTURE IMPROVEMENTS:
 ;	save region and matchline files with different names 
@@ -229,42 +232,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 			acatlist = ''
 		
 			thisatarget = where(afiletarg eq atargets[t] and afilefilt eq afilters[f])
-			atfimages = afiles[thisatarget]
-		
-			;c11arr = strarr(n_elements(atfimages))
-			;c12arr = strarr(n_elements(atfimages))
-			;c21arr = strarr(n_elements(atfimages))
-			;c22arr = strarr(n_elements(atfimages))
-
-			;for i = 0, n_elements(atfimages)-1 do begin
-			;	cfile = atfimages[i]	
-			;	h = headfits(cfile, /silent)
-       	
-       		;	c11arr[i] = sxpar(h, 'CD1_1')
-       		;	c12arr[i] = sxpar(h, 'CD1_2')
-       		;	c21arr[i] = sxpar(h, 'CD2_1')
-       		;	c22arr[i] = sxpar(h, 'CD2_2')	
-       			
-			;endfor
-	
-			;Remove poor astrometry fits (those straying too far from median WCS values - 10 sigma)
-			;scat11 = 1.48 * median(abs(c11arr-median(c11arr)))
-			;scat12 = 1.48 * median(abs(c12arr-median(c12arr)))
-			;scat21 = 1.48 * median(abs(c21arr-median(c21arr)))
-			;scat22 = 1.48 * median(abs(c22arr-median(c22arr)))
-			;clipsig = 10.0
-			;bad = where( (abs(c11arr - median(c11arr)) gt clipsig*scat11) or (abs(c12arr - median(c12arr)) gt clipsig*scat12) or $
-			;  			(abs(c21arr - median(c21arr)) gt clipsig*scat21) or (abs(c22arr - median(c22arr)) gt clipsig*scat22), complement=good, ct )
-			
-			;if ct gt 0 then begin
-			;	if dir_exist(pipevar.imworkingdir+'/badastromfit') eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/badastromfit'
-			;	for i=0,ct-1 do begin
-			;		pipevar.fullastrofail = pipevar.fullastrofail  + ' ' + atfimages[bad[i]]
-			;		spawn, 'mv ' + atfimages[bad[i]] +' '+ pipevar.imworkingdir+'badastromfit/'
-			;	endfor
-		
-			;	atfimages = atfimages[good]
-			;endif		
+			atfimages = afiles[thisatarget]	
 		
 			for i = 0, n_elements(atfimages)-1 do begin
 				cfile = atfimages[i]
@@ -302,10 +270,10 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 			endif
 			
 			if pipevar.verbose gt 0 then begin
-				scampcmd = "scamp -POSITION_MAXERR 0.2 -DISTORT_DEGREES 1 -ASTREF_CATALOG "+cat_u+" -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N " + acatlist
+				scampcmd = "scamp -POSITION_MAXERR 0.2 -DISTORT_DEGREES 1 -MOSAIC_TYPE LOOSE -ASTREF_CATALOG "+cat_u+" -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE FULL " + acatlist
 				print, scampcmd
 			endif else begin
-				scampcmd = "scamp -POSITION_MAXERR 0.2 -DISTORT_DEGREES 1 -ASTREF_CATALOG "+cat_u+" -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE QUIET " + acatlist
+				scampcmd = "scamp -POSITION_MAXERR 0.2 -DISTORT_DEGREES 1 -MOSAIC_TYPE LOOSE -ASTREF_CATALOG "+cat_u+" -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 -CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE QUIET " + acatlist
 			endelse
 			
 			spawn, scampcmd
@@ -323,10 +291,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 				endelse
 
 				spawn, "rm " + imtrunfile + '.head ' + im + '.back'
-				
-				him = headfits(im, /silent)
-				sxdelpar, him, 'FLXSCALE'
-				modfits, im, 0, him				
+						
 			endfor
 
 			for i = 0, n_elements(atfimages)-1 do begin
@@ -384,7 +349,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 				endelse
 				
 			endelse
-						
+				
 			spawn, scampcmd
 			spawn, 'rm ' + acatlist
 			

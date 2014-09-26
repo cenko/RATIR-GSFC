@@ -18,7 +18,7 @@
 ;	SWarp, get_SEDs, calc_zpt, findsexobj
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 8/25/2014
+; Modified by Vicki Toy 9/26/2014
 ;
 ; FUTURE IMPROVEMENTS:
 ;	header keywords to keep
@@ -186,7 +186,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			
 				;Create catalog star file (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars
 				if pipevar.verbose gt 0 then qtcmd = 'True' else qtcmd = 'False'
-				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 False "+ qtcmd
+				sedcmd = pipevar.getsedcommand + ' ' + imfile + ' ' + filter + ' ' + catfile + " 15 True "+ qtcmd
 				if pipevar.verbose gt 0 then print, sedcmd
 				spawn, sedcmd
 				print, sedcmd
@@ -234,11 +234,6 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				zpts = [zpts,zpt]
 ;****************
 					
-					
-					
-					
-					
-					
 					;for u = 0, n_elements(xim)-1 do begin
 					;	matchind = nearest(imra[u] * cos(imdec[u]*!pi/180.), imdec[u], refra * cos(refdec*!pi/180.), refdec, 10.0/3600.0) 
 					;	if matchind eq -1 then continue
@@ -281,8 +276,9 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 					newstacklist = stacklist[goodframes]
 				endif
 
-				newtextslist = strjoin(newstacklist, ' ')
 				
+				
+				badnewflxsc = []
 				;Add relative zeropoint values to headers.  Calculate flux scale
 				medzp = median(zpts)
 				for i = 0, n_elements(newstacklist)-1 do begin
@@ -292,9 +288,24 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				;	sxaddpar, h, 'RELZPTSC', scats[i], 'Robust scatter of relative zeropoint'
 				;	sxaddpar, h, 'RELZPRMS', rmss[i], 'RMS of relative zeropoint'
 					sxaddpar, h, 'NEWFLXSC', 1.0/(10.0^( (zpts[i]-medzp)/2.5 ) ), 'Flux scaling based on median zp'
+					
+					if 1.0/(10.0^( (zpts[i]-medzp)/2.5 ) ) lt 0.1 then badnewflxsc = [badnewflxsc, im]
 					modfits, im, 0, h
 				endfor
-			
+			    
+			    ;Removes files that have bad newflxsc values and removes these from stack list as well
+				if n_elements(badnewflxsc) gt 0 then begin
+					if dir_exist(pipevar.imworkingdir+'/badflxsc') eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/badflxsc'
+
+					spawn, 'mv ' + badnewflxsc +' '+ pipevar.imworkingdir+'badflxsc/'
+
+                    ;Remove files that have bad newflxsc values from list of stack
+                    match, badnewflxsc, newstacklist, subbad, substack
+                    remove, substack, newstacklist
+				endif			    
+			    
+			    newtextslist = strjoin(newstacklist, ' ')
+			    
 				;Second stacked coadd but now with FSCALE
 				istackcmd2 = stackcmd + ' -SUBTRACT_BACK N -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' -FSCALE_KEYWORD NEWFLXSC ' + newtextslist
 
@@ -339,7 +350,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				
 				;Find relevant catalog filter values and only use values or actual detections
 				refmag = maghash[filter+'_mag']
-				goodind = where(mode ne -1 and refmag lt 90.0 and flag eq 0 and elon le 1.3)
+				goodind = where(mode eq 0 and refmag lt 90.0 and flag eq 0 and elon le 1.3)
 				
 				writecol, outfile + '.stars.trun', xim[goodind], yim[goodind], magaper[goodind], magerraper[goodind], flag[goodind], elon[goodind], fwhmim[goodind], class[goodind]
 			 
@@ -366,8 +377,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				hc = headfits(outfile)
 				
 				;Add zeropoint keywords to header
-				sxaddpar, hc, 'SPIX', cpsfdiam, 'Final aperture size'
-				sxaddpar, hc, 'ABSZPT', czpts+25.0, 'Absolute zeropoint from calc_zpt'
+				sxaddpar, hc, 'SPIX'    , cpsfdiam, 'Final aperture size'
+				sxaddpar, hc, 'ABSZPT'  , czpts+25.0, 'Absolute zeropoint from calc_zpt'
 				sxaddpar, hc, 'ABSZPTSC', cscats, 'Robust scatter of absolute zeropoint'
 				sxaddpar, hc, 'ABSZPRMS', crmss, 'RMS of absolute zeropoint'
 			
