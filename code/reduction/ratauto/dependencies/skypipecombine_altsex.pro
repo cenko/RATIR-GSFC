@@ -1,12 +1,12 @@
 ;+
 ; NAME:
-;	skypipecombine
+;	skypipecombine_altsex
 ;
 ; PURPOSE:
 ;	Create sigma clipped median sky flat.  Scales each file based on the overall median (sigma clipped),
-;	then will remove objects in each file that are well beyond median sigma clipped value (after removing
-;	those beyond saturation and count limits) for 'r' and 'i' bands this is done with sextractor selection 
-;	instead (2x 100% flux fraction radius). Then takes sigma clipped median of each pixel and save as with outfile name.
+;	then will remove objects in each file that are selected with sextractor (uses flux fraction radius). 
+;   Removes saturated pixels.  Calculates sigma clipped median of each pixel and saves anything with 
+;   non-finite values (saturated or source) to the median of the entire frame.  Save with outfile name.
 ;
 ; INPUT:
 ;	filelist - files to be processed
@@ -27,16 +27,16 @@
 ;	type			- sets 'SKYTYPE' keyword in header of outfile to this string
 ;
 ; EXAMPLE:
-;	skypipecombine, list, 'outfile.fits', /removeobjects, type='sky'
+;	skypipecombine_altsex, list, 'outfile.fits', /removeobjects, type='sky'
 ;
 ; DEPENDENCIES:
 ;	sigclipstats_vt.pro, djs_iterstat.pro, Sextractor
 ;
 ; FUTURE IMPROVEMENTS:
-;   Uses different method for CCDs than H2RGs, separates by filter, change for RIMAS, very RATIR dependent
+;   Needs to take saturation level from header
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 11/18/2013
+; Modified by Vicki Toy 9/16/2014
 ;-
 
 pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=removeobjects, objthresh=objthresh, $
@@ -158,60 +158,59 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
    		for f = 0, z-1 do begin
 
       		indata = data[*,*,f]
-      		satmask = fltarr(nx, ny)
       		
       		;Find sources from sextractor for RATIR's CCDs, 
       		;otherwise use previous source extraction method using iterative sigma clipping
-      		if (filt eq 'i') or (filt eq 'r') then begin
+      		;if (filt eq 'blah') or (filt eq 'rah') then begin
       		
-      			;Runs sextractor with special commands for quick and dirty source extraction
-      			if pipevar.verbose gt 0 then print,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
-      			spawn,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
-      			readcol, 'skysource.cat', x,y,ra,dec,mag,magerr,rad, fwhms,ell, cstar, flag
+      		;	;Runs sextractor with special commands for quick and dirty source extraction
+      		;	if pipevar.verbose gt 0 then print,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
+      		;	spawn,pipevar.sexcommand + ' ' +files[f]+  ' -c sex_source.config'
+      		;	readcol, 'skysource.cat', x,y,ra,dec,mag,magerr,rad, fwhms,ell, cstar, flag, /silent
       			
       			;Finds sources with reasonable FWHM (i.e. >1 pixel) and no raised flags, 
       			;except if source near edge, still want to sky subtract without bright source
-      			realsources = where(fwhms gt 1 and (flag eq 0 or flag eq 16))
+      		;	realsources = where(fwhms gt 1 and (flag eq 0 or flag eq 16))
 
-				rad = rad[realsources]
-				x   = x[realsources]
-				y   = y[realsources]
+			;	rad = rad[realsources]
+			;	x   = x[realsources]
+			;	y   = y[realsources]
 
-      			sdata = size(indata)
-      			scale = 1.0
+      		;	sdata = size(indata)
+      		;	scale = 1.0
 				
 				;For each good source, set everything within given radius to NAN
-      			for so=0,n_elements(rad)-1 do begin
+      		;	for so=0,n_elements(rad)-1 do begin
       		
       				;Source removal using box with radius from sextractor
-      				rd = abs(rad[so])*scale
-      				minx = x[so]-rd
-      				maxx = x[so]+rd
-      				miny = y[so]-rd
-      				maxy = y[so]+rd
+      		;		rd = abs(rad[so])*scale
+      		;		minx = x[so]-rd
+      		;		maxx = x[so]+rd
+      		;		miny = y[so]-rd
+      		;		maxy = y[so]+rd
  
  					;If at an edge just go to the edge of the image
- 					if minx lt 0 then minx = 0
- 					if miny lt 0 then miny = 0
- 					if maxx gt sdata[1]-1 then maxx = sdata[1]-1
-      				if maxy gt sdata[2]-1 then maxy = sdata[2]-1
+ 			;		if minx lt 0 then minx = 0
+ 			;		if miny lt 0 then miny = 0
+ 			;		if maxx gt sdata[1]-1 then maxx = sdata[1]-1
+      		;		if maxy gt sdata[2]-1 then maxy = sdata[2]-1
       			
-      				indata[ minx:maxx, miny:maxy ] = !Values.F_NAN
+      		;		indata[ minx:maxx, miny:maxy ] = !Values.F_NAN
       				
-      			endfor
+      		;	endfor
 
-      		endif else begin
+      		;endif else begin
       		
       			sigclipstats_vt, indata, sigmahi=5, sigmalo=-5, median=datamed, stdevi=datastdev
       			sourcepixels = where(indata ge datamed + objthresh * datastdev, ctsourcepix)
-      
+            
       			;Make a mask from objects that are 6 sigma (or non-default object threshold) 
       			;from the median (from sigma clipped stats) and set to NAN
       			if ctsourcepix gt 0 then begin
          			indata[sourcepixels] = !Values.F_NAN
       			endif
       			
-      		endelse
+      		;endelse
       	
       		ctsatpix = 0
       	
@@ -220,8 +219,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
          		satpixels = where(indata ge satlevel, ctsatpix)
          	
          		if ctsatpix gt 0 then begin
-            		satmask[satpixels] = 1
-            		indata[nearsatpixels] = !Values.F_NAN
+            		indata[satpixels] = !Values.F_NAN
          		endif
       		endif
 
@@ -236,7 +234,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
    		if algorithm eq 'median' then begin
      		if pipevar.verbose gt 0 then print, '  Median-combining...'
      		i = 0l
-     	
+     		
      		for y = 0, ny-1 do begin
        			for x = 0, nx-1 do begin
          			i = i + 1
@@ -244,8 +242,10 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
          			tmp=where(finite(vector))
          			djs_iterstat, vector(tmp), sigrej=3, median=me
          			reflat[x,y] = me
+         			
        			endfor		
        		endfor
+
        	
        		;Replace bad pixels with median of entire sky
        		good = where(finite(reflat eq 1))
@@ -254,7 +254,7 @@ pro skypipecombine_altsex, filelist, outfile, filt, pipevar, removeobjects=remov
      		if ct gt 0 then reflat[bad] = allmed
      	
 		endif
-
+        
 		;If algorithm set to mean, takes mean of sorted values that have been trimmed
 		;default is to trim 25% off top and bottom, if not enough good data, set trimming to 0
    		if algorithm eq 'mean' then begin

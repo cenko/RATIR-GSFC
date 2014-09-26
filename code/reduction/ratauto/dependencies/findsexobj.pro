@@ -91,7 +91,7 @@ pro findsexobj, inlist, sigma, pipevar, masksfx=masksfx, zeropt=zeropt, maptype=
 		;Calculates seeing with starlike objects
 		if file_test(starfile) then begin
 			readcol, starfile, num, xim, yim, magaper, magerraper, flag, aim, bim, elon, fwhmim, class,xwor,ywor, fluxaper, fluxerraper, /silent
-			keep = where( (flag lt 0) and (elon lt elong_cut) and (fwhmim gt fwhm) and (fwhmim lt 20.0), keepct )
+			keep = where( (flag eq 0) and (elon lt elong_cut) and (fwhmim gt fwhm) and (fwhmim lt 20.0), keepct )
 			if keepct le 1 then seepix=!values.f_nan else seepix = median(fwhmim[keep])
 		endif else begin
 			print, 'Failed to find Sextractor output file!'

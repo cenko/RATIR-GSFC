@@ -47,10 +47,8 @@ pro skypipeproc, filename, flatname, flatminval=flatminval, flatmaxval=flatmaxva
 	med = median(flat)
 
 	;For each input file, read in as fits and check if same size as flats (if it isn't program will
-	;stop, must be same dimensions).  If there is a minimum or maximum flat value set, forces values
-	;outside of that range to NaN.  Use finite values above 0.1 to determine skycounts, and subtract out
-	;flat along with median of flattened data.  Crops data based on hand chosen datapoints
-	;NEEDS TO BE CHANGED FOR RIMAS VLT
+	;stop).  If there is a minimum or maximum flat value set, forces values outside of that range to NaN.  
+	;Use finite values above 0.1 to determine skycounts, and subtract out flat along with median of flattened data. 
 	;Then saves to new fits file
 	for f = 0, nfile-1 do begin
    		data = mrdfits(filenames[f],0,h, /silent)

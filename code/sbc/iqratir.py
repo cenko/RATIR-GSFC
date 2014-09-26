@@ -368,10 +368,10 @@ def iq_ratir(chip="C1", filt="i", reflist="sdss.reg"):
 		hdr = pyfits.getheader(im)
 		iqpkg.iqobjs(im, 3.0, RATIRSAT[chip], skyval="!SKYMED", 
 		       pix=RATIRPIXSCALE[chip], gain=hdr["SOFTGAIN"], aperture=20.0)
-		hdr = pyfits.getheader(im)
-		psfdiam = 1.34 * float(hdr["SEEPIX"])
-		iqpkg.iqobjs(im, 3.0, RATIRSAT[chip], skyval="!SKYMED", 
-		       pix=RATIRPIXSCALE[chip], gain=hdr["SOFTGAIN"], aperture=psfdiam)
+		#hdr = pyfits.getheader(im)
+		#psfdiam = 1.34 * float(hdr["SEEPIX"])
+		#iqpkg.iqobjs(im, 3.0, RATIRSAT[chip], skyval="!SKYMED", 
+		       #pix=RATIRPIXSCALE[chip], gain=hdr["SOFTGAIN"], aperture=psfdiam)
 		stars = Starlist("%s.stars" % im)
 		refstars1.wcs2pix(im)
 		a,b = stars.match(refstars1,tol=10.0,maxnum=1000)
@@ -420,7 +420,7 @@ def iq_ratir(chip="C1", filt="i", reflist="sdss.reg"):
 		for j in range(len(a)):
 			if b[j].mag == truemags[i]:
 				newmags[i] = a[j].mag
-				newwts[i] = 1.0 / np.power(np.maximum(a[j].magu, 0.01),2)
+				newwts[i] = 1.0 / np.power(np.maximum(a[j].magu, 0.02),2)
 				continue
 	maglist.append(newmags); errlist.append(newwts)
 	

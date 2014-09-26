@@ -41,10 +41,7 @@ Z_SLICE = np.s_[4:975,100:2000]
 Y_SLICE = np.s_[1135:2043,240:2043]
 J_SLICE = np.s_[50:1000,4:2000]
 H_SLICE = np.s_[1200:2043,4:1940]
-#Z_SLICE = np.s_[1:1700,1:900]
-#Y_SLICE = np.s_[1:1700,1144:2043]
-#J_SLICE = np.s_[1:1700,1:900]
-#H_SLICE = np.s_[1:1700,1144:2043]
+
 H2RG_SLICES = [ Z_SLICE, J_SLICE, Y_SLICE, H_SLICE ] # same order as H2RG_FILTERS.  0+2 are C2, 1+3 are C3
 SLICES = {'Z': Z_SLICE, 'J': J_SLICE, 'Y': Y_SLICE, 'H': H_SLICE, 'C0': C0_SLICE, 'C1': C1_SLICE}
 OBJ_NAME = 'img' # designator for object frames
