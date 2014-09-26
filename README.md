@@ -100,12 +100,12 @@ More detailed instructions can be found in *reduction_instructions.rtf* or code 
 This IDL script should be run from the data directory (the directory above processed data and reduction folder).  
 
 ```IDL
-ratautoproc, datadir='raw/', redo=1
+ratautoproc, datadir='raw/', imdir='reduced/', redo=1
 ```
 	
 * *datadir* specifies where processed data is stored (should be in lower directory), will run all data in this directory  
 
-* Will save to specified directory (imworkingdir) in pipeautoproc.par
+* Will save to specified directory (imworkingdir) in pipeautoproc.par (can specify with imdir)
 
 * Need to move master flats and master biases into imworkingdir for bias subtraction and flat fielding
 
