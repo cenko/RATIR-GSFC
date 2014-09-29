@@ -45,7 +45,6 @@ H_SLICE = np.s_[1200:2043,4:1940]
 H2RG_SLICES = [ Z_SLICE, J_SLICE, Y_SLICE, H_SLICE ] # same order as H2RG_FILTERS.  0+2 are C2, 1+3 are C3
 SLICES = {'Z': Z_SLICE, 'J': J_SLICE, 'Y': Y_SLICE, 'H': H_SLICE, 'C0': C0_SLICE, 'C1': C1_SLICE}
 OBJ_NAME = 'img' # designator for object frames
-#SKY_NAME = 'sky' # designator for sky frames
 FLAT_NAME = 'flat' # designator for flat frames
 BIAS_NAME = 'bias' # designator for bias frames
 CONFIG_LOCATION = 'astro_functs.py' # name of file containing configuration information, currently this file.

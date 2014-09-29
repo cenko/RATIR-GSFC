@@ -114,13 +114,12 @@ pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, 
 
 	;List of mandatory header keywords
 	mandatorykey = ['SIMPLE','BITPIX','NAXIS','NAXIS1','NAXIS2', $
- 					'HISTORY','CTIME','USEC','JD','DATE-OBS','EXPOSURE', $
- 					'EXPTIME','INSTRUME','OBSERVAT','TELESCOP','ORIGIN', $
- 					'LATITUDE','LONGITUD','CCD_TYPE','CCD_SER','SATURATE',$
- 					'RDNOISE','BINNING','BINY','BINX','WAVELENG','TARGNAME',$
- 					'CAMERA','UTC','UT','ORIGOBJ','OBJECT','PIXSCALE',$
+ 					'HISTORY','DATE-OBS','EXPOSURE','EXPTIME','INSTRUME',$
+ 					'OBSERVAT','TELESCOP','ORIGIN','LATITUDE','LONGITUD',$
+ 					'CCD_TYPE','CCD_SER','SATURATE','BINNING','BINY','BINX',$
+ 					'WAVELENG','TARGNAME','CAMERA','UTC','UT','OBJECT','PIXSCALE',$
  					'SUN_ALT','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',$
- 					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2','ELAPTIME', $
+ 					'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2'', $
  					'SOFTGAIN','FILTER','AVERAGE','STDEV','GAIN','AIRMASS','CCD_NAME', $
  					'PV1_1','PV2_1','PV1_17','PV2_17','PV1_19','PV2_19','PV1_21','PV2_21',$
  					'PV1_31','PV2_31','PV1_33','PV2_33','PV1_35','PV2_35','PV1_37','PV2_37']

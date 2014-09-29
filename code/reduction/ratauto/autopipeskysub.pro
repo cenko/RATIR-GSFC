@@ -14,7 +14,7 @@
 ;	autopipeskysub, outpipevar, inpipevar=pipevar
 ;
 ; DEPENDENCIES:
-;	skypipeproc (RATIR specific crop)
+;	skypipeproc
 ;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/18/2013
@@ -84,7 +84,7 @@ pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar
             	continue
          	endif
          
-         	;If file has matching processed sky file then run skypipeproc RATIR specific crop CHANGE FOR RIMAS VLT
+         	;If file has matching processed sky file then run skypipeproc
          	;This creates new sky subtracted fits file
          	skyfile = skys[skyfileno[0]]
          	if pipevar.verbose gt 0 then print, 'Sky Subtracting ', removepath(files[f]), ' using ', removepath(skyfile)

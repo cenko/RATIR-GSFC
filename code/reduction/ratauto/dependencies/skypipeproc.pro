@@ -4,7 +4,7 @@
 ;
 ; PURPOSE:
 ;	Subtracts sky flat from data and then subtracts median of that from remaining data.  
-;	Then crops and saves new fits file. NOTE: crop is specific to RATIR
+;	Then crops and saves new fits file.
 ;
 ; INPUTS:
 ;	filename - file or list of files to be sky subtracted
