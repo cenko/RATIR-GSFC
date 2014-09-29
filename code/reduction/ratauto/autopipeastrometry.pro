@@ -39,9 +39,9 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+	    pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, rmifiles:0,$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -70,7 +70,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 
 	dothis=1
 	if dothis eq 1 then begin
-	if dir_exist(pipevar.imworkingdir+'/autoastromcopy') eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/autoastromcopy'
+	if dir_exist(pipevar.imworkingdir+'/autoastromcopy') eq 0 and pipevar.rmifiles eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/autoastromcopy'
     ;Make a reference catalog using a representative image out of an image block (several images of the same field)
 	;For each unique target and unique filter
     ;for t = 0, n_elements(targets)-1 do begin
@@ -191,7 +191,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
              	
          		;if file_test(outfile) then pipevar.relastrofail  = pipevar.relastrofail + ' ' +  zffiles[f] $
          		;	else pipevar.fullastrofail = pipevar.fullastrofail  + ' ' + zffiles[f] 
-         		if file_test(outfile) then spawn, 'cp ' + outfile + ' ' + pipevar.imworkingdir+'/autoastromcopy' $
+         		if file_test(outfile) and pipevar.rmifiles eq 0 then spawn, 'cp ' + outfile + ' ' + pipevar.imworkingdir+'/autoastromcopy' $
          			else pipevar.fullastrofail = pipevar.fullastrofail  + ' ' + zffiles[f] 
           	;endif
           	
@@ -329,7 +329,7 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 			endif		
 								
 			;For distortion, run Scamp again with distortion degree 7, else do distortion degree 3
-			distort = sxpar(him, 'PV1_37', count=pv)
+			distort = sxpar(h, 'PV1_37', count=pv)
 			if pv ne 0 then begin
 			
 				if pipevar.verbose gt 0 then begin
@@ -373,6 +373,24 @@ pro autopipeastrometry, outpipevar=outpipevar, inpipevar=inpipevar
 					
 		endfor
 	endfor
+
+	if pipevar.rmifiles then begin
+	
+	    ;If remove intermediate files keyword set, delete p(PREFIX)*.fits files
+	    pfiles   = findfile(pipevar.imworkingdir+'p'+pipevar.prefix+'*.fits')
+	    ffiles   = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*.fits')
+	    skyfiles = findfile(pipevar.imworkingdir+'sky-*.fits')
+	    sfiles   = findfile(pipevar.imworkingdir+'sfp'+pipevar.prefix+'*.fits')
+	    zfiles   = findfile(pipevar.imworkingdir+'zsfp*'+pipevar.prefix+'*.fits')
+	    rfiles  = [pfiles,ffiles,skyfiles,sfiles,zfiles]
+	
+	    good = where(rfiles ne '', ngood)
+	    if ngood gt 0 then begin
+	        rfiles = rfiles[good]
+	        file_delete, rfiles
+	    endif
+	    
+	endif
 
     outpipevar = pipevar
 end

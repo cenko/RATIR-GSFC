@@ -23,7 +23,7 @@ pro autopipedefaults, outpipevar=outpipevar, inpipevar=inpipevar
 	endif else begin
 		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, rmifiles:0,$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse

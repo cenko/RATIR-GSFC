@@ -33,9 +33,9 @@ pro autopipecrcleanim, outpipevar=outpipevar, inpipevar=inpipevar
 		pipevar = inpipevar
 		if pipevar.verbose gt 0 then print, 'Using provided pipevar'
 	endif else begin
-		pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
+	    pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix: '', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, rmifiles:0,$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	endelse
@@ -78,7 +78,23 @@ pro autopipecrcleanim, outpipevar=outpipevar, inpipevar=inpipevar
       	endelse
       	
    	endfor
-
+   	
+	if pipevar.rmifiles then begin
+	
+	    ;If remove intermediate files keyword set, delete p(PREFIX)*.fits files
+	    pfiles   = findfile(pipevar.imworkingdir+'p'+pipevar.prefix+'*.fits')
+	    ffiles   = findfile(pipevar.imworkingdir+'fp'+pipevar.prefix+'*.fits')
+	    skyfiles = findfile(pipevar.imworkingdir+'sky-*.fits')
+	    sfiles   = findfile(pipevar.imworkingdir+'sfp'+pipevar.prefix+'*.fits')
+	    rfiles  = [pfiles,ffiles,skyfiles,sfiles]
+	
+	    good = where(rfiles ne '', ngood)
+	    if ngood gt 0 then begin
+	        rfiles = rfiles[good]
+	        file_delete, rfiles
+	    endif
+	    
+	endif
 	outpipevar = pipevar
 
 end

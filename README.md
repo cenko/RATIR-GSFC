@@ -125,6 +125,8 @@ ratautoproc, datadir='raw/', imdir='reduced/', redo=1
 	
 	- quiet (mainly silent operation unless errors)
 	
+	- rmifiles (removes intermediate files)
+	
 * Runs these steps in this order unless specified:	
 
 	- steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']

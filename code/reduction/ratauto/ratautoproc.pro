@@ -17,6 +17,7 @@
 ;   redo    	- Repeat step(s), overwriting any existing files
 ;   nocrclean	- Do not zap cosmic rays
 ;	quiet		- (mainly) silent output unless errors
+;	rmifiles	- Removes intermediate files
 ;
 ; ADDITIONAL OPTIONS:
 ;   If any of the following files are found in the directory where ratautoproc
@@ -144,7 +145,8 @@
 ;       setting the redo flag) and it will try to repeat any failed steps of this nature. 
 ;- 
 
-pro ratautoproc, datadir=datadir, imdir=imdir, start=start, stop=stop, only=only, step=step, nocrclean=nocrclean, redo=redo, quiet=quiet
+pro ratautoproc, datadir=datadir, imdir=imdir, start=start, stop=stop, only=only, step=step,$
+	 nocrclean=nocrclean, redo=redo, quiet=quiet,rmifiles=rmifiles
 
 	!quiet = 1
 	close, /all
@@ -152,7 +154,7 @@ pro ratautoproc, datadir=datadir, imdir=imdir, start=start, stop=stop, only=only
 	; Load default parameters and interpret user arguments.
 	pipevar = {autoastrocommand:'autoastrometry', getsedcommand:'get_SEDs', $
 					sexcommand:'sex' , swarpcommand:'swarp' , $
-					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, $
+					prefix:'', datadir:'' , imworkingdir:'' , overwrite:0 , verbose:0, rmifiles:0,$
 					flatfail:'' , catastrofail:'' , relastrofail:'' , fullastrofail:'' , $
 					pipeautopath:'' , refdatapath:'', defaultspath:'' }
 	
@@ -161,7 +163,8 @@ pro ratautoproc, datadir=datadir, imdir=imdir, start=start, stop=stop, only=only
 	if n_elements(datadir) gt 0 then pipevar.datadir = datadir	
 
 	autopipedefaults, outpipevar=pipevar, inpipevar=pipevar	
-	if keyword_set(imdir) then pipevar.imworkingdir = imdir	
+	if keyword_set(imdir) then pipevar.imworkingdir = imdir
+	if keyword_set(rmifiles) then pipevar.rmifiles = 1	
 
 	;Step options
 	steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']
@@ -257,7 +260,7 @@ pro ratautoproc, datadir=datadir, imdir=imdir, start=start, stop=stop, only=only
 	for istep = 0, n_elements(steps)-1 do begin
    		instep = steps[istep]
 
-      	if instep eq 'prepare' then autopipeprepare, outpipevar=pipevar, inpipevar=pipevar      		 
+      	if instep eq 'prepare' then autopipeprepare,   outpipevar=pipevar, inpipevar=pipevar      		 
         if instep eq 'flatten' then autopipeimflatten, outpipevar=pipevar, inpipevar=pipevar
         if instep eq 'makesky' then autopipemakesky,   outpipevar=pipevar, inpipevar=pipevar
         if instep eq 'skysub'  then autopipeskysub,    outpipevar=pipevar, inpipevar=pipevar
@@ -267,7 +270,7 @@ pro ratautoproc, datadir=datadir, imdir=imdir, start=start, stop=stop, only=only
         endif 
             		 
         if instep eq 'astrometry' then autopipeastrometry, outpipevar=pipevar, inpipevar=pipevar
-        if instep eq 'stack' then autopipestack, outpipevar=pipevar, inpipevar=pipevar
+        if instep eq 'stack'      then autopipestack,      outpipevar=pipevar, inpipevar=pipevar
 	endfor
 
 	;Prints the files that were not flat fielded due to problems with file
