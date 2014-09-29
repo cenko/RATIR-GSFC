@@ -7,20 +7,21 @@
 ;	object mask, starfile, and estimates the seeing from the stars found. 
 ;
 ; INPUTS:
-;	trumag - list of catalog magnitudes (array of stars by observations - [ [ob1st1, ob1st2, ob1st3], [ob2st1, ob2st2, ob2st3] ])
-;	obsmag - list of observed magnitudes (array of stars by observations - [ [ob1st1, ob1st2, ob1st3], [ob2st1, ob2st2, ob2st3] ])
-;	wts    - list of weights for each object (array of stars by observations - [ [ob1st1, ob1st2, ob1st3], [ob2st1, ob2st2, ob2st3] ])
+;	trumag  - list of catalog magnitudes (array of stars by observations - [ [ob1st1, ob1st2, ob1st3], [ob2st1, ob2st2, ob2st3] ])
+;	obsmag  - list of observed magnitudes (array of stars by observations - [ [ob1st1, ob1st2, ob1st3], [ob2st1, ob2st2, ob2st3] ])
+;	wts     - list of weights for each object (array of stars by observations - [ [ob1st1, ob1st2, ob1st3], [ob2st1, ob2st2, ob2st3] ])
 ;
 ; OPTIONAL KEYWORDS:
-;	sigma - sigma value for how far values can be from robust scatter value
+;	sigma   - sigma value for how far values can be from robust scatter value
+;   plotter - filename to save zeropoint plot
 ;
 ; OUTPUTS:
-;	z2    - zeropoint values after 2 zeropoint corrections
-;	scats - robust scatter after 2 zeropoint corrections
-;	rmss  - rms values after 2 zeropoint corrections
+;	z2     - zeropoint values after 2 zeropoint corrections
+;	scats  - robust scatter after 2 zeropoint corrections
+;	rmss   - rms values after 2 zeropoint corrections
 ;
 ; EXAMPLE:
-;	mix = calc_zpt(reflist, maglist, errlist, sigma=3.0)
+;	mix = calc_zpt(reflist, maglist, errlist, sigma=3.0, plotter='test.ps')
 ;
 ; DEPENDENCIES:
 ;	None
@@ -32,7 +33,7 @@
 ;	Less redundant code?
 ;-
 
-function calc_zpt, trumag, obsmag, wts, sigma=sigma
+function calc_zpt, trumag, obsmag, wts, sigma=sigma, plotter=plotter
 	
 	if (not KEYWORD_SET(sigma)) then sigma = 3.0
 	
@@ -96,6 +97,17 @@ function calc_zpt, trumag, obsmag, wts, sigma=sigma
 		scats[p] = 1.48 * median(abs(newd2-median(newd2)))
 		rmss[p] = stddev(newd2)
 	endfor
+	
+
+	if keyword_set(plotter) then begin
+	    set_plot, 'ps'
+	    device, filename=plotter
+		keep = where(wts ne 0)
+	    plot, trumag[keep], adiff2[keep], psym=2
+	    errplot, trumag[keep],adiff2[keep]-1.0/sqrt(wts[keep]), adiff2[keep]+1.0/sqrt(wts[keep])
+	    device, /close
+	    set_plot, 'x'
+	endif
 	
 	return, [ [z2], [scats], [rmss] ]
 end

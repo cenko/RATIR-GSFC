@@ -7,7 +7,7 @@
 ;   Creates flux scale (newflxsc) from how close to median of zeropoint values.  Uses
 ;   flux scale to stack images in Swarp (has moved bad zeropoint values and bad newflxsc
 ;   values to marked folders - badzptfit/ and badflxsc/) and calculates absolute zeropoint 
-;   correction of coadd
+;   correction of coadd.  Saves zeropoint plot as zpt_(FILTER).ps
 ;
 ; OPTIONAL KEYWORDS:
 ;	outpipevar - output pipeline parameters
@@ -20,7 +20,7 @@
 ;	SWarp, get_SEDs, calc_zpt, findsexobj (sextractor)
 ;
 ; Written by Dan Perley 
-; Modified by Vicki Toy 9/26/2014
+; Modified by Vicki Toy 9/29/2014
 ;
 ; FUTURE IMPROVEMENTS:
 ;	header keywords to keep
@@ -110,9 +110,6 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       		filter = strcompress(filter, /REMOVE_ALL)
       		textslist = strjoin(stacklist, ' ')
       						
-			reflist = []
-			maglist = []
-			errlist = []
 			zpts = []			
 			
 			;Find stars for each individual frame and try to find matches with coadded frame with each
@@ -155,7 +152,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				errhash = hash('g_err', g_err, 'r_err', r_err, 'i_err', i_err, 'z_err', z_err, 'y_err', y_err, 'J_err', J_err, 'H_err', H_err, 'K_err', K_err)
 				
 				;Find relevant catalog filter values and only use values or actual detections
-				refmag = maghash[filter+'_mag']
+				refmag  = maghash[filter+'_mag']
 				goodind = where(mode ne -1 and refmag lt 90.0 and flag lt 8 and elon le 1.3)
 			 
 				refmag = refmag[goodind]			
@@ -171,10 +168,10 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 						obswts[j] = 1.0/(max([obserr[j], 0.01])^2)
 					endif
 				endfor
-				mix = calc_zpt(refmag, obskeepmag, obswts, sigma=3.0)
-				zpt = mix[0]
+				mix   = calc_zpt(refmag, obskeepmag, obswts, sigma=3.0)
+				zpt   = mix[0]
 				scats = mix[1]
-				rmss = mix[2]
+				rmss  = mix[2]
 				
 				sxaddpar, h, 'ABSZPT', zpt + 25.0, 'Relative zeropoint from calc_zpt'
 				sxaddpar, h, 'ABSZPTSC', scats, 'Robust scatter of relative zeropoint'
@@ -186,8 +183,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			endfor
 				
 			;Move files with bad zeropoint calculations to folder 'badzptfit' and do not use those frames
-			badframes = where(finite(zpts) eq 0,nfinct)
-			goodframes = where(finite(zpts) eq 1)
+			badframes  = where(finite(zpts) eq 0, nfinct, complement=goodframes)
 			removedframes = []
 			newstacklist=stacklist
 				
@@ -220,7 +216,8 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 				if dir_exist(pipevar.imworkingdir+'/badflxsc') eq 0 then spawn, 'mkdir '+pipevar.imworkingdir+'/badflxsc'
 
 				spawn, 'mv ' + badnewflxsc +' '+ pipevar.imworkingdir+'badflxsc/'
-
+                
+                removedframes = [removedframes, badnewflxsc]
                 ;Remove files that have bad newflxsc values from list of stack
                 match, badnewflxsc, newstacklist, subbad, substack
                 remove, substack, newstacklist
@@ -241,7 +238,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
       
             if pipevar.verbose gt 0 then stackcmd = stackcmd + ' -VERBOSE_TYPE NORMAL ' else stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET ' 
                 
-			;Second stacked coadd but now with FSCALE
+			;Coadd with flux scale
 			istackcmd = stackcmd + ' -SUBTRACT_BACK N -WRITE_XML N -IMAGEOUT_NAME ' + outfile + ' -WEIGHTOUT_NAME ' + outweightfile + ' -FSCALE_KEYWORD NEWFLXSC ' + newtextslist
 			
 			if pipevar.verbose gt 0 then print, istackcmd
@@ -304,7 +301,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			endfor
 				
 			;Calculate zeropoint of coadded frame with catalog and observed
-			mix2 = calc_zpt([refmag], [obskeepmag], [obswts], sigma=3.0)
+			mix2 = calc_zpt([refmag], [obskeepmag], [obswts], sigma=3.0, plotter=pipevar.imworkingdir+'zpt_'+filter+'.ps')
 			czpts  = mix2[0]
 			cscats = mix2[1]			
 			crmss  = mix2[2]
@@ -336,7 +333,7 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
         		
 			modfits, outfile, 0, hc
 			if removedframes ne [] then begin
-				print, 'Removed frames with no overlapping stars: ' 
+				print, 'Removed frames with bad zeropoint fits: ' 
 				print, removedframes
 			endif
     	endfor
