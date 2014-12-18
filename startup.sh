@@ -6,6 +6,9 @@
 #PROJECT_ROOT="$(cd $(dirname "."); pwd)"
 PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # allows startup.sh to be called from any directory.  will fail if last component of path to startup.sh is a symlink.
 
+# add pipeline directories to path
+export PATH=$PATH:$PROJECT_ROOT/code/sdss
+
 # add pipeline directories to idl path
 IDL_PATH=$IDL_PATH:+$PROJECT_ROOT/code/reduction:+$PROJECT_ROOT/code/photometry
 export IDL_PATH
