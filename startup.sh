@@ -5,7 +5,7 @@
 ##########################
 # check for dependencies #
 ##########################
-echo "Checking dependencies:"
+echo "Checking RATIR pipeline dependencies:"
 
 # IDL
 command -v idl >/dev/null 2>&1 || { echo >&2 "IDL is required but it's not installed.  Aborting."; exit 1; }
