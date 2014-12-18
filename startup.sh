@@ -2,19 +2,17 @@
 #
 #!/bin/bash
 
-#PROJECT_ROOT="$(cd $(dirname "$0"); pwd)"
-#PROJECT_ROOT="$(cd $(dirname "."); pwd)"
-PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # allows startup.sh to be called from any directory.  will fail if last component of path to startup.sh is a symlink.
+# set project root directory
+export RAT_PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # allows startup.sh to be called from any directory.  will fail if last component of path to startup.sh is a symlink.
 
 # add pipeline directories to path
-export PATH=$PATH:$PROJECT_ROOT/code/sdss
+export PATH=$RAT_PROJECT_ROOT/code/sdss:$PATH
 
 # add pipeline directories to idl path
-IDL_PATH=$IDL_PATH:+$PROJECT_ROOT/code/reduction:+$PROJECT_ROOT/code/photometry
-export IDL_PATH
+export IDL_PATH=+$RAT_PROJECT_ROOT/code/reduction:+$RAT_PROJECT_ROOT/code/photometry:$IDL_PATH
 
 # add pipeline directories to python path
-export PYTHONPATH=$PYTHONPATH:$PROJECT_ROOT/code/:$PROJECT_ROOT/code/photometry:$PROJECT_ROOT/code/photometry/dependencies:$PROJECT_ROOT/code/reduction/astrom:$PROJECT_ROOT/code/reduction/
+export PYTHONPATH=$RAT_PROJECT_ROOT/code:$RAT_PROJECT_ROOT/code/photometry:$RAT_PROJECT_ROOT/code/photometry/dependencies:$RAT_PROJECT_ROOT/code/reduction/astrom:$RAT_PROJECT_ROOT/code/reduction:$PYTHONPATH
 
 # set pipeline aliases
-alias pcd='cd $PROJECT_ROOT'
+alias cd_rat='cd $RAT_PROJECT_ROOT'
