@@ -40,6 +40,7 @@ command -v findcat
 ######################
 # set up environment #
 ######################
+echo "Setting up RATIR pipeline environment."
 
 # set project root directory
 export RAT_PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # allows startup.sh to be called from any directory.  will fail if last component of path to startup.sh is a symlink.
