@@ -23,8 +23,12 @@ import matplotlib.pylab as pl
 import numpy as np
 import time
 from scipy.ndimage.interpolation import zoom
+from zscale import *
 
-# CONSTANTS
+#############
+# CONSTANTS #
+#############
+
 PROPOSALS = { 'NIRstandard': '0000', 'OPTstandard': '00001', 'cluster': '0002', 'galaxy': '0003', 'blank': '0004', 'pointing': '0005', 'bias': '0006', 'dark': '0007', 'flat': '0008', 'focus': '0009', 'misc': '0010', 'GRB': '1000' } # 2012 proposal names and id numbers. source: rsync://ratir.astroscu.unam.mx/public/proposalidentifiers.txt
 CAM_NAMES = [ 'C0', 'C1', 'C2', 'C3' ] # RATIR camera names
 #CAM_ROTAT = [ 0, 0, 1, 1 ] # frames are rotated by value * 90 degrees
