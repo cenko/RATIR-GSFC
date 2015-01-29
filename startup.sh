@@ -5,7 +5,7 @@
 ##########################
 # check for dependencies #
 ##########################
-echo "Checking RATIR pipeline dependencies:"
+echo "Checking pipeline dependencies:"
 
 # IDL
 command -v idl >/dev/null 2>&1 || { echo >&2 "IDL is required but it's not installed.  Aborting."; exit 1; }
@@ -40,19 +40,18 @@ command -v findcat
 ######################
 # set up environment #
 ######################
-echo "Setting up RATIR pipeline environment."
+echo "Setting up pipeline environment."
 
 # set project root directory
-export RAT_PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # allows startup.sh to be called from any directory.  will fail if last component of path to startup.sh is a symlink.
+export PIPE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # allows startup.sh to be called from any directory.  will fail if last component of path to startup.sh is a symlink.
 
 # add pipeline directories to path
-export PATH=$RAT_PROJECT_ROOT/code/sdss:$PATH
+export PATH=$PIPE_ROOT/code/sdss:$PATH
 
 # add pipeline directories to idl path
-export IDL_PATH=+$RAT_PROJECT_ROOT/code/reduction:+$RAT_PROJECT_ROOT/code/photometry:$IDL_PATH
+export IDL_PATH=+$PIPE_ROOT/code/reduction:+$PIPE_ROOT/code/photometry:$IDL_PATH
 
 # add pipeline directories to python path
-export PYTHONPATH=$RAT_PROJECT_ROOT/code:$RAT_PROJECT_ROOT/code/photometry:$RAT_PROJECT_ROOT/code/photometry/dependencies:$RAT_PROJECT_ROOT/code/reduction/astrom:$RAT_PROJECT_ROOT/code/reduction:$PYTHONPATH
+export PYTHONPATH=$PIPE_ROOT/code:$PIPE_ROOT/code/photometry:$PIPE_ROOT/code/photometry/dependencies:$PIPE_ROOT/code/reduction/astrom:$PIPE_ROOT/code/reduction:$PYTHONPATH
 
-# set pipeline aliases
-alias cd_rat='cd $RAT_PROJECT_ROOT'
+echo "Pipeline ready."
