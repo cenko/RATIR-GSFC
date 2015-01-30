@@ -6,7 +6,7 @@
         1)  enter python or ipython environment
         2)  can load all functions using:
             - "from rat_preproc import *" if you want to call functions using just the function's name
-            - "import rat_preproc as rp" if you want to call functions using rp.function_name( args )
+            - "import rat_preproc as rp" if you want to call functions using rp.function_name(args)
 
     Notes:
         - is numpy mean() buggy? found cases where mean(array) < min(array)
@@ -17,13 +17,19 @@
 
 """
 
+# standard modules
 import os
+import time
+import itertools
+
+# installed modules
 import astropy.io.fits as pf
 import matplotlib.pylab as pl
 import numpy as np
-import time
 from scipy.ndimage.interpolation import zoom
-from zscale import *
+
+# custom modules/functions
+from zscale import zscale
 
 #############
 # CONSTANTS #
@@ -36,6 +42,7 @@ CAM_NAMES = [ 'C0', 'C1', 'C2', 'C3' ] # RATIR camera names
 #CAM_YFLIP = [ False, False, False, True ] # frames are flipped in y
 CAM_PXSCALE = [0.32, 0.32, 0.3, 0.3] # C0, C1, C2, C3 in arcsec/px
 SPLIT_FILTERS = [ 'Z', 'J', 'Y', 'H' ] # RATIR NIR bands.  0+2 are C2, 1+3 are C3
+RAT_FILTERS = ['u', 'g', 'r', 'i', 'Z', 'Y', 'J', 'H'] # RATIR filters we actually use - preproccessing will ignore other filters
 CAM_BIAS   = [True, True, False, False]
 
 # RATIR H2RG filter slices
@@ -81,7 +88,7 @@ CAMOFFS = np.array([[[2.785,2.632], [2.604,-2.775], [-2.800,-2.615], [-2.635,2.7
                     [[-0.556,6.488],[-1.013,-3.642],[-5.488,-3.445], [-5.018,6.683]],   # C2-Y corner offsets in arcmin
                     [[4.834,5.430], [4.720,-4.701], [-0.324,-4.647], [-0.185,5.494]],   # C3-J corner offsets in arcmin
                     [[-0.916,5.503],[-1.059,-4.639],[-5.318,-4.594], [-5.154,5.557]]])  # C3-H corner offsets in arcmin
-FRAMECENTER = CAMOFFS.mean( axis=1 ) # field centers in arcmin (E,N) offset from center
+FRAMECENTER = CAMOFFS.mean(axis=1) # field centers in arcmin (E,N) offset from center
 # Offsets of the pointing apertures east and north in arcmin
 APOFFS  = { "rcenter":      np.array([0,0]),
             "icenter":      np.array([0,0]),
@@ -91,13 +98,45 @@ APOFFS  = { "rcenter":      np.array([0,0]),
             "ZJcenter":     np.array([2.2,0.7]),
             "YHcenter":     np.array([-3.2,0.7])}
 # return aperture center in pixels from frame center
-#def APCENTER( apstr, fnum):
+#def APCENTER(apstr, fnum):
 #   ao = APOFFS[apstr] # offset of pointing in arcmin
 #   fc = FRAMECENTER[fnum] # offset of frame center in arcmin
 #   if fnum < 2: ps = CAM_PXSCALE[fnum]
 #   elif fnum < 4: ps = CAM_PXSCALE[2]
 #   else: ps = CAM_PXSCALE[3]
 #   return ((ao - fc)*60./ps).astype(np.int)
+
+"""
+ANSI escape sequences to print to terminal with color
+http://stackoverflow.com/questions/287871/print-in-terminal-with-colors-using-python
+"""
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+def print_blue(msg):
+    print bcolors.OKBLUE + msg + bcolors.ENDC
+
+def print_bold(msg):
+    print bcolors.BOLD + msg + bcolors.ENDC
+
+def print_under(msg):
+    print bcolors.UNDERLINE + msg + bcolors.ENDC
+
+def print_head(msg):
+    print bcolors.HEADER + msg + bcolors.ENDC
+
+def print_warn(msg):
+    print bcolors.WARNING + msg + bcolors.ENDC
+
+def print_err(msg):
+    print bcolors.FAIL + msg + bcolors.ENDC
 
 """
     Written by John Capone (jicapone@astro.umd.edu).
@@ -119,15 +158,15 @@ APOFFS  = { "rcenter":      np.array([0,0]),
     Future Improvements:
         - add outlier rejection
 """
-def imcombine( indata, type='median', ret_std=False ):
+def imcombine(indata, type='median', ret_std=False):
     if indata.ndim != 3:
-        print "Warning: data should be 3D stack of frames."
+        print_warn("Warning: data should be 3D stack of frames.")
     if type is 'mean':
-        combined = np.mean( indata, axis=0 )
+        combined = np.mean(indata, axis=0)
     else:
-        combined = np.median( indata, axis=0 )
+        combined = np.median(indata, axis=0)
     if ret_std:
-        sigma = np.std( indata, axis=0 )
+        sigma = np.std(indata, axis=0)
         return combined, sigma
     else:
         return combined
@@ -146,17 +185,17 @@ def imcombine( indata, type='median', ret_std=False ):
     Notes:
         - 
 """
-def robust_sigma( y, zero=False ):
+def robust_sigma(y, zero=False):
     eps = 1.0e-20
     if zero:
         y0 = 0.
     else:
         y0 = np.median(y)
     # first, the median absolute deviation about the median:
-    mad = np.median( np.abs(y-y0) )/.6745
+    mad = np.median(np.abs(y-y0))/.6745
     # if the mad=0, try the mean absolute deviation:
     if mad < eps:
-        mad = np.average( np.abs(y-y0) )/.80
+        mad = np.average(np.abs(y-y0))/.80
     if mad < eps:
         sigma = 0.
         return sigma
@@ -166,15 +205,15 @@ def robust_sigma( y, zero=False ):
     q = uu <= 1.0
     count = np.sum(q)
     if count < 3:
-        print 'robust_sigma: this distribution is too weird! returning -1'
+        print_err('Error: robust_sigma - this distribution is too weird! returning -1.')
         sigma = -1.
         return sigma
-    numerator = np.sum( (y[q] - y0)**2. * (1 - uu[q])**4. )
+    numerator = np.sum((y[q] - y0)**2. * (1 - uu[q])**4.)
     n = y.size
-    den1 = np.sum( (1. - uu[q]) * (1. - 5.*uu[q]) )
+    den1 = np.sum((1. - uu[q]) * (1. - 5.*uu[q]))
     sigma = n * numerator / (den1 * (den1 - 1.))
     if sigma > 0.:
-        sigma = np.sqrt( sigma )
+        sigma = np.sqrt(sigma)
     else:
         sigma = 0.
     return sigma
@@ -185,7 +224,7 @@ def robust_sigma( y, zero=False ):
     Purpose:        displays images in specified list file.
 
     Input:
-        list_fn:    file name of list file
+        fits_fns:   list of file names
         nx:         number of images to display simultaneously in x
         ny:         number of images to display simultaneously in y
         size_mult:  multiple to determine image sizes
@@ -195,43 +234,32 @@ def robust_sigma( y, zero=False ):
     Usage:
         1)  enter python or ipython environment
         2)  load function -> 'from rat_preproc import show_list'
-        3)  run function -> 'show_list( list_fn='path/to/list/file.list' )'
+        3)  run function -> 'show_list(fits_fns)'
             - decreasing zoom_lvl (i.e. from 0.5 to 0.1) decreases the size of the displayed image, thus decreasing the amount of memory required
         4)  function will display arrays of images in list file for inspection by user
 
     Notes:
         - added escape character
         - user can now change font size
-
-    Future Improvements:
-        * get data directory from list_fn
 """
-def show_list( list_fn, nx=5, ny=3, size_mult=3.2, zoom_lvl=0.5, fontsize=8 ):
+def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
 
     nx = int(nx); ny = int(ny) # force parameter types to int
 
-    try:
-        fin = open( list_fn, 'r' ) # open list of FITs files
-    except IOError:
-        print "Error: {} not found.  Exiting...".format( list_fn )
+    if type(fits_fns) not in [list, dict]:
+        print_err("Error: fits_fns must be a list or dictionary of fits file names. Exiting...")
         return
-    
-    # move to working directory
-    start_dir = os.getcwd()
-    workdir = os.path.split( list_fn )[0]
-    if workdir == '':
-        workdir = '.'
-    os.chdir( workdir )
+    if type(fits_fns) is dict: # convert dictionary to list
+        fits_fns = list(itertools.chain.from_iterable(fits_fns.values()))
 
-    fits_fns = fin.readlines() # read file names from list
-    fin.close() # close files
     nfits = len(fits_fns) # number of fits files listed
 
     pl.ion() # pylab in interactive mode
 
     # create figures of subplots for review
-    nfigs = int( np.ceil( nfits / float( nx * ny ) ) )
-    for i in range( nfigs ):
+    nfigs = int(np.ceil(nfits / float(nx * ny)))
+    fig = pl.figure(figsize=(nx*size_mult,ny*size_mult), tight_layout=True)
+    for i in range(nfigs):
 
         start_fits = i*nx*ny
         if (i + 1)*nx*ny <= nfits:
@@ -240,54 +268,53 @@ def show_list( list_fn, nx=5, ny=3, size_mult=3.2, zoom_lvl=0.5, fontsize=8 ):
         else:
             stop_fits = nfits
             nsubplts = nfits - start_fits
-        
-        pl.figure( "FITS {} - {}".format( start_fits, stop_fits ), figsize=(nx*size_mult,ny*size_mult), tight_layout=True ) # create new figure
 
         # display image in each subplot
-        for j in range( nsubplts ):
+        for j in range(nsubplts):
 
-            print "{:<4}:{:<4}".format( i, start_fits + j )
+            ax = fig.add_subplot(ny, nx, j+1) # new subplot
 
-            pl.subplot( ny, nx, j+1 ) # new subplot
-
-            fits_fn = fits_fns[start_fits + j].rstrip() # current fits file name with return removed
+            fits_fn = fits_fns[start_fits + j]
             temp = fits_fn.split('.')
-            if len( temp ) == 1:
+            if len(temp) == 1:
                 fits_fn += '.fits'
-            elif len( temp ) == 2:
+            elif len(temp) == 2:
                 if temp[1].lower() != 'fits':
-                    print "Error: invalid \"{}\" file type detected.  Should be \"fits\" file type. Exiting...".format( temp[1] )
-                    os.chdir( start_dir ) # move back to starting directory
+                    print_err("Error: invalid \"{}\" file type detected.  Should be \"fits\" file type. Exiting...".format(temp[1]))
                     return
             else:
-                print "Error: file names should not include \".\" except for file type extention.  Exiting..."
-                os.chdir( start_dir ) # move back to starting directory
+                print_err("Error: file names should not include \".\" except for file type extention.  Exiting...")
                 return
             fits_id = temp[0] # fits file name with extention removed
             
             # open data
-            hdulist = pf.open( fits_fn )
+            hdulist = pf.open(fits_fn)
             im = hdulist[0].data
             h = hdulist[0].header
             hdulist.close() # close FITs file
 
             # image statistics
-            m = np.median( im )
-            s = robust_sigma( im )
+            m = np.median(im)
 
             # display
-            imdisp = zoom( im, zoom_lvl )
-            axim = pl.imshow( imdisp, vmin=m-5*s, vmax=m+5*s, origin='lower', cmap=pl.cm.gray )
-            axim.get_axes().get_xaxis().set_ticks([]) # remove numbers from x axis
-            axim.get_axes().get_yaxis().set_ticks([]) # remove numbers from y axis
-            pl.title( "{} - {} filter".format( fits_id, h['FILTER'] ), fontsize=fontsize ) # title with identifier
-            pl.xlabel( "Median: {}".format( m ), fontsize=fontsize )
+            if zoom_lvl is not None:
+                imdisp = zoom(im, zoom_lvl)
+            else:
+                imdisp = im
+            z1, z2 = zscale(im)
+            ax.imshow(imdisp, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+            ax.set_xticks([])
+            ax.set_yticks([]) 
+            ax.set_title("{} - {} filter".format(fits_id, h['FILTER']), fontsize=fontsize) # title with identifier
+            ax.set_xlabel("Median: {}".format(m), fontsize=fontsize)
 
-        usr_select = raw_input( "Press any key to continue or \"q\" to quit: " ) # prompt user to continue
-        pl.close('all') # close image to free memory
+        fig.canvas.draw()
+        usr_select = raw_input("Press any key to continue or \"q\" to quit: ") # prompt user to continue
+        fig.clear() # clear image
+
         if usr_select.lower() == 'q':
-            print "Exiting..."
-            os.chdir( start_dir ) # move back to starting directory
+            print_bold("Exiting...")
+            pl.close('all') # close image to free memory
             return
 
-    os.chdir( start_dir ) # move back to starting directory
+    pl.close('all') # close image to free memory
