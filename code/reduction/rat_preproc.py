@@ -330,6 +330,11 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
         
     if not auto:
         pl.close('all') # close image to free memory
+
+    if auto:
+        af.print_head("\nDisplaying automatically selected {} frames:".format(ftype))
+        af.show_list(fits_list_dict)
+
     os.chdir(start_dir) # move back to starting directory
 
     return fits_list_dict
@@ -391,7 +396,14 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
         af.print_head("\nDisplaying science frames in {} for selection:".format(d))
     else:
         af.print_head("\nSelecting all science frames in {}:".format(d))
+
+    # dictionary to store selected fits files by camera or filter
+    fits_list_dict = {}
     
+    # remove tailing / from target directory name if present
+    if targetdir[-1] == '/':
+        targetdir = targetdir[:-1]
+
     # make target directory if it does not exist
     if not os.path.exists(targetdir):
         af.print_blue("Creating target directory: {}".format(targetdir))
@@ -404,10 +416,9 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
             af.print_bold("Exiting...")
             os.chdir(start_dir) # move back to starting directory
             return
-    
-    # remove tailing / from target directory name if present
-    if targetdir[-1] == '/':
-        targetdir = targetdir[:-1]
+        else:
+            shutil.rmtree(targetdir)
+            os.makedirs(targetdir)
 
     # open figure for images if not auto
     if not auto:
@@ -535,7 +546,8 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
                     else:
                         af.print_warn("\t* Warning: Skipping frame not centered on H2RG filter.")
                         user = 'n'
-                        direction = ''              
+                        direction = ''
+
                     
                 if user.lower() == 'y':
                         
@@ -558,6 +570,7 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
                     h['CRVAL2']   =  h[af.DEC_KEY] - af.APOFFS[h[af.CENTER_KEY]][1]/60.0 + h[af.OFFDEC_KEY]
 
                     if af.CAM_SPLIT[cam_i]:
+                        
                         for key in af.H2RG_ASTR:
                             h[key] = af.H2RG_ASTR[key]
                         
@@ -567,8 +580,7 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
                         else:
                             f_img = cam_i
                             f_sky = cam_i-2
-                    
-                    if af.CAM_SPLIT[cam_i]:
+                        
                         imfits = '{}/{}_{}_{}.fits'.format(targetdir, fits_id, af.OBJ_NAME, af.SPLIT_FILTERS[f_img])
                         h['FILTER'] = af.SPLIT_FILTERS[f_img]
                         im_img = im[af.SLICES[h['FILTER']]]
@@ -577,6 +589,10 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
                         h['CRPIX1'] = af.CAM_X0[cam_i] - af.SLICES[h['FILTER']][1].start
                         h['CRPIX2'] = af.CAM_Y0[cam_i] - af.SLICES[h['FILTER']][0].start
                         pf.writeto(imfits, im_img, header=h, clobber=True) # save object frame
+                        if fits_list_dict.has_key(af.SPLIT_FILTERS[f_img]):
+                            fits_list_dict[af.SPLIT_FILTERS[f_img]].append(imfits)
+                        else:
+                            fits_list_dict[af.SPLIT_FILTERS[f_img]] = [imfits]
                         
                         # filter side with sky, now saved as object, but different list to keep track
                         skyfits = '{}/{}_{}_{}.fits'.format(targetdir, fits_id, af.OBJ_NAME, af.SPLIT_FILTERS[f_sky])
@@ -587,8 +603,15 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
                         h['CRPIX1'] = af.CAM_X0[cam_i] - af.SLICES[h['FILTER']][1].start
                         h['CRPIX2'] = af.CAM_Y0[cam_i] - af.SLICES[h['FILTER']][0].start
                         pf.writeto(skyfits, im_sky, header=h, clobber=True) # save sky frame
+                        if fits_list_dict.has_key(af.SPLIT_FILTERS[f_sky]):
+                            fits_list_dict[af.SPLIT_FILTERS[f_sky]].append(skyfits)
+                        else:
+                            fits_list_dict[af.SPLIT_FILTERS[f_sky]] = [skyfits]
+
                         valid_entry = True
+
                     else:
+                        
                         imfits = '{}/{}_{}_{}.fits'.format(targetdir, fits_id, af.OBJ_NAME, cam_i)
                         im_img = im[af.SLICES['C'+str(cam_i)]]
                         h['NAXIS1'] = af.SLICES['C'+str(cam_i)][1].stop - af.SLICES['C'+str(cam_i)][1].start
@@ -596,6 +619,11 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
                         h['CRPIX1'] = af.CAM_X0[cam_i] - af.SLICES['C'+str(cam_i)][1].start
                         h['CRPIX2'] = af.CAM_Y0[cam_i] - af.SLICES['C'+str(cam_i)][0].start
                         pf.writeto(imfits, im_img, header=h, clobber=True)
+                        if fits_list_dict.has_key(h['FILTER']):
+                            fits_list_dict[h['FILTER']].append(imfits)
+                        else:
+                            fits_list_dict[h['FILTER']] = [imfits]
+
                         valid_entry = True                      
                     
                 elif user.lower() == 'q': # exit function
@@ -616,8 +644,14 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
 
     if not auto:
         pl.close('all') # close image to free memory
-    # move back to starting directory
-    os.chdir(start_dir)
+
+    if auto:
+        af.print_head("\nDisplaying automatically selected science frames:")
+        af.show_list(fits_list_dict)
+
+    os.chdir(start_dir) # move back to starting directory
+
+    return fits_list_dict
 
 """
     Written by John Capone (jicapone@astro.umd.edu).

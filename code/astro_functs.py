@@ -269,32 +269,36 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
             stop_fits = nfits
             nsubplts = nfits - start_fits
 
+        print "Displaying frames {} - {} ({} total).".format(start_fits, stop_fits, nfits)
+
         # display image in each subplot
         for j in range(nsubplts):
 
             ax = fig.add_subplot(ny, nx, j+1) # new subplot
 
             fits_fn = fits_fns[start_fits + j]
+            dpath, fits_fn = os.path.split(fits_fn)
+            if len(dpath) != 0:
+                dpath += '/'
             temp = fits_fn.split('.')
             if len(temp) == 1:
                 fits_fn += '.fits'
             elif len(temp) == 2:
                 if temp[1].lower() != 'fits':
                     print_err("Error: invalid \"{}\" file type detected.  Should be \"fits\" file type. Exiting...".format(temp[1]))
+                    pl.close('all') # close image to free memory
                     return
             else:
                 print_err("Error: file names should not include \".\" except for file type extention.  Exiting...")
+                pl.close('all') # close image to free memory
                 return
             fits_id = temp[0] # fits file name with extention removed
             
             # open data
-            hdulist = pf.open(fits_fn)
+            hdulist = pf.open(dpath + fits_fn)
             im = hdulist[0].data
             h = hdulist[0].header
             hdulist.close() # close FITs file
-
-            # image statistics
-            m = np.median(im)
 
             # display
             if zoom_lvl is not None:
@@ -306,7 +310,6 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
             ax.set_xticks([])
             ax.set_yticks([]) 
             ax.set_title("{} - {} filter".format(fits_id, h['FILTER']), fontsize=fontsize) # title with identifier
-            ax.set_xlabel("Median: {}".format(m), fontsize=fontsize)
 
         fig.canvas.draw()
         usr_select = raw_input("Press any key to continue or \"q\" to quit: ") # prompt user to continue
