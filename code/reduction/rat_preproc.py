@@ -340,7 +340,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
 
     if save_select:
         dt = datetime.datetime.now()
-        fnout = 'calib_'+dt.isoformat().split('.')[0].replace('-','').replace(':','')+'.p' # python pickle extension
+        fnout = '{}_'.format(ftype)+dt.isoformat().split('.')[0].replace('-','').replace(':','')+'.p' # python pickle extension
         af.print_head("\nSaving selection dictionary to {}".format(fnout))
         pickle.dump( fits_list_dict, open( fnout, 'wb' ) ) # save dictionary to pickle
 
