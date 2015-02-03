@@ -64,34 +64,32 @@ Outline
 	In [1]: from rat_preproc import *
 	```
 
-3. Create lists of fits files for specified cameras (must be done for each directory containing FITs files you'll be using):
+3. Select calibration frames you want to use:
 
 	```python
-	In [2]: ratlist( workdir = 'path/to/FITS/files/', cams = [0,1,2,3] )
-	```
-
-4. Select calibration frames you want to use:
-
-	```python
-	In [3]: ratdisp_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=True, amin=0.2, amax=0.8 )
+	In [2]: calibration_dict = choose_calib( ftype=af.FLAT_NAME or af.BIAS_NAME, workdir='path/to/FITS/flats/', cams=[0,1,2,3], auto=False, amin=0.3, amax=0.7 )
 	```
 	
 	where amin, amax are used in automode to find minimum and maximum median allowed values (of saturation level) for calibration frames
 	and ftype is the type of calibration (ie. 'flat', 'bias')
+
+	**WARNING:** RATIR flats are often bad even when the median value is in the acceptable range.  Auto mode is only recommended for bias frame selection.
 	
-5. Select science frames you want to use:
+4. Select science frames you want to use:
 
 	```python
-	In [4]: ratdisp( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )
+	In [3]: science_dict = choose_science( workdir='path/to/FITS/files/', targetdir='path/to/new/FITS/files/', cams=[0,1,2,3], auto=True )
 	```
+
+	When auto is True, all science frames are selected.  Since the telescope occasionally has tracking issues, it is recommended to check all frames.
 	
-6. Make master bias or flat frame:
+5. Make master bias or flat frame:
 
 	```python
-	In [5]: mkmaster( af.BIAS_NAME or af.FLAT_NAME, bands='ALL', workdir='.', fmin=5 )
+	In [4]: mkmaster( calibration_dict, af.BIAS_NAME or af.FLAT_NAME, fmin=5 )
 	```
 	
-	where fmin in the minimum number of frames allowed.
+	where calibration_dict is the value returned from choose_calib() and fmin in the minimum number of calibration frames allowed for a given camera or band.
 	
 More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *rat_preproc.py* and *astro_functs.py*.
 
