@@ -24,6 +24,8 @@ from scipy.ndimage.interpolation import zoom
 import shutil
 from glob import glob
 import gc
+import datetime
+import pickle
 
 import astro_functs as af # contains basic functions and RATIR constants
 from astro_functs import show_list # allow user to call show_list without "af." prefix
@@ -44,6 +46,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
         auto:       automated selection of frames.  if ftype is af.BIAS_NAME, select all.  if ftype is af.FLAT_NAME, select non-saturated frames with sufficient counts.
         amin:       minimum median value for automated selection as fraction of saturation value
         amax:       maximum median value for automated selection as fraction of saturation value
+        save_select:save dictionary of selected frames to python pickle file
 
     Usage:
         1)  enter python or ipython environment
@@ -66,7 +69,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
     Future Improvements:
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=0.7):
+def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=0.7, save_select=True):
 
     if auto and (ftype is af.FLAT_NAME):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -335,6 +338,12 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
         af.print_head("\nDisplaying automatically selected {} frames:".format(ftype))
         af.show_list(fits_list_dict)
 
+    if save_select:
+        dt = datetime.datetime.now()
+        fnout = 'calib_'+dt.isoformat().split('.')[0].replace('-','').replace(':','')+'.p' # python pickle extension
+        af.print_head("\nSaving selection dictionary to {}".format(fnout))
+        pickle.dump( fits_list_dict, open( fnout, 'wb' ) ) # save dictionary to pickle
+
     os.chdir(start_dir) # move back to starting directory
 
     return fits_list_dict
@@ -350,6 +359,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
         targetdir:  directory where selected frames and lists are output
         cams:       camera numbers.  all by default
         auto:       select all science frames
+        save_select:save dictionary of selected frames to python pickle file
 
     Usage:
         1)  enter python or ipython environment
@@ -374,7 +384,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
             - view 20ish automatically selected frames at a time
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
+def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True):
 
     # check for non-list camera argument
     if type(cams) is not list:
@@ -648,6 +658,12 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False):
     if auto:
         af.print_head("\nDisplaying automatically selected science frames:")
         af.show_list(fits_list_dict)
+
+    if save_select:
+        dt = datetime.datetime.now()
+        fnout = 'object_'+dt.isoformat().split('.')[0].replace('-','').replace(':','')+'.p' # python pickle extension
+        af.print_head("\nSaving selection dictionary to {}".format(fnout))
+        pickle.dump( fits_list_dict, open( fnout, 'wb' ) ) # save dictionary to pickle
 
     os.chdir(start_dir) # move back to starting directory
 
