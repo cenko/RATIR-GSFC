@@ -44,6 +44,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
         workdir:    directory where function is to be executed
         cams:       camera numbers.  all by default
         auto:       automated selection of frames.  if ftype is af.BIAS_NAME, select all.  if ftype is af.FLAT_NAME, select non-saturated frames with sufficient counts.
+        reject_sat: reject frames with saturated pixels
         amin:       minimum median value for automated selection as fraction of saturation value
         amax:       maximum median value for automated selection as fraction of saturation value
         save_select:save dictionary of selected frames to python pickle file
@@ -69,7 +70,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
     Future Improvements:
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=0.7, save_select=True):
+def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.3, amax=0.7, save_select=True):
 
     if auto and (ftype is af.FLAT_NAME):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -133,6 +134,9 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
 
             # get detector's saturation level
             sat_pt = af.CAM_SATUR[cam_i](h['SOFTGAIN'])
+            if np.any(im == sat_pt):
+                af.print_warn("Warning: saturated pixels in frame.  Skipping frame {}.".format(fits_fn))
+                continue
             
             if af.CAM_SPLIT[cam_i]:
                 im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
@@ -223,6 +227,8 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
                     # show top frame
                     ax1 = fig.add_subplot(221)
                     z1, z2 = af.zscale(im1)
+                    if z2 <= z1:
+                        z1 = m1 - s1; z2 = m1 + s1
                     ax1.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
                     ax1.set_xticks([])
                     ax1.set_yticks([])
@@ -241,10 +247,12 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
                     # show bottom frame
                     ax2 = fig.add_subplot(223)
                     z1, z2 = af.zscale(im2)
+                    if z2 <= z1:
+                        z1 = m2 - s2; z2 = m2 + s2
                     ax2.imshow(im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
                     ax2.set_xticks([])
                     ax2.set_yticks([])
-                    ax2.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m1), s1))     
+                    ax2.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m2), s2))     
                     ax2.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m2)/sat_pt))
                     # show pixel distribution
                     axhist = fig.add_subplot(224)
@@ -260,6 +268,8 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, amin=0.3, amax=
                 else:
                     # show frame
                     z1, z2 = af.zscale(im1)
+                    if z2 <= z1:
+                        z1 = m - s; z2 = m + s
                     ax = fig.add_subplot(121)
                     ax.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
                     ax.set_xticks([])
@@ -504,6 +514,8 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
 
                     ax1 = fig.add_subplot(211)
                     z1, z2 = af.zscale(im1)
+                    if z2 <= z1:
+                        z1 = m1 - s1; z2 = m1 + s1
                     ax1.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
                     ax1.set_xticks([])
                     ax1.set_yticks([])
@@ -511,6 +523,8 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
 
                     ax2 = fig.add_subplot(212)
                     z1, z2 = af.zscale(im2)
+                    if z2 <= z1:
+                        z1 = m2 - s2; z2 = m2 + s2
                     ax2.imshow(im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
                     ax2.set_xticks([])
                     ax2.set_yticks([])
@@ -520,6 +534,8 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
 
                     ax = fig.add_subplot(111)
                     z1, z2 = af.zscale(im1)
+                    if z2 <= z1:
+                        z1 = m - s; z2 = m + s
                     ax.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
                     ax.set_xticks([])
                     ax.set_yticks([])
