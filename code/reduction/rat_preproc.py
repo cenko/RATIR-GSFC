@@ -226,6 +226,16 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
 
             # display image and prompt user
             else:
+
+                if af.CAM_SPLIT[cam_i]:
+                        if (sfrac1 < amin) or (sfrac1 > amax) or (sfrac2 < amin) or (sfrac2 > amax):
+                            af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
+                            continue
+                    else:
+                        if (sfrac < amin) or (sfrac > amax):
+                            af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
+                            continue
+
                 if af.CAM_SPLIT[cam_i]:
                     # show top frame
                     ax1 = fig.add_subplot(221)
@@ -294,15 +304,6 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                 # query user until valid response is provided
                 valid_entry = False
                 while not valid_entry:
-
-                    if af.CAM_SPLIT[cam_i]:
-                        if (sfrac1 < amin) or (sfrac1 > amax) or (sfrac2 < amin) or (sfrac2 > amax):
-                            af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
-                            continue
-                    else:
-                        if (sfrac < amin) or (sfrac > amax):
-                            af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
-                            continue
 
                     user = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
                             
