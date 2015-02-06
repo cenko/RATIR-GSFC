@@ -45,8 +45,8 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
         cams:       camera numbers.  all by default
         auto:       automated selection of frames.  if ftype is af.BIAS_NAME, select all.  if ftype is af.FLAT_NAME, select non-saturated frames with sufficient counts.
         reject_sat: reject frames with saturated pixels
-        amin:       minimum median value for automated selection as fraction of saturation value
-        amax:       maximum median value for automated selection as fraction of saturation value
+        amin:       minimum median value for automated or manual selection as fraction of saturation value
+        amax:       maximum median value for automated or manual selection as fraction of saturation value
         save_select:save dictionary of selected frames to python pickle file
 
     Usage:
@@ -70,7 +70,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
     Future Improvements:
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.3, amax=0.7, save_select=True):
+def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.2, amax=0.8, save_select=True):
 
     if auto and (ftype is af.FLAT_NAME):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -142,11 +142,13 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                 im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
                 m1  = np.median(im1)
                 s1  = af.robust_sigma(im1)
+                sfrac1 = float(m1)/sat_pt
                 im2 = im[af.SLICES[af.SPLIT_FILTERS[cam_i]]]
                 m2  = np.median(im2)
                 s2  = af.robust_sigma(im2)
-                print '\t* Median of left side is {} counts ({:.0%} of saturation level).'.format(m1, float(m1)/sat_pt)
-                print '\t* Median of right side is {} counts ({:.0%} of saturation level).'.format(m2, float(m2)/sat_pt)
+                sfrac2 = float(m2)/sat_pt
+                print '\t* Median of left side is {} counts ({:.0%} of saturation level).'.format(m1, sfrac1)
+                print '\t* Median of right side is {} counts ({:.0%} of saturation level).'.format(m2, sfrac2)
             else:
                 if (h['FILTER'] not in af.RAT_FILTERS) and (ftype is af.FLAT_NAME):
                     af.print_warn("Warning: invalid filter detected.  Skipping {} band.".format(h['FILTER']))
@@ -154,7 +156,8 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                 im1 = im[af.SLICES['C'+str(cam_i)]]
                 m  = np.median(im1)
                 s  = af.robust_sigma(im1)
-                print '\t* Median is {} counts ({:.0%} of saturation level).'.format(m, float(m)/sat_pt)
+                sfrac = float(m)/sat_pt
+                print '\t* Median is {} counts ({:.0%} of saturation level).'.format(m, sfrac)
                 if ftype is af.FLAT_NAME:
                     print '\t* Filter used: {}'.format(h['FILTER'])
 
@@ -291,6 +294,16 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                 # query user until valid response is provided
                 valid_entry = False
                 while not valid_entry:
+
+                    if af.CAM_SPLIT[cam_i]:
+                        if (sfrac1 < amin) or (sfrac1 > amax) or (sfrac2 < amin) or (sfrac2 > amax):
+                            af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(fits_fn))
+                            continue
+                    else:
+                        if (sfrac < amin) or (sfrac > amax):
+                            af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(fits_fn))
+                            continue
+
                     user = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
                             
                     if user.lower() == 'y':
