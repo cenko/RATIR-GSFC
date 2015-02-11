@@ -92,6 +92,7 @@ Outline
         - only frames with median values in this range can be selected
     - *save_select*:
         - save python dictionary of selected frames to a python pickle if True
+    
     #### Return
     - returns a python dictionary of selected frames.  this dictionary is used by *mkmaster*.
 
@@ -116,6 +117,7 @@ Outline
         - function will select all science frames if True
     - *save_select*:
         - save python dictionary of selected frames to a python pickle if True
+    
     #### Return
     - returns a python dictionary of selected frames.
 
