@@ -706,7 +706,7 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
                     * currently no outlier rejection other than median combine
 
     Input:
-        fn_dict:    dictionary output by choose_calib() containing organized fits file names
+        fn_dict:    dictionary output by choose_calib() containing organized fits file names.  can also provide file name of pickled dictionary.
         mtype:      type of master frame. should be either af.FLAT_NAME or af.BIAS_NAME
         fmin:       minimum number of files needed to make a master frame
 
@@ -726,6 +726,11 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
         - 
 """
 def mkmaster(fn_dict, mtype, fmin=5):
+
+    # check if input is a file name
+    if type(fn_dict) is str:
+        af.print_bold("Loading pickled dictionary from file.")
+        fn_dict = pickle.load(open(fn_dict, 'rb'))
 
     # check for valid mtype
     if mtype not in [af.FLAT_NAME, af.BIAS_NAME]:
@@ -784,22 +789,38 @@ def mkmaster(fn_dict, mtype, fmin=5):
                     af.print_err("Error: cannot combine frames with different filters.  Exiting...")
                     return
             hdu.header['FILTER'] = filt0 # add filter keyword to master frame
-            if band in af.RAT_FILTERS[:3]:
-                hdu.header['CAMERA'] = 0  # add camera keyword to master frame
-            elif band is af.RAT_FILTERS[3]:
-                hdu.header['CAMERA'] = 1  # add camera keyword to master frame
-            elif band in af.RAT_FILTERS[4:6]:
-                hdu.header['CAMERA'] = 2  # add camera keyword to master frame
-            elif band in af.RAT_FILTERS[6:]:
-                hdu.header['CAMERA'] = 3  # add camera keyword to master frame
+            if mtype is af.FLAT_NAME:
+                if band in af.RAT_FILTERS[:3]:
+                    hdu.header['CAMERA'] = 0  # add camera keyword to master frame
+                elif band in af.RAT_FILTERS[3]:
+                    hdu.header['CAMERA'] = 1  # add camera keyword to master frame
+                elif band in af.RAT_FILTERS[4:6]:
+                    hdu.header['CAMERA'] = 2  # add camera keyword to master frame
+                elif band in af.RAT_FILTERS[6:]:
+                    hdu.header['CAMERA'] = 3  # add camera keyword to master frame
+                else:
+                    af.print_err("Error: camera was not identified.  Exiting...")
+                    return
+            else:
+                hdu.header['CAMERA'] = band
 
             data_arr = np.array(data_arr)
             
             master = af.imcombine(data_arr, type='median')
             dtemp = master.astype(np.float)
             if mtype is af.FLAT_NAME:
+                if band in af.RAT_FILTERS[:3]:
+                    dtemp = dtemp[af.SLICES['C0']] # crop frame
+                elif band in af.RAT_FILTERS[3]:
+                    dtemp = dtemp[af.SLICES['C1']] # crop frame
+                elif band in af.RAT_FILTERS[4:]:
+                    pass # already cropped
+                else:
+                    af.print_err("Error: master frame cropping failed.  Exiting...")
+                    return
                 hdu.data = dtemp/np.median(dtemp) # normalize master flat
             else:
+                dtemp = dtemp[af.SLICES[band]] # crop frame
                 hdu.data = dtemp
             hdulist = pf.HDUList([hdu])
 

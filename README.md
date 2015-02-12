@@ -67,7 +67,7 @@ Outline
 3. Select calibration frames you want to use:
 
     ```python
-    In [2]: calibration_dict = choose_calib( ftype=af.FLAT_NAME or af.BIAS_NAME,
+    In [2]: calibration_dict = choose_calib( ftype,
                                              workdir='path/to/FITS/flats/',
                                              cams=[0,1,2,3],
                                              auto=False,
@@ -78,7 +78,7 @@ Outline
     
     #### Input
     - *ftype*:
-        - the type of calibration (ie. 'flat', 'bias')
+        - the type of calibration (af.FLAT_NAME or af.BIAS_NAME)
     - *workdir*:
         - defaults to current directory
     - *cams*:
@@ -126,13 +126,15 @@ Outline
 5. Make master bias or flat frame:
 
     ```python
-    In [4]: mkmaster( calibration_dict, af.BIAS_NAME or af.FLAT_NAME, fmin=5 )
+    In [4]: mkmaster( calibration_dict, ftype, fmin=5 )
     ```
     
     #### Input
     - *calibration_dict*:
         - python dictionary created by *choose_calib*
-    - type of master calibration frame being created
+        - can also provide the file name of a pickled dictionary to re-load it from a previous session
+    - *ftype*:
+        - type of master calibration frame being created (af.FLAT_NAME or af.BIAS_NAME)
     - *fmin*:
         - the minimum number of calibration frames allowed for a given camera or band
     
