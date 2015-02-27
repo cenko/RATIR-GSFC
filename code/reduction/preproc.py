@@ -70,7 +70,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
     Future Improvements:
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.2, amax=0.8, save_select=True):
+def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.2, amax=0.8, save_select=True, figsize=(8,5)):
 
     if auto and (ftype is af.FLAT_NAME):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -104,7 +104,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
 
     # open figure for images if not auto
     if not auto:
-        fig = pl.figure(figsize=(8,5))
+        fig = pl.figure(figsize=figsize)
 
     # work on FITs files for specified cameras
     for cam_i in cams:
@@ -408,7 +408,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
             - view 20ish automatically selected frames at a time
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True):
+def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True, figsize=(8,5)):
 
     # check for non-list camera argument
     if type(cams) is not list:
@@ -456,7 +456,7 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
 
     # open figure for images if not auto
     if not auto:
-        fig = pl.figure(figsize=(8,5))
+        fig = pl.figure(figsize=figsize)
 
     # work on FITs files for specified cameras
     for cam_i in cams:

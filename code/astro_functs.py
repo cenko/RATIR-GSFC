@@ -321,3 +321,8 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
             return
 
     pl.close('all') # close image to free memory
+
+def zsview(im):
+    z1, z2 = zscale(im)
+    pl.figure()
+    pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
