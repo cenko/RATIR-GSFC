@@ -325,9 +325,9 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
 
     pl.close('all') # close image to free memory
 
-def zsview(im, cmap=pl.cm.gray, figsize=(8,5), contours=False):
+def zsview(im, cmap=pl.cm.gray, figsize=(8,5), contours=False, ccolor='r'):
     z1, z2 = zscale(im)
     pl.figure(figsize=figsize)
     pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=cmap)
     if contours:
-        pl.contour(im, levels=[z2], origin='lower', colors='k'))
+        pl.contour(im, levels=[z2], origin='lower', colors=ccolor))
