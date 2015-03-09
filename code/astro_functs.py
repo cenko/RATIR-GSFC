@@ -44,6 +44,7 @@ CAM_PXSCALE = [0.32, 0.32, 0.3, 0.3] # C0, C1, C2, C3 in arcsec/px
 SPLIT_FILTERS = [ 'Z', 'J', 'Y', 'H' ] # RATIR NIR bands.  0+2 are C2, 1+3 are C3
 RAT_FILTERS = ['u', 'g', 'r', 'i', 'Z', 'Y', 'J', 'H'] # RATIR filters we actually use - preproccessing will ignore other filters
 CAM_BIAS   = [True, True, False, False]
+CAM_DARK   = [True, True, False, False]
 
 # RATIR H2RG filter slices
 C0_SLICE = np.s_[0:1023,125:1023]
@@ -58,6 +59,8 @@ SLICES = {'Z': Z_SLICE, 'J': J_SLICE, 'Y': Y_SLICE, 'H': H_SLICE, 'C0': C0_SLICE
 OBJ_NAME = 'img' # designator for object frames
 FLAT_NAME = 'flat' # designator for flat frames
 BIAS_NAME = 'bias' # designator for bias frames
+DARK_NAME = 'dark' # designator for dark frames
+FTYPE_POST = {OBJ_NAME: 'o', FLAT_NAME: 'f', BIAS_NAME: 'b', DARK_NAME: 'd'}
 CONFIG_LOCATION = 'astro_functs.py' # name of file containing configuration information, currently this file.
 
 CAM_WAVE  = ['OPT', 'OPT', 'IR', 'IR']
@@ -322,7 +325,7 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
 
     pl.close('all') # close image to free memory
 
-def zsview(im):
+def zsview(im, cmap=pl.cm.gray, figsize=(8,5)):
     z1, z2 = zscale(im)
-    pl.figure()
-    pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+    pl.figure(figsize=figsize)
+    pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=cmap)
