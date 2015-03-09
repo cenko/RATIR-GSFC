@@ -40,7 +40,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
     Purpose:        display calibration images for verification by user
 
     Input:
-        ftype:      type of frames. defaults for af.FLAT_NAME
+        ftype:      type of calibration frames
         workdir:    directory where function is to be executed
         cams:       camera numbers.  all by default
         auto:       automated selection of frames.  if ftype is af.BIAS_NAME, select all.  if ftype is af.FLAT_NAME, select non-saturated frames with sufficient counts.
@@ -52,7 +52,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
     Usage:
         1)  enter python or ipython environment
         2)  load function -> 'from rat_preproc import choose_calib'
-        3)  run function -> 'file_dict = choose_calib(ftype = bias or flat name, workdir = 'path/to/data/', cams = [#,#,...])'
+        3)  run function -> 'file_dict = choose_calib(ftype = bias, dark or flat name, workdir = 'path/to/data/', cams = [#,#,...])'
             - since default workdir is '.', this argument can be ignored if you are in the same directory as the data
         4)  select which frames you would like to use to create master calibration frames
         5)  call mkmaster using the dictionary returned by this function
@@ -74,7 +74,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
 
     if auto and (ftype is af.FLAT_NAME):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
-        if (temp.lower() != 'y') or (temp.lower() != 'yes'):
+        if (temp.lower() != 'y') and (temp.lower() != 'yes'):
             af.print_bold("Exiting...")
             return
 
@@ -111,12 +111,17 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
 
         # print current camera number
         af.print_under("\n{:^50}".format('CAMERA {}'.format(cam_i)))
+
+        # check for valid calibration request
         if af.CAM_BIAS[cam_i] == False and ftype is af.BIAS_NAME:
             af.print_warn("Warning: Camera C{} does not have {} frames.  Skipping...".format(cam_i, af.BIAS_NAME))
             continue
+        if af.CAM_DARK[cam_i] == False and ftype is af.DARK_NAME:
+            af.print_warn("Warning: Camera C{} does not have {} frames.  Skipping...".format(cam_i, af.DARK_NAME))
+            continue
         
         # find raw files of selected type for this camera
-        fits_list = glob('????????T??????C{}{}.fits'.format(cam_i, 'b' if ftype is af.BIAS_NAME else 'f'))
+        fits_list = glob('????????T??????C{}{}.fits'.format(cam_i, af.FTYPE_POST[ftype]))
         if len(fits_list) == 0:
             af.print_warn("Warning: no fits files found.  Skipping camera {}.".format(cam_i))
             continue
@@ -134,9 +139,10 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
 
             # get detector's saturation level
             sat_pt = af.CAM_SATUR[cam_i](h['SOFTGAIN'])
-            if np.any(im == sat_pt):
-                af.print_warn("Warning: saturated pixels in frame.  Skipping frame {}.".format(fits_fn))
-                continue
+            if reject_sat:
+                if np.any(im == sat_pt):
+                    af.print_warn("Warning: saturated pixels in frame.  Skipping frame {}.".format(fits_fn))
+                    continue
             
             if af.CAM_SPLIT[cam_i]:
                 im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
@@ -162,14 +168,16 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     print '\t* Filter used: {}'.format(h['FILTER'])
 
             if auto:
-                if ftype is af.BIAS_NAME:   
-                    # all bias frames are selected
+
+                # all bias and dark frames are selected
+                if ftype in [af.BIAS_NAME, af.DARK_NAME]:
                     if fits_list_dict.has_key('C{}'.format(cam_i)):
                         fits_list_dict['C{}'.format(cam_i)].append(fits_fn)
                     else:
                         fits_list_dict['C{}'.format(cam_i)] = [fits_fn]
-                                                
-                if ftype is af.FLAT_NAME:
+
+                # flats are selected based on median value
+                elif ftype is af.FLAT_NAME:
 
                     vmin = amin * sat_pt; vmax = amax * sat_pt
                                 
@@ -707,14 +715,14 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
 
     Input:
         fn_dict:    dictionary output by choose_calib() containing organized fits file names.  can also provide file name of pickled dictionary.
-        mtype:      type of master frame. should be either af.FLAT_NAME or af.BIAS_NAME
+        mtype:      type of master frame. should be either af.FLAT_NAME, af.DARK_NAME or af.BIAS_NAME
         fmin:       minimum number of files needed to make a master frame
 
     Usage:
         1)  follow directions for choose_calib()
         2)  make sure to assign the output from choose_calib() to a variable!
-        3)  run function -> 'mkmaster(fn_dict=output from choose_calib(), mtype = bias or flat name)'
-        4)  create a master configuration file using the frames previously selected by ratdisp_calib()
+        3)  run function -> 'mkmaster(fn_dict=output from choose_calib(), mtype = bias, dark or flat name)'
+        4)  create a master configuration file using the frames previously selected by choose_calib()
 
     Notes:
         - checks that data being combined used same filter
@@ -722,26 +730,29 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
         - added fmin parameter.  allows user to abort if fewer files are found to make a master frame.
 
     Future Improvements:
-        - may want to be generalized for use with dark current frames
         - 
 """
 def mkmaster(fn_dict, mtype, fmin=5):
 
     # check if input is a file name
     if type(fn_dict) is str:
-        af.print_bold("Loading pickled dictionary from file.")
-        fn_dict = pickle.load(open(fn_dict, 'rb'))
+        if fn_dict.split('.')[-1] == 'p':
+            af.print_bold("Loading pickled dictionary from file.")
+            fn_dict = pickle.load(open(fn_dict, 'rb'))
+        else:
+            af.print_err("Invalid pickle file extension detected. Exiting...")
+            return
 
     # check for valid mtype
-    if mtype not in [af.FLAT_NAME, af.BIAS_NAME]:
-        af.print_err("Error: valid arguments for mtype are", af.FLAT_NAME, "and", af.BIAS_NAME, ". Exiting...")
+    if mtype not in [af.FLAT_NAME, af.BIAS_NAME, af.DARK_NAME]:
+        af.print_err("Error: valid arguments for mtype are {}, {} and {}. Exiting...".format(af.FLAT_NAME, af.BIAS_NAME, af.DARK_NAME))
         return
 
     bands = fn_dict.keys()
 
     sorttype = 'BAND'
 
-    if mtype is af.BIAS_NAME:
+    if mtype in [af.BIAS_NAME, af.DARK_NAME]:
         sorttype = 'CAMERA' 
         
     d = os.getcwd().split('/')[-1] # name of current directory
@@ -753,77 +764,121 @@ def mkmaster(fn_dict, mtype, fmin=5):
         # print current band
         af.print_under("\n{:^50}".format('{} {}'.format(band, sorttype)))
 
-        hdu = pf.PrimaryHDU()
-        data_arr = []
-        filter_arr = [] # to check that all frames used the same filter
-        i = 0
-        fs = fn_dict[band]
-        cont = True
-        if len(fs) < fmin:
-            if len(fs) == 0:
-                af.print_err('No frames available to make master {} for {} {}.'.format(mtype, band, sorttype.lower()))
-                cont = False
-            else:
-                temp = raw_input(af.bcolors.WARNING+"Only {} frames available to make master {} for {} {}.  Continue? (y/n): ".format(len(fs), mtype, band, sorttype.lower())+af.bcolors.ENDC)
-            
-                if temp.lower() == 'y' or temp.lower() == 'yes':
-                    cont = True
-                else:
-                    cont = False
-        if cont:
-            for fn in fs:
-                hdu.header[FITS_IN_KEY(i)] = fn # add flat fn to master flat header
-                print fn
-                hdulist = pf.open(fn)
-                if mtype is af.FLAT_NAME: # normalize flat frames
-                    data_arr.append(hdulist[0].data/np.median(hdulist[0].data))
-                else:
-                    data_arr.append(hdulist[0].data)
-                filter_arr.append(hdulist[0].header['FILTER'])
-                i += 1
-            filt0 = None
-            for filt in filter_arr:
-                if filt0 is None:
-                    filt0 = filt
-                elif filt != filt0:
-                    af.print_err("Error: cannot combine frames with different filters.  Exiting...")
-                    return
-            hdu.header['FILTER'] = filt0 # add filter keyword to master frame
-            if mtype is af.FLAT_NAME:
-                if band in af.RAT_FILTERS[:3]:
-                    hdu.header['CAMERA'] = 0  # add camera keyword to master frame
-                elif band in af.RAT_FILTERS[3]:
-                    hdu.header['CAMERA'] = 1  # add camera keyword to master frame
-                elif band in af.RAT_FILTERS[4:6]:
-                    hdu.header['CAMERA'] = 2  # add camera keyword to master frame
-                elif band in af.RAT_FILTERS[6:]:
-                    hdu.header['CAMERA'] = 3  # add camera keyword to master frame
-                else:
-                    af.print_err("Error: camera was not identified.  Exiting...")
-                    return
-            else:
-                hdu.header['CAMERA'] = band
-
-            data_arr = np.array(data_arr)
-            
-            master = af.imcombine(data_arr, type='median')
-            dtemp = master.astype(np.float)
-            if mtype is af.FLAT_NAME:
-                if band in af.RAT_FILTERS[:3]:
-                    dtemp = dtemp[af.SLICES['C0']] # crop frame
-                elif band in af.RAT_FILTERS[3]:
-                    dtemp = dtemp[af.SLICES['C1']] # crop frame
-                elif band in af.RAT_FILTERS[4:]:
-                    pass # already cropped
-                else:
-                    af.print_err("Error: master frame cropping failed.  Exiting...")
-                    return
-                hdu.data = dtemp/np.median(dtemp) # normalize master flat
-            else:
-                dtemp = dtemp[af.SLICES[band]] # crop frame
-                hdu.data = dtemp
-            hdulist = pf.HDUList([hdu])
-
-            hdulist.writeto('{}_{}.fits'.format(mtype, band), clobber=True)
+        # check if required files are present
+        if mtype is af.FLAT_NAME:
+            if band in af.RAT_FILTERS[:3]:
+                mbias_fn = '{}_{}.fits'.format(af.BIAS_NAME, 'C0')
+                mdark_fn = '{}_{}.fits'.format(af.DARK_NAME, 'C0')
+            elif band in af.RAT_FILTERS[3]:
+                mbias_fn = '{}_{}.fits'.format(af.BIAS_NAME, 'C1')
+                mdark_fn = '{}_{}.fits'.format(af.DARK_NAME, 'C1')
+            elif band in af.RAT_FILTERS[4:]:
+                mbias_fn = None
+                mdark_fn = None
         else:
-            af.print_warn("Skipping {}...".format(band))
+            mbias_fn = '{}_{}.fits'.format(af.BIAS_NAME, band)
+            mdark_fn = '{}_{}.fits'.format(af.DARK_NAME, band)
+        if mtype is not af.BIAS_NAME:
+            if mbias_fn is not None:
+                if not os.path.exists(mbias_fn):
+                    af.print_err('Error: {} not found.  Move master bias file to working directory to proceed.'.format(mbias_fn))
+                    continue
+                if (mtype is af.FLAT_NAME) and (not os.path.exists(mdark_fn)):
+                    af.print_err('Error: {} not found.  Move master dark file to working directory to proceed.'.format(mdark_fn))
+                    continue
+
+        # check dictionary entries
+        fns = fn_dict[band]
+        if len(fns) < fmin:
+            if len(fns) == 0:
+                af.print_err('Error: no frames available to make master {} for {} {}.'.format(mtype, band, sorttype.lower()))
+                continue
+            else:
+                temp = raw_input(af.bcolors.WARNING+"Only {} frames available to make master {} for {} {}.  Continue? (y/n): ".format(len(fns), mtype, band, sorttype.lower())+af.bcolors.ENDC)
+                if temp.lower() != 'y' and temp.lower() != 'yes':
+                    af.print_warn("Skipping {}...".format(band))
+                    continue
+
+        # load calibration data
+        hdu = pf.PrimaryHDU()
+        filter_arr = [] # to check that all frames used the same filter
+        exptime_arr = [] # to check that all frames have the same exposure time (where relevant)
+        data_arr = []
+        i = 0
+        for fn in fns:
+            print fn
+            hdu.header[FITS_IN_KEY(i)] = fn # add flat fn to master flat header
+            hdulist = pf.open(fn)
+            data_arr.append(hdulist[0].data)
+            filter_arr.append(hdulist[0].header['FILTER'])
+            exptime_arr.append(hdulist[0].header['EXPTIME'])
+            i += 1
+        data_arr = np.array(data_arr, dtype=np.float)
+
+        # check that frames match
+        for i in range(len(fns)-1):
+            if (filter_arr[i+1] != filter_arr[0]) and (mtype is af.FLAT_NAME):
+                af.print_err("Error: cannot combine flat frames with different filters. Skipping {} {}...".format(band, sorttype.lower()))
+                continue
+            if (exptime_arr[i+1] != exptime_arr[0]) and (mtype is af.DARK_NAME):
+                af.print_err("Error: cannot combine dark frames with different exposure times. Skipping {} {}...".format(band, sorttype.lower()))
+                continue
+        if af.FLAT_NAME:
+            hdu.header['FILTER'] = filter_arr[0] # add filter keyword to master frame
+        if af.DARK_NAME:
+            hdu.header['EXPTIME'] = exptime_arr[0] # add exposure time keyword to master frame
+        
+        # add CAMERA header keyword
+        if mtype is af.FLAT_NAME:
+            if band in af.RAT_FILTERS[:3]:
+                hdu.header['CAMERA'] = 0  # add camera keyword to master frame
+            elif band in af.RAT_FILTERS[3]:
+                hdu.header['CAMERA'] = 1  # add camera keyword to master frame
+            elif band in af.RAT_FILTERS[4:6]:
+                hdu.header['CAMERA'] = 2  # add camera keyword to master frame
+            elif band in af.RAT_FILTERS[6:]:
+                hdu.header['CAMERA'] = 3  # add camera keyword to master frame
+            else:
+                af.print_err("Error: camera was not identified. Skipping {} {}...".format(band, sorttype.lower()))
+                continue
+        else:
+            hdu.header['CAMERA'] = band
+
+        # crop bias frames
+        if mtype is af.BIAS_NAME:
+            data_arr = data_arr[(np.s_[:],af.SLICES[band][0],af.SLICES[band][1])]
+        # crop dark frames and perform calculations
+        elif mtype is af.DARK_NAME:
+            data_arr = data_arr[(np.s_[:],af.SLICES[band][0],af.SLICES[band][1])]
+            data_arr = (data_arr - pf.getdata(mbias_fn))/hdu.header['EXPTIME'] # calculate dark current
+        # crop flat frames and perform calculations
+        elif mtype is af.FLAT_NAME:
+            if mbias_fn is not None:
+                mbd = pf.getdata(mbias_fn)
+                mdd = pf.getdata(mdark_fn)
+            if band in af.RAT_FILTERS[:3]:
+                data_arr = data_arr[(np.s_[:],af.SLICES['C0'][0],af.SLICES['C0'][1])]
+            elif band in af.RAT_FILTERS[3]:
+                data_arr = data_arr[(np.s_[:],af.SLICES['C1'][0],af.SLICES['C1'][1])]
+            elif band in af.RAT_FILTERS[4:]:
+                pass # already cropped
+            else:
+                af.print_err("Error: master frame cropping failed. Skipping {} {}...".format(band, sorttype.lower()))
+                continue
+            for i in range(len(exptime_arr)):
+                if mbias_fn is not None:
+                    data_arr[i] = (data_arr[i] - mbd - mdd*exptime_arr[i])
+                data_arr[i] /= np.median(data_arr[i])
+
+        # make master frame
+        master = af.imcombine(data_arr, type='median').astype(np.float)
+
+        # add master to hdu
+        if mtype is af.FLAT_NAME:
+            hdu.data = master/np.median(master) # normalize master flat
+        else:
+            hdu.data = master
+
+        # save master to fits
+        hdulist = pf.HDUList([hdu])
+        hdulist.writeto('{}_{}.fits'.format(mtype, band), clobber=True)
