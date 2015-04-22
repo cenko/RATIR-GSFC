@@ -31,6 +31,7 @@
 ;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/20/2013
+; Modified by John Capone 04/22/2015
 ;
 ; FUTURE IMPROVEMENTS:
 ;	Need to check what additional keywords need to propagate, and check if values that are set with 
@@ -40,7 +41,7 @@
 ;-
 
 ;----------------------------------------------------------------------------------------
-pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, header=header, biasfile=biasfile
+pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, header=header, biasfile=biasfile, darkfile=darkfile
 
 ; ---------- Process input filename(s), call recursively if necessary----------
 
@@ -145,7 +146,7 @@ pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, 
 	sxdelpar, newheader, unneckey
 
 	;If biasfile keyword set subtract master bias from current file with given master bias file
-	;If they are not the same size, quick program without saving with preparation prefix (will not move
+	;If they are not the same size, quit program without saving with preparation prefix (will not move
 	;on in following processing steps)
 	if keyword_set(biasfile) then begin
 		bias = readfits(biasfile)
@@ -160,6 +161,28 @@ pro pipeprepare, filename, pipevar, outname=outname, namefixfiles=namefixfiles, 
 		endif
 		
 		newdata = array-bias
+
+		;If darkfile keyword set subtract master dark from current file with given master dark file
+		;If they are not the same size, quit program without saving with preparation prefix (will not move
+		;on in following processing steps)
+		if keyword_set(darkfile) then begin
+			dark = readfits(darkfile)*exptime
+			if n_elements(array) ne n_elements(dark) then begin
+				print, filename + ' could not be dark subtracted because it is not the same size as the master dark, remove file to avoid confusion'
+				return
+			endif
+			
+			if pipevar.verbose gt 0 then begin
+				print, ' '
+				print, '   dark subtracting'
+			endif
+			
+			newdata = newdata-dark
+		endif else begin
+			print, filename + ' could not be dark subtracted because the master dark file was not provided'
+			return
+		endelse
+
 	endif else begin
 		newdata = array
 	endelse

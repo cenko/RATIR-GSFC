@@ -4,8 +4,7 @@
     Usage:
         1)  enter python or ipython environment
         2)  can load all functions using:
-            - "from rat_preproc import *" if you want to call functions using just the function's name
-            - "import rat_preproc as rp" if you want to call functions using rp.function_name(args)
+            - "from preproc import *" if you want to call functions using just the function's name
 
     Notes:
         - 
@@ -20,6 +19,7 @@ import astropy.io.fits as pf
 import numpy as np
 import matplotlib.pylab as pl
 import matplotlib.gridspec as gridspec
+from matplotlib.patches import Rectangle
 from scipy.ndimage.interpolation import zoom
 import shutil
 from glob import glob
@@ -51,7 +51,7 @@ FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keyw
 
     Usage:
         1)  enter python or ipython environment
-        2)  load function -> 'from rat_preproc import choose_calib'
+        2)  load function -> 'from preproc import choose_calib'
         3)  run function -> 'file_dict = choose_calib(ftype = bias, dark or flat name, workdir = 'path/to/data/', cams = [#,#,...])'
             - since default workdir is '.', this argument can be ignored if you are in the same directory as the data
         4)  select which frames you would like to use to create master calibration frames
@@ -250,7 +250,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     z1, z2 = af.zscale(im1)
                     if z2 <= z1:
                         z1 = m1 - s1; z2 = m1 + s1
-                    ax1.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+                    ax1.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
                     ax1.set_xticks([])
                     ax1.set_yticks([])
                     ax1.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m1), s1))
@@ -270,7 +270,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     z1, z2 = af.zscale(im2)
                     if z2 <= z1:
                         z1 = m2 - s2; z2 = m2 + s2
-                    ax2.imshow(im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+                    ax2.imshow(im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
                     ax2.set_xticks([])
                     ax2.set_yticks([])
                     ax2.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m2), s2))     
@@ -292,7 +292,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     if z2 <= z1:
                         z1 = m - s; z2 = m + s
                     ax = fig.add_subplot(121)
-                    ax.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+                    ax.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
                     ax.set_xticks([])
                     ax.set_yticks([])                        
                     ax.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m), s))
@@ -392,10 +392,12 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
         cams:       camera numbers.  all by default
         auto:       select all science frames
         save_select:save dictionary of selected frames to python pickle file
+        figsize:    dimensions of figure used to display frames for selection
+        window_zoom:zoom level for closer look
 
     Usage:
         1)  enter python or ipython environment
-        2)  load function -> 'from rat_preproc import choose_science'
+        2)  load function -> 'from preproc import choose_science'
         3)  run function -> 'choose_science(workdir = 'path/to/data/', targetdir = 'path/to/new data/', cams = [#,#,...])'
             - since default workdir is '.', this argument can be ignored if you are in the same directory as the data
         4)  select which frames you would like to use
@@ -416,7 +418,7 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
             - view 20ish automatically selected frames at a time
         - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
 """
-def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True, figsize=(8,5)):
+def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True, figsize=(10,10), window_zoom=4):
 
     # check for non-list camera argument
     if type(cams) is not list:
@@ -472,6 +474,21 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
         # print current camera number
         af.print_under("\n{:^50}".format('CAMERA {}'.format(cam_i)))
         
+        # get master dark and bias frames for current camera if required
+        if cam_i in [0,1]:
+            mbias_fn = '{}_C{}.fits'.format(af.BIAS_NAME, cam_i)
+            mdark_fn = '{}_C{}.fits'.format(af.DARK_NAME, cam_i)
+            if not os.path.exists(mbias_fn):
+                af.print_err('Error: {} not found.  Move master bias file to working directory to proceed.'.format(mbias_fn))
+                continue
+            else:
+                mbias_data = pf.getdata(mbias_fn)
+            if not os.path.exists(mdark_fn):
+                af.print_err('Error: {} not found.  Move master dark file to working directory to proceed.'.format(mdark_fn))
+                continue
+            else:
+                mdark_data = pf.getdata(mdark_fn)
+
         # find raw files of selected type for this camera
         fits_list = glob('????????T??????C{}o.fits'.format(cam_i))
         if len(fits_list) == 0:
@@ -489,11 +506,33 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
             im = hdulist[0].data
             h = hdulist[0].header
 
+            # get master flat frame for current filter
+            if cam_i in [0,1]:
+                mflat_fn = '{}_{}.fits'.format(af.FLAT_NAME, h['FILTER'])
+                if not os.path.exists(mflat_fn):
+                    af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn))
+                    continue
+                else:
+                    mflat_data = pf.getdata(mflat_fn)
+            else:
+                mflat_fn1 = '{}_{}.fits'.format(af.FLAT_NAME, af.SPLIT_FILTERS[cam_i-2])
+                if not os.path.exists(mflat_fn1):
+                    af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn1))
+                    continue
+                else:
+                    mflat_data1 = pf.getdata(mflat_fn1)
+                mflat_fn2 = '{}_{}.fits'.format(af.FLAT_NAME, af.SPLIT_FILTERS[cam_i])
+                if not os.path.exists(mflat_fn2):
+                    af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn2))
+                    continue
+                else:
+                    mflat_data2 = pf.getdata(mflat_fn2)
+
             # check for required header keywords
             if 'PRPSLID' in h:
                 prpslid = h['PRPSLID']
             else:
-                af.print_err("ERROR: ratdisp - PRPSLID not found in fits header.")
+                af.print_err("ERROR: choose_science - PRPSLID not found in fits header.")
                 os.chdir(start_dir) # move back to starting directory
                 pl.close('all') # close image to free memory
                 return -1
@@ -501,7 +540,7 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
             if 'VSTID' in h:
                 vstid = h['VSTID']
             else:
-                af.print_err("ERROR: ratdisp - VSTID keyword not found in fits header.")
+                af.print_err("ERROR: choose_science - VSTID keyword not found in fits header.")
                 os.chdir(start_dir) # move back to starting directory
                 pl.close('all') # close image to free memory
                 return -1
@@ -509,7 +548,7 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
             if af.CENTER_KEY in h:
                 center = h[af.CENTER_KEY].split('center')[0]
             else:
-                af.print_err("ERROR: ratdisp - {} keyword not found in fits header.".format(af.CENTER_KEY))
+                af.print_err("ERROR: choose_science - {} keyword not found in fits header.".format(af.CENTER_KEY))
                 os.chdir(start_dir) # move back to starting directory
                 pl.close('all')
                 return  
@@ -519,50 +558,77 @@ def choose_science(workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_
             # get image statistics
             if af.CAM_SPLIT[cam_i]:
                 im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
-                m1  = np.median(im1)
-                s1  = af.robust_sigma(im1)
                 im2 = im[af.SLICES[af.SPLIT_FILTERS[cam_i]]]
-                m2  = np.median(im2)
-                s2  = af.robust_sigma(im2)
             else:
-                im1 = im[af.SLICES['C'+str(cam_i)]]             
-                m = np.median(im1)
-                s = af.robust_sigma(im1)
+                im1 = im[af.SLICES['C'+str(cam_i)]]
                     
             # display image and prompt user
             if not auto:
             
                 if af.CAM_SPLIT[cam_i]:
 
-                    ax1 = fig.add_subplot(211)
-                    z1, z2 = af.zscale(im1)
-                    if z2 <= z1:
-                        z1 = m1 - s1; z2 = m1 + s1
-                    ax1.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+                    # display top
+                    ax1 = fig.add_subplot(221)
+                    disp_im1 = np.copy(im1)/mflat_data1
+                    z1, z2 = af.zscale(disp_im1)
+                    ax1.imshow(disp_im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+                    ax1.contour(disp_im1, levels=[z2], origin='lower', colors='r')
                     ax1.set_xticks([])
                     ax1.set_yticks([])
-                    ax1.set_title(r"{} band".format(af.SPLIT_FILTERS[cam_i-2]) + ': ' + "Median = {}, $\sigma$ = {:.1f}".format(int(m1), s1))
+                    ax1.set_title(r"{} band".format(af.SPLIT_FILTERS[cam_i-2]))
+                    # and central subregion
+                    ax1s = fig.add_subplot(222)
+                    xm, ym = np.array(disp_im1.shape, dtype=float)/2
+                    xr = xm/float(window_zoom); yr = ym/float(window_zoom)
+                    ax1.add_patch(Rectangle((ym-yr, xm-xr), 2*yr, 2*xr, ec='b', fc='none', lw=2))
+                    ax1s.imshow(disp_im1[xm-xr:xm+xr,ym-yr:ym+yr], vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+                    ax1s.contour(disp_im1[xm-xr:xm+xr,ym-yr:ym+yr], levels=[z2], origin='lower', colors='r')
+                    ax1s.set_xticks([])
+                    ax1s.set_yticks([])
+                    ax1s.set_title("Zoomed region")
 
-                    ax2 = fig.add_subplot(212)
-                    z1, z2 = af.zscale(im2)
-                    if z2 <= z1:
-                        z1 = m2 - s2; z2 = m2 + s2
-                    ax2.imshow(im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+                    # display bottom
+                    ax2 = fig.add_subplot(223)
+                    disp_im2 = np.copy(im2)/mflat_data2
+                    z1, z2 = af.zscale(disp_im2)
+                    ax2.imshow(disp_im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+                    ax2.contour(disp_im2, levels=[z2], origin='lower', colors='r')
                     ax2.set_xticks([])
                     ax2.set_yticks([])
-                    ax2.set_title(r"{} band".format(af.SPLIT_FILTERS[cam_i]) + ': ' + "Median = {}, $\sigma$ = {:.1f}".format(int(m2), s2))
+                    ax2.set_title(r"{} band".format(af.SPLIT_FILTERS[cam_i]))
+                    # and central subregion
+                    ax2s = fig.add_subplot(224)
+                    xm, ym = np.array(disp_im2.shape, dtype=float)/2
+                    xr = xm/float(window_zoom); yr = ym/float(window_zoom)
+                    ax2.add_patch(Rectangle((ym-yr, xm-xr), 2*yr, 2*xr, ec='b', fc='none', lw=2))
+                    ax2s.imshow(disp_im2[xm-xr:xm+xr,ym-yr:ym+yr], vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+                    ax2s.contour(disp_im2[xm-xr:xm+xr,ym-yr:ym+yr], levels=[z2], origin='lower', colors='r')
+                    ax2s.set_xticks([])
+                    ax2s.set_yticks([])
+                    ax2s.set_title("Zoomed region")
                 
                 else:
 
-                    ax = fig.add_subplot(111)
-                    z1, z2 = af.zscale(im1)
-                    if z2 <= z1:
-                        z1 = m - s; z2 = m + s
-                    ax.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+                    ax = fig.add_subplot(121)
+                    disp_im = (np.copy(im1)-mbias_data-mdark_data*h['EXPTIME'])/mflat_data
+                    z1, z2 = af.zscale(disp_im)
+                    ax.imshow(disp_im, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+                    ax.contour(disp_im, levels=[z2], origin='lower', colors='r')
                     ax.set_xticks([])
                     ax.set_yticks([])
-                    ax.set_title(r"{} band: Median = {}, $\sigma$ = {:.1f}".format(h['FILTER'], int(m), s))
+                    ax.set_title(r"{} band".format(h['FILTER']))
+                    # and central subregion
+                    axs = fig.add_subplot(122)
+                    xm, ym = np.array(disp_im.shape, dtype=float)/2
+                    xr = xm/float(window_zoom); yr = ym/float(window_zoom)
+                    ax.add_patch(Rectangle((ym-yr, xm-xr), 2*yr, 2*xr, ec='b', fc='none', lw=2))
+                    axs.imshow(disp_im[xm-xr:xm+xr,ym-yr:ym+yr], vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+                    axs.contour(disp_im[xm-xr:xm+xr,ym-yr:ym+yr], levels=[z2], origin='lower', colors='r')
+                    axs.set_xticks([])
+                    axs.set_yticks([])
+                    axs.set_title("Zoomed region")
                 
+                fig.set_tight_layout(True)
                 fig.canvas.draw()
             
             if af.CAM_SPLIT[cam_i]:

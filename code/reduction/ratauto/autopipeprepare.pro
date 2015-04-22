@@ -4,8 +4,8 @@
 ;
 ; PURPOSE:
 ;	Runs pipeprepare on every valid file and saves files with prefix 'p'.  Changes header
-;	with more manageable keywords and does bias subtraction if bias master exists (compares
-;	filter names in FILENAMEs of files and bias master)
+;	with more manageable keywords and does bias/dark subtraction if bias/dark master exists (compares
+;	filter names in FILENAMEs of files and bias/dark master)
 ;
 ; OPTIONAL KEYWORDS:
 ;	outpipevar - output pipeline parameters
@@ -19,6 +19,7 @@
 ;
 ; Written by Dan Perley 
 ; Modified by Vicki Toy 11/18/2013
+; Modified by John Capone 04/22/2015
 ;
 ; FUTURE IMPROVEMENTS:
 ;	MOST REFER TO pipeprepare.pro: Need to check what additional keywords need to propagate, and check if values that are set with 
@@ -83,9 +84,23 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
 		
 	endif
 
+	;Finds any master dark files and filter name from header keyword
+	;MUST CHANGE FOR RIMAS Assumes camera name is in filename before '.'
+	darkfiles = findfile(pipevar.imworkingdir+'dark*', count=dct)
+	darkcamera = []
+	if dct gt 0 then begin
+	
+		for i = 0, n_elements(darkfiles)-1 do begin
+			header = headfits(darkfiles[i])
+			camera = strmid(darkfiles[i], strpos(darkfiles[i], '.', /reverse_search)-1,1)
+			darkcamera = [darkcamera,camera]
+		endfor
+		
+	endif
+
 	;For each file (that doesn't have an existing p file or can be overwritten), run pipeprepare on it with
 	;output file being saved into the imworkingdir, will run bias subtraction if bias master available (checks
-	;based on how bias file and data file are named (ASSUMES THAT FILTER NAME IS 1 CHARACTER BEFORE *.fits or after bias_*
+	;based on how bias file and data file are named (ASSUMES THAT FILTER NAME IS 1 CHARACTER BEFORE *.fits or after bias_* / dark_*
   	for f = 0, n_elements(files)-1 do begin
   	
      	if files[f] eq '' then continue
@@ -96,12 +111,23 @@ pro autopipeprepare, outpipevar=outpipevar, inpipevar=inpipevar
      	matchi = where(outnameim eq pfiles, ct)
      	
 		camera = strmid(files[f], strpos(files[f], 'o_', /reverse_search)-1,1)
-		camloc = where(camera eq biascamera, realcam)
+		bcamloc = where(camera eq biascamera, brealcam)
 		
-		if realcam gt 0 then biasfile = biasfiles[camloc] else biasfile=''
+		if brealcam gt 0 then begin
+			biasfile = biasfiles[bcamloc]
+			dcamloc = where(camera eq darkcamera, drealcam)
+			if drealcam gt 0 then begin
+				darkfile = darkfiles[dcamloc]
+			endif else begin
+				print, 'Did not find master dark file for camera ', camera, '!'
+				darkfile=''
+			endelse
+		endif else begin
+			biasfile=''
+		endelse
 
      	if ct eq 0 or pipevar.overwrite gt 0 then begin
-			pipeprepare, files[f], pipevar, outname=outnameim, namefixfiles=namefixfiles, biasfile=biasfile
+			pipeprepare, files[f], pipevar, outname=outnameim, namefixfiles=namefixfiles, biasfile=biasfile, darkfile=darkfile
      	endif
      	
   	endfor

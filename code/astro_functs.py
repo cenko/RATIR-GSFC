@@ -309,7 +309,7 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
             else:
                 imdisp = im
             z1, z2 = zscale(im)
-            ax.imshow(imdisp, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray)
+            ax.imshow(imdisp, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
             ax.set_xticks([])
             ax.set_yticks([]) 
             ax.set_title("{} - {} filter".format(fits_id, h['FILTER']), fontsize=fontsize) # title with identifier
@@ -328,6 +328,6 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
 def zsview(im, cmap=pl.cm.gray, figsize=(8,5), contours=False, ccolor='r'):
     z1, z2 = zscale(im)
     pl.figure(figsize=figsize)
-    pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=cmap)
+    pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=cmap, interpolation='none')
     if contours:
-        pl.contour(im, levels=[z2], origin='lower', colors=ccolor))
+        pl.contour(im, levels=[z2], origin='lower', colors=ccolor)
