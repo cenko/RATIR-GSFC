@@ -327,13 +327,8 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
 
 def zsview(im, cmap=pl.cm.gray, figsize=(8,5), contours=False, ccolor='r'):
     z1, z2 = zscale(im)
-<<<<<<< Updated upstream
     pl.figure(figsize=figsize)
     pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=cmap, interpolation='none')
     if contours:
         pl.contour(im, levels=[z2], origin='lower', colors=ccolor)
-=======
-    pl.figure()
-    pl.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
     pl.tight_layout()
->>>>>>> Stashed changes
