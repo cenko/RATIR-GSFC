@@ -2,7 +2,7 @@
 NAME:
 	plotratir
 PURPOSE:
-	Read in coadd*(FILTER).crop.multi.fits and finalphot(FILTER).am.  Find number
+	Read in prefchar*(FILTER).multi.ref.fits and finalphot(FILTER).am.  Find number
 	of unique stars and saves each filter's magnitude and error to the same star. 
 	Saves this to finalmags.txt.  Creates color plot with all of the images overlaid
 	(red = J/H, green = z/y, blue = r/i) and creates plot of each filter field with
@@ -35,7 +35,7 @@ import printhtml
 import os
 import sys
 
-def plotphotom():
+def plotphotom(prefchar='coadd'):
 
 	#Initialize arrays
     filters = ['r','i','z','y','J','H']
@@ -57,7 +57,7 @@ def plotphotom():
     	plotdict[name] = np.zeros(arr_size)
 
     # retrieve detection files
-    zffiles = pplib.choosefiles( 'coadd*_?.ref.multi.fits' )
+    zffiles = pplib.choosefiles( prefchar+'*_?.ref.multi.fits' )
 
     #Save filter and data from each file into arrays and find overlapping stars
     #between filter files using final photometry file (comparing distances from RA and DEC)

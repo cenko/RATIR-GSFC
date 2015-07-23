@@ -283,8 +283,6 @@ pro autopipestack, outpipevar=outpipevar, inpipevar=inpipevar
 			;Find relevant catalog filter values and only use values or actual detections
 			refmag = maghash[filter+'_mag']
 			goodind = where(mode eq 0 and refmag lt 90.0 and flag eq 0 and elon le 1.3)
-				
-			writecol, outfile + '.stars.trun', xim[goodind], yim[goodind], magaper[goodind], magerraper[goodind], flag[goodind], elon[goodind], fwhmim[goodind], class[goodind]
 			 
 			refmag = refmag[goodind]			
 			obsmag = magaper[goodind]

@@ -32,10 +32,9 @@ from numpy import shape
 from astropy import wcs
 
 
-def photom():
+def photom(prefchar='coadd'):
 
 	#Identify files (must have same number of images files as weight files)
-	prefchar    = 'coadd'
 	zffiles     = pplib.choosefiles(prefchar + '*_?.fits')
 	weightfiles = pplib.choosefiles(prefchar + '*_?.weight.fits')
 	
@@ -69,8 +68,7 @@ def photom():
 		mvcmd = 'mv -f ' + ifile + ' ' + ofile
 		os.system(mvcmd)
 
-	#CHANGE FOR RIMAS
-	coaddfiles = pplib.choosefiles('coadd*_?.ref.fits')
+	coaddfiles = pplib.choosefiles(prefchar+'*_?.ref.fits')
 
 	ra1arr  = []
 	dec1arr = []
@@ -163,7 +161,7 @@ def photom():
 	if not os.path.exists('ratir_nir.nnw'): 
 		os.system('cp '+propath+'/defaults/ratir_nir.nnw .')
 
-	coaddfiles = pplib.choosefiles('coadd*_?.fits')
+	coaddfiles = pplib.choosefiles(prefchar+'*_?.fits')
 	#Uses sextractor to find the magnitude and location of sources for each file
 	#Saves this information into 'fluxes_*.txt' files
 	for files in coaddfiles:

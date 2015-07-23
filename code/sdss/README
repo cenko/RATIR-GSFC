@@ -17,3 +17,5 @@ sdss.reg: ds9 region file (including photometry). Example line:
 fk5;ellipse(11.99513268,1.09767089E-3,0.2",0.2",0) # text={SDSS-002} color=green UMAG={23.504179} UMAGU={0.84534} GMAG={21.47784} GMAGU={0.043554} RMAG={20.265104} RMAGU={0.026155} IMAG={19.764978} IMAGU={0.025499} ZMAG={19.410202} ZMAGU={0.057192}
 
 sdss.txt: Ignore this
+
+VLT "-p" keywords ignores galaxies
