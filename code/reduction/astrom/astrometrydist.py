@@ -248,10 +248,11 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 #For each catalog source B, use the distances to other catalog sources
                 #that are within the radius range and compare the ratio to 
                 #(sextractor source A - sextractor sources) to (catalog source B - catalog sources)
-                #If within 3% then save the match (only count 1 match per catalog row)
+                #If within 5% then save the match (only count 1 match per catalog row) 
+                #VLT loosened tolerance from 3% to 5%
                 for cj in range(len(catdistarr)):
                     catdist = catdistarr[cj]
-                    if abs((sexdist/catdist)-1.0) < 0.03:
+                    if abs((sexdist/catdist)-1.0) < 0.05:
 
                         match += newmatch
                         newmatch = 0 #further matches before the next sj loop indicate degeneracies
@@ -383,11 +384,11 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 del cmatch[i]
                 del nmatch[i]
                 rejects += 1
-    
+           
         medpa = astrometrystats.median(mpa)
         stdevpa = astrometrystats.stdev(mpa)
         refinedtolerance = (2.0 * stdevpa) #VLT Changed from arbitrary value of 2.2 from original script
-        
+
         #Fine iteration to flag outliers now that we know most are reliable
         for i in range(len(primarymatchs)-1,-1,-1):
             if abs(mpa[i] - offpa) > refinedtolerance:
@@ -418,7 +419,7 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 catdistij = distance(catlist[ci], catlist[cj])
                 
                 try:
-                   if abs((sexdistij/catdistij)-1.0) > 0.03:
+                   if abs((sexdistij/catdistij)-1.0) > 0.05: #VLT loosened tolerance from 3% to 5%
                       ndistflags[i] += 1
                 except:  # (occasionally will get divide by zero)
                    pass
@@ -436,7 +437,7 @@ def distmatch(sexlist, catlist, maxrad=180, minrad=10, reqmatch=3, patolerance=1
                 rejects += 1
                 
     nmatches = len(primarymatchs)
-    
+
     if quiet == False:
     	print 'Rejected', rejects, 'bad matches.'
     	print 'Found', nmatches, 'good matches.'

@@ -136,13 +136,16 @@ def sextract(sexfilename, nxpix, nypix, border=3, corner=12, minfwhm=1.5, maxfwh
     ellip 	= cat[:,6]
     fwhm 	= cat[:,7]
     flag 	= cat[:,8]
-    
+    a_imag  = cat[:,9]
+    b_imag  = cat[:,10]
+
     #Initial filtering creates mask that will remove borders, corners,
     #values above max ellipticity (galaxies), and within fwhm constraints
     mask = (ellip <= maxellip) & (fwhm >= minfwhm) & (fwhm <= maxfwhm) \
     		& (x >= minx) & (x <= maxx) & (y >= miny) & (y <= maxy) \
     		& (x+y >= corner) & (x+nypix-y >= corner) \
-    		& (nxpix-x >= corner) & (nxpix-x+nypix-y >= corner)
+		& (nxpix-x >= corner) & (nxpix-x+nypix-y >= corner) \
+		& (a_imag > 1) & (b_imag > 1)
  	
     #Removes flagged values if saturation level set
     if saturation > 0:
@@ -205,15 +208,17 @@ INPUTS:
 	ra - right ascension of center of field
 	dec - declination of center of field
 	boxsize - size of region to look for sources, maximum is fieldwidth
+	rawidth - size of half of ra region covered by image
+	decwidth - size of half of dec region covered by image
 	minmag - minimum magnitude will accept
 	maxmag - maximum magnitude will accept
 	maxpm - maximum proper motion
 OUTPUTS:
 	Returns catalog list of objects in Obj class ordered by magnitude
 EXAMPLE:
-	catlist = getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.)
+	catlist = getcatalog(catalog, ra, dec, boxsize, rawidth, decwidth, minmag=8.0, maxmag=-1, maxpm=60.)
 """
-def getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.):
+def getcatalog(catalog, ra, dec, boxsize, rawidth,decwidth,minmag=8.0, maxmag=-1, maxpm=60.):
     # Get catalog from USNO
 
 	#If maximum magnitude is not set, assign max magnitude based on catalog max or set default
@@ -238,15 +243,19 @@ def getcatalog(catalog, ra, dec, boxsize, minmag=8.0, maxmag=-1, maxpm=60.):
         
         #SDSS direct query has different format than other scat queries
         if catalog == 'sdss':
-        	queryurl = "http://cas.sdss.org/dr7/en/tools/search/x_radial.asp?ra="+str(ra)+"&dec="+str(dec)+"&radius="+str(boxsize/60.0)+"&entries=top&topnum=6400&format=csv"
+
+        	#queryurl = "http://cas.sdss.org/dr7/en/tools/search/x_radial.asp?ra="+str(ra)+"&dec="+str(dec)+"&radius="+str(boxsize/60.0)+"&entries=top&topnum=6400&format=csv"
+        	#queryurl = "http://cas.sdss.org/dr7/en/tools/search/x_rect.asp?min_ra="+str(ra-boxsize/3600.)+"&max_ra="+str(ra+boxsize/3600.)+"&min_dec="+str(dec-2.*boxsize/3600.)+"&max_dec="+str(dec+2.*boxsize/3600.)+"&entries=top&topnum=6400&format=csv"
+        	queryurl = "http://cas.sdss.org/dr7/en/tools/search/x_rect.asp?min_ra="+str(ra-rawidth/3600.)+"&max_ra="+str(ra+rawidth/3600.)+"&min_dec="+str(dec-decwidth/3600.)+"&max_dec="+str(dec+decwidth/3600.)+"&entries=top&topnum=6400&format=csv"
+   	
         	racolumn    = 7
         	deccolumn   = 8
         	magcolumn   = 12
         	pmracolumn  = 99
         	pmdeccolumn = 99
+        	print queryurl
         else:
-        	queryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + catalog +  "&ra=" + str(ra) + "&dec=" + str(dec) + "&system=J2000&rad=" + str(-boxsize) + "&sort=mag&epoch=2000.00000&nstar=6400"
-        
+        	queryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + catalog +  "&ra=" + str(ra) + "&dec=" + str(dec) + "&system=J2000&dra=" + str(rawidth)+ '&ddec=' +str(decwidth) + "&sort=mag&epoch=2000.00000&nstar=6400"
         cat = urllib.urlopen(queryurl)
         catlines = cat.readlines()
         cat.close()

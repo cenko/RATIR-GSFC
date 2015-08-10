@@ -121,7 +121,7 @@ sexpath = ''  # if "sex" works in any directory, leave blank
 defaulttolerance = 0.01  # these defaults should generally not be altered.
 defaultpatolerance = 1.4   
 defaultminfwhm = 1.5
-defaultmaxfwhm = 40
+defaultmaxfwhm = 25
 
 fastmatch = 1
 showmatches = 0
@@ -209,6 +209,8 @@ EXAMPLE:
 		pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, userdec=-999, minfwhm=1.5,maxfwhm=20,maxellip=0.5,
 		boxsize=-1,maxrad=-1,tolerance=0.010,catalog='',nosolve=0,overwrite=False, outfile='', saturation=-1, 
 		quiet=False)	
+NOTE:
+    ASSUMES RA is in direction of y and dec in direction of x
 """
 
 def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, userdec=-999, minfwhm=1.5,maxfwhm=20,maxellip=0.5,boxsize=-1,maxrad=-1,tolerance=0.010,catalog='',nosolve=0,overwrite=False, outfile='', saturation=-1, quiet=False):
@@ -331,6 +333,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     yscale = abs(yscale)
     fieldwidth = max(xscale * nxpix, yscale * nypix) * 3600. /2.0   
     area_sqdeg = xscale * nxpix * yscale * nypix
+    
     area_sqmin = area_sqdeg * 3600. 
     area_sqsec = area_sqmin * 3600. 
     pixscale = numpy.sqrt(xscale*yscale) * 3600.
@@ -388,24 +391,28 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
        writetextfile(catalog, goodsexlist)
        return
 
-    #If no catalog specified, find catalog with > 15 entries for center RA and DEC encircled by radius of 90 arcseconds
+    #If no catalog specified, find catalog with > 15 entries for center RA and DEC encircled by radius of 180 arcseconds
     #If no catalog found after that, end program
     if catalog == '':
     
-    	#trycats = ['sdss', 'tmpsc','ub2', 'tmc']
+    	#trycats = ['tmpsc']
         trycats = ['sdss','tmpsc', 'ub2', 'tmc']
         for trycat in trycats:
         
             if trycat == 'sdss':
-            	testqueryurl = "http://cas.sdss.org/dr7/en/tools/search/x_radial.asp?ra="+str(centerra)+"&dec="+str(centerdec)+"&radius="+str(1.5)+"&entries=top&topnum=50000&format=csv"
+            	testqueryurl = "http://cas.sdss.org/dr7/en/tools/search/x_radial.asp?ra="+str(centerra)+"&dec="+str(centerdec)+"&radius="+str(3)+"&entries=top&topnum=50000&format=csv"
             	commentlen = 4
             else:
-            	testqueryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + trycat +  "&ra=" + str(centerra) + "&dec=" + str(centerdec) + "&system=J2000&rad=" + str(-90)
-            	commentlen = 15
+            	testqueryurl = "http://tdc-www.harvard.edu/cgi-bin/scat?catalog=" + trycat +  "&ra=" + str(centerra) + "&dec=" + str(centerdec) + "&system=J2000&rad=" + str(-180)
             
             check = urllib.urlopen(testqueryurl)
             checklines = check.readlines()
             check.close()
+
+            # Find comment line for those pulled by Harvard using comment identifier
+            if trycat != 'sdss':
+                indices = [i for i, s in enumerate(checklines) if '--' in s]
+                commentlen = indices[0] + 1
             
             if len(checklines) > commentlen:
                 catalog = trycat
@@ -419,9 +426,12 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
 	
     #Load in reference star catalog with boxsize
     if (boxsize == -1):
-        boxsize = fieldwidth
+        boxsize = fieldwidth/2.
+    
+    decwidth  = xscale * nxpix*3600./2.
+    rawidth = yscale * nypix*3600./2.
 
-    catlist = astrometrysources.getcatalog(catalog, centerra, centerdec, boxsize)
+    catlist = astrometrysources.getcatalog(catalog, centerra, centerdec, boxsize,rawidth,decwidth)
     
     ncat = len(catlist)
     catdensity = ncat / (2*boxsize/60.)**2
@@ -448,7 +458,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
             catlist = catlist[0:len(catlist)*4/5]
             ncat = len(catlist)
             catdensity = ncat / (2*boxsize/60.)**2
-      
+
     #If the image is way deeper than USNO, trim the image catalog down
     #if ngood > 8 and density > 4 * catdensity:
     #    print 'Image is deep.  Trimming image catalog...'
@@ -531,7 +541,7 @@ def autoastrometry(filename,pixelscale=-1,pa=-999,inv=0,uncpa=-1,userra=-999, us
     	print 'Using reqmatch =', reqmatch
     	
     (primarymatchs, primarymatchc, mpa) = astrometrydist.distmatch(goodsexlist, catlist, maxrad, minrad, reqmatch, patolerance, uncpa, showmatches=showmatches, fastmatch=fastmatch, quiet=quiet)
-    
+  
     #Quits program if no matches or too few matches found (gives different error readouts)
     nmatch = len(primarymatchs)
     if nmatch == 0:
@@ -795,7 +805,7 @@ def main():
     
 
     #Copies parameter file and configuration file from default files located in program folder   
-    shutil.copyfile(propath+'temp.param', 'temp.param')
+    shutil.copyfile(propath+'tempsource.param', 'tempsource.param')
     
     if not os.path.exists('sex.config'): 
     	shutil.copyfile(propath+'sex.config', 'sex.config')
@@ -869,9 +879,9 @@ def main():
                
 	#Removes temp.param file               
     try:
-       os.remove('temp.param')
+       os.remove('tempsource.param')
     except:
-       print 'Could not remove temp.param for some reason'
+       print 'Could not remove tempsource.param for some reason'
     
 """    
         if (arg.find("-examp") == 0):

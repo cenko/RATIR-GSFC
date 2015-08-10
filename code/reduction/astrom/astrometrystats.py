@@ -32,8 +32,12 @@ def most(list, vmin=1, vmax=1):
 	for i in range(0, len(list)):
 		counter[i] =((list[i]+vmax >= list) & (list[i]-vmin <= list)).sum()
 	
-	#Returns the element that has the most values within vmin and vmax range	
-	return list[counter.argmax()]
+        #Returns the element that has the most values within vmin and vmax range
+        #If no element with most, returns median
+        if len(set(counter)) == 1:
+            return numpy.median(list)
+        else:
+            return list[counter.argmax()]
 	
 ####################################
 def rasex2deg(rastr):
