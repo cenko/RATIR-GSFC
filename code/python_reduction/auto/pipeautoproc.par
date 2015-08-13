@@ -1,0 +1,8 @@
+autoastrocommand : /Users/vickitoy/Research/RATIR-GSFC/code/reduction/astrom/vlt_autoastrometry.py
+getsedcommand	  : /Users/vickitoy/Research/RATIR-GSFC/code/photometry/dependencies/get_SEDs.py
+swarpcommand     : /opt/local/bin/swarp
+sexcommand       : /opt/local/bin/sex
+scampcommand	  : /usr/local/bin/scamp
+prefix		 : 2
+datadir          : 
+imworkingdir     : imredux/
