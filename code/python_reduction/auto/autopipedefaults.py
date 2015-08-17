@@ -266,7 +266,9 @@ def autopipemakesky(pipevar=inpipevar):
         
         if len(skyflats[0]) >= 2:
         
-            if os.path.isfile(outflatname) and pipevar['overwrite'] == 0: continue
+            if os.path.isfile(outflatname) and pipevar['overwrite'] == 0:
+                print 'Skipping makesky for '+filt+'. File already exists'
+                continue
 
             files = np.array(files)
             if pipevar['verbose']:
@@ -287,4 +289,148 @@ def autopipemakesky(pipevar=inpipevar):
     if pipevar['rmifiles'] != 0:
         os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
         
+def autopipeskysub(pipevar=inpipevar):
+    """
+    NAME:
+        autopipeskysub
+    PURPOSE:
+        Subtracts master sky flat from data and subtracts median.
+    OPTIONAL KEYWORDS:
+        pipevar  - input pipeline parameters (typically set in ratautoproc.pro, 
+                   but can be set to default)
+    EXAMPLE:
+        autopipeskysub(pipevar=inpipevar)
+    DEPENDENCIES:
+        autoproc_depend.skypipeproc
+    """
+    
+    print 'SKY-SUBTRACT'
+    
+    # Find data that needs to be sky subtracted
+    files  = glob.glob(pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+    sfiles = glob.glob(pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+    
+    if len(files) == 0:
+        print 'Did not find any files! Check your data directory path!'
+        return
+    
+    skys = glob.glob(pipevar['imworkingdir'] + '*sky-*.fits')
+    
+    if len(skys) == 0:
+        print 'No master sky files found, cannot sky subtract'
+        return
+        
+    # Find the associated filter of each master skyflat
+    skyfilts = []
+    for sky in skys:
+        head = pf.getheader(sky)
+        filter = head['FILTER']
+        skyfilts += [filter]
+    
+    # For each file if output files don't exist or override set check if we have master 
+    # skyflat for filter, sky subtract if it exists using skypipeproc
+    for file in files:
 
+        fileroot = os.path.basename(file)
+        outfile = pipevar['imworkingdir'] + 's' + fileroot    
+    
+        if os.path.isfile(outfile) and pipevar['overwrite'] == 0:
+            print 'Skipping sky subtraction for '+file+'. File already exists'
+            continue
+            
+        head = pf.getheader(file)
+        filter = head['FILTER'] 
+
+        # Find corresponding master skyflat
+        try:
+            skyloc  = skyfilts.index(filter)    
+            skyfile = skys[skyloc]      
+        except:
+            print 'Sky field not found for ', file
+            pipevar['flatfail'] += ' ' + file
+            continue
+        
+        if pipevar['verbose'] > 0:
+            print 'Sky subtracting', file, 'using', skyfile
+        
+        apd.skypipeproc(file, skyfile, outfile)
+
+
+    # If remove intermediate files keyword set, delete p(PREFIX)*.fits, fp(PREFIX)*.fits,
+    # and sky-*.fits files
+    if pipevar['rmifiles'] != 0:
+        
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
+
+
+def autopipecrcleanim(pipevar=inpipevar):
+    
+    """
+    NAME:
+        autopipecrcleanim
+    PURPOSE:
+        Removes cosmic rays
+    OPTIONAL KEYWORDS:
+        pipevar  - input pipeline parameters (typically set in ratautoproc.pro, 
+                   but can be set to default)
+    EXAMPLE:
+        autopipecrcleanim(pipevar=inpipevar)
+    DEPENDENCIES:
+        autoproc_depend.cosmiczap
+    FUTURE IMPROVEMENTS:
+        Slow, alter cosmics.py?
+        Get readnoise from header
+    """
+    
+    print 'CRCLEAN'
+
+    # Find data that needs to be cosmic ray zapped
+    files  = glob.glob(pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+    zfiles = glob.glob(pipevar['imworkingdir'] + 'zsfp' + pipevar['prefix'] + '*.fits')
+    
+    if len(files) == 0:
+        print 'Did not find any files! Check your data directory path!'
+        return
+ 
+    # For each file check that objects meet count limits and exposure time
+   	# (i.e. short exposure time with lot of counts will be ignored), also targets that are
+   	# calibration files will be ignored.
+   	# Run cosmiczap on the files and have output files be 'z'+file plus weight files
+    
+    for file in files:
+    
+        head = pf.getheader(file)
+                
+        try:
+            target  = head['TARGNAME']
+        except:
+            print 'Requires header keywords: TARGNAME. Check file.'
+            continue
+        
+        if 'flat' in target.lower(): continue
+        if 'twilight' in target.lower(): continue
+
+        fileroot = os.path.basename(file)
+        outfile = pipevar['imworkingdir'] + 'z' + fileroot 
+          
+        if os.path.isfile(outfile) and pipevar['overwrite'] == 0:
+            print 'Skipping crzap for '+file+'. File already exists'
+            continue 
+                
+        if pipevar['verbose'] > 0:
+            print 'Cleaning cosmic rays from', file      
+        
+        # Runs cosmics.py
+        apd.cosmiczap(file, outfile, sigclip=6.0, maxiter=3, verbose=pipevar['verbose'])
+        
+        
+    # If remove intermediate files keyword set, delete p(PREFIX)*.fits, fp(PREFIX)*.fits,
+    # sky-*.fits, sfp(PREFIX)*.fits files
+    if pipevar['rmifiles'] != 0:
+        
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')

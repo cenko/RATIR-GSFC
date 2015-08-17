@@ -96,8 +96,9 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
     ap.autopipeprepare(pipevar=pipevar)
     ap.autopipeimflatten(pipevar=pipevar)
     ap.autopipemakesky(pipevar=pipevar)
-    
-              
+    ap.autopipeskysub(pipevar=pipevar)
+    ap.autopipecrcleanim(pipevar=pipevar)
+
 '''    
 	
 	;Runs each processing step specified in the correct order (crclean is optional)

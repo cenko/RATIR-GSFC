@@ -4,6 +4,7 @@ import pyfits as pf
 import numpy as np
 import datetime
 import astrometrystats as astst
+import cosmics
 
 def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1):
 
@@ -434,14 +435,163 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
             head_m['SKYTYPE'] = type
         
         date = datetime.datetime.now().isoformat()
-        head_m.add_history('Processed by skypipecombine_altsex ' + date) 
+        head_m.add_history('Processed by skypipecombine ' + date) 
+        
+        if pipevar['verbose'] > 0: print '  Median-combining...'
         
         pf.writeto(outfile, reflat, head_m)       
                     
-                    
+def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
+
+    """
+    NAME:
+        skypipeproc
+    PURPOSE:
+        Subtracts sky flat from data and then subtracts median of that from remaining data. 
+    INPUTS:
+    	filename - file or list of files to be sky subtracted
+    	flatname - sky flat fits file 
+    	outfile  - name of output file
+    OPTIONAL KEYWORDS:
+        flatminval - minimum required value in flat (default for skycts calculation is 0.1)
+        flatmaxval - maximum required value in flat
+    EXAMPLE:
+        skypipeproc(filename, flatname, outfile)        
+    """
+    
+    # ------ Process input filenames(s) ------
+    
+    # Check for empty filename
+    if len(filename) == 0:
+        print 'No filename specified'
+        return
+
+    # If string, check if a file of items or wildcards
+    # otherwise store all files
+    if isinstance(filename,str):
+        fileext = os.path.splitext(filename)[1][1:]
+        
+        files = [filename]
+        
+        if fileext in ['cat', 'lis', 'list', 'txt']:
+            f = open(filename,'r')
+            files = f.read().splitlines() 
+            f.close()            
+                      
+        if '?' in filename or '*' in filename:
+            files = glob.glob(filename)
+            if len(files) == 0: 
+                print 'Cannot find any files matching ', filename
+                return
+    else:
+        files = filename  
+    
+    # Open flat    
+    f = pf.open(flatname)
+    flat = f[0].data  
+    f.close()
+    
+    med = np.median(flat)
+    
+    # For each input file check if same size as flats (required). If there is a minimum 
+    # or maximum flat value set, forces values outside of that range to NaN. Use finite 
+    # values above 0.1 to determine skycounts, and subtract flat along with median of 
+    # flattened data. Saves to new fits file
+    for file in files:
+        f = pf.open(file)
+        data = f[0].data
+        head = f[0].header
+        f.close()
+        
+        if np.shape(data) != np.shape(flat):
+            print file + ' could not be flat subtracted because it is not the same' +\
+                         ' size as the master flat, remove file to avoid confusion'
+            return
+                
+        if flatminval != None:
+            w = np.where(flat < flatminval)  
+            if len(w[0]) != 0:
+                flat[w] = float('NaN')
+            goodsignal = np.where(np.logical_and(flat >= flatminval, np.isfinite(flat)))
+        else:
+            goodsignal = np.where(np.logical_and(flat >= 0.1, np.isfinite(flat)))
+
+        if flatmaxval != None:
+            w = np.where(flat > flatminval) 
+            if len(w[0]) != 0:
+                flat[w] = float('NaN')            
+                
+        # Scale skyflat, subtract scaled skyflat, and subtract median of subsequent flat 
+        # subtracted data. Calculate skycounts from data (above minimum, or 
+        # by default above 0.1)
+        flattmp = np.median(flat[np.isfinite(flat)])
+        imgtmp  = np.median(data)
+        
+        scalefr = imgtmp/flattmp
+        fdata   = data - scalefr * flat
+        
+        tmp     = np.median(fdata)
+        fdata   = fdata - tmp
+
+        skycts  = np.median(fdata[goodsignal])
+        
+        # Adds header keywords to denote new median counts and file we used to flatfield
+        head['SFLATFLD'] = flatname
+        head['SKYCTS']   = (skycts, 'Sky counts')
+        
+        try:
+            head['CTRATE'] = (skycts/head['EXPTIME'], 'Sky counts per second')
+        except:
+            print 'No EXPTIME keyword'        
+
+        date = datetime.datetime.now().isoformat()
+        head.add_history('Processed by skypipeproc ' + date)
+        
+        pf.writeto(outfile, fdata, head) 
+
+
+def cosmiczap(filename, outname, sigclip=6.0, maxiter=3, verbose=True):
+
+    """
+    NAME:
+        cosmiczap
+    PURPOSE:
+        Removes cosmic rays using Laplacian cosmic ray identification written in cosmics.py 
+    INPUTS:
+    	filename - file or list of files to be cosmic ray zapped
+    	outfile  - name of output file
+    OPTIONAL KEYWORDS:
+        sigclip  - sigma to clip
+        maxiter  - maximum number of times to iterate loop
+        verbose  - quiet?
+    EXAMPLE:
+        cosmiczap(filename, outname)
+    DEPENDENCIES:
+        cosmic.py (described in http://arxiv.org/pdf/1506.07791v3.pdf)  
+    FUTURE IMPROVEMENTS:
+        Read readnoise from header?    
+    """
+    
+    data, head = cosmics.fromfits(filename, verbose=False)
+    
+    gain = head['GAIN']
+    c = cosmics.cosmicsimage(data, gain=gain, readnoise=18, sigclip=sigclip,
+        sigfrac = 0.4, objlim = 5.0, verbose=False)
+    
+    tot = c.run(maxiter=maxiter, verbose=False)
+    
+    head['NPZAP'] = (tot, "Num. of pixels zapped by cosmiczap")
+    date = datetime.datetime.now().isoformat()
+    head.add_history('Processed by cosmiczap ' + date)    
+    
+    if verbose: print '  Zapped %d total affected pixels (%.3f%% of total)' \
+                      %(tot,tot*100.0/np.size(data))
+    
+    cosmics.tofits(outname, c.cleanarray, head, verbose=False)
 
 
 def medclip(indata, clipsig=3.0, maxiter=5, verbose=0):
+
     """
     NAME:
         medclip
