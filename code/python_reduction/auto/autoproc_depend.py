@@ -542,7 +542,6 @@ def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
         
         pf.writeto(outfile, fdata, head) 
 
-
 def cosmiczap(filename, outname, sigclip=6.0, maxiter=3, verbose=True):
 
     """
@@ -581,7 +580,6 @@ def cosmiczap(filename, outname, sigclip=6.0, maxiter=3, verbose=True):
                       %(tot,tot*100.0/np.size(data))
     
     cosmics.tofits(outname, c.cleanarray, head, verbose=False)
-
 
 def astrometry(atfimages, scamprun=1, pipevar=None):
 
@@ -682,7 +680,6 @@ def astrometry(atfimages, scamprun=1, pipevar=None):
             data = pf.getdata(cfile)
             del him['FLXSCALE']
             pf.update(cfile, data, him)
-
 
 def findsexobj(file, sigma, pipevar, masksfx=None, zeropt=25.0, maptype='MAP_WEIGHT',
                wtimage=None, fwhm=1.5, pix=0.3787, aperture=5.0, elong_cut=1.3, 
@@ -795,7 +792,6 @@ def findsexobj(file, sigma, pipevar, masksfx=None, zeropt=25.0, maptype='MAP_WEI
     os.system('rm -f coadd.config')
     os.system('rm -f default.nnw')
     
-
 def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
 
     """
@@ -863,7 +859,6 @@ def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
         plt.clf()
 
     return z2, scats, rmss
-
 
 def robust_scat(diff, wts, nobs, nstars, sigma):
 
