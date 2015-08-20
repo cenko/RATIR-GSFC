@@ -3,11 +3,12 @@ import os
 import pyfits as pf
 import numpy as np
 import autoproc_depend as apd
+from astropy import wcs
 
 inpipevar = {'autoastrocommand':'autoastrometry', 'getsedcommand':'get_SEDs', 
 			'sexcommand':'sex' , 'swarpcommand':'swarp' , 'rmifiles':0,  
 			'prefix':'', 'datadir':'' , 'imworkingdir':'' , 'overwrite':0 , 'verbose':1, 
-			'flatfail':'' , 'catastrofail':'' , 'relastrofail':'' , 'fullastrofail':'' ,
+			'flatfail':'' , 'fullastrofail':'' ,
 			'pipeautopath':'' , 'refdatapath':'', 'defaultspath':'' }
 
 def autopipedefaults(pipevar=inpipevar):
@@ -364,7 +365,6 @@ def autopipeskysub(pipevar=inpipevar):
         os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
         os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
 
-
 def autopipecrcleanim(pipevar=inpipevar):
     
     """
@@ -434,3 +434,503 @@ def autopipecrcleanim(pipevar=inpipevar):
         os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
         os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
         os.system('rm -f ' + pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+
+def autopipeastrometry(pipevar=inpipevar):
+    """
+    NAME:
+        autopipepipeastrometry
+    PURPOSE:
+        Calculate astrometry of image files to fix WCS coordinates (shift and rotation) 
+        in header. Using fast astrometry solver (vlt_autoastrometry.py) that using 
+        pair-distance matching and asterism matching.  Returns file with corrected WCS 
+        coordinates saved as 'a'+fitsfile. Run Scamp for additional astrometry 
+        corrections, twice, once for basic individual LOOSE correction, second correct all
+        together.  Uses distortion of 3 as default, but uses 7 if distortion parameters 
+        high (i.e. RATIR H2RG)
+    OPTIONAL KEYWORDS:
+        pipevar  - input pipeline parameters (typically set in ratautoproc.pro, 
+                   but can be set to default)
+    EXAMPLE:
+        autopipeastrometry(pipevar=inpipevar)
+    DEPENDENCIES:
+        autoproc_depend.astrometry, vlt_autoastrometry.py, scamp, sextractor
+    FUTURE IMPROVEMENTS:
+        Better distinction between first and second scamp run
+    """
+    
+    print 'ASTROMETRY'
+    
+    files = glob.glob(pipevar['imworkingdir'] + 'zsfp' + pipevar['prefix'] + '*.fits')
+    
+    # If no files, look for those that were not cosmic ray zapped
+    if len(files) == 0:
+        files = glob.glob(pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+
+    if len(files) == 0:
+        print 'Did not find any files! Check your data directory path!'
+        return
+    
+    # Calculate relative astrometric solution
+    for file in files:
+        
+        fileroot = os.path.basename(file)
+        outfile = pipevar['imworkingdir'] + 'a' + fileroot
+        
+        if os.path.isfile(outfile) and pipevar['overwrite'] == 0:
+            print 'Skipping astrometry for '+file+'. File already exists' 
+            continue
+        
+        head = pf.getheader(file)
+        
+        targ = head['TARGNAME']
+        sat  = head['SATURATE']
+        
+        if 'flat' in targ: continue
+        
+        cmd = 'python ' + pipevar['autoastrocommand'] + ' ' + file + ' -l ' + str(sat)
+        
+        # Run direct astrometry
+        if pipevar['verbose'] > 0:
+            os.system(cmd)
+            print cmd
+        else:
+            os.system(cmd + ' -q')
+            
+        if ~os.path.isfile(outfile):
+            pipevar['fullastrofail'] += ' ' + file
+
+    if not os.path.isfile('astrom.param'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/astrom.param .')
+    if not os.path.isfile('astrom.conv'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/astrom.conv .') 
+    if not os.path.isfile('default.sex'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/default.sex .') 
+    if not os.path.isfile('default.missfits'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/default.missfits .') 
+    if not os.path.isfile('scamp.conf'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/scamp.conf .')          
+
+
+    # Calculate astrometry again using Scamp. First identify objects using sextractor, 
+    # then Scamp will solve by comparing reference catalog (currently set by default to 
+    # SDSS) to sources found by sextractor. Adds WCS corrections and second astrometry 
+    # parameters to header
+    afiles = glob.glob(pipevar['imworkingdir'] + 'azsfp' + pipevar['prefix'] + '*.fits')
+    
+    # If no files, look for those that were not cosmic ray zapped
+    if len(afiles) == 0:
+        files = glob.glob(pipevar['imworkingdir'] + 'asfp' + pipevar['prefix'] + '*.fits')
+
+    if len(afiles) == 0:
+        print 'Did not find any files! Check your data directory path!'
+        return
+        
+    afiletarg = []
+    afilefilt = []
+    
+    for afile in afiles:
+        head = pf.getheader(afile)
+        afiletarg += [head['TARGNAME']]
+        afilefilt += [head['FILTER']]
+    
+    atargets = set(afiletarg)
+    afilters = set(afilefilt)
+    
+    afiletarg = np.array(afiletarg)
+    afilefilt = np.array(afilefilt) 
+    afiles    = np.array(afiles) 
+    for atarg in atargets:
+        for afilt in afilters:
+        
+            thisatarget = np.where(np.logical_and(atarg == afiletarg, afilt == afilefilt))
+            atfimages = afiles[thisatarget]
+            
+            head = pf.getheader(atfimages[0])
+                
+            # If scamp has already been run, skip
+            try:
+                test = head['ASTIRMS1']
+                print 'Skipping scamp astrometry for: ',atarg,afilt,' Files already exist' 
+                continue 
+            except:                    
+                # Run sextractor to find sources, then use those catalogs to run scamp
+                # with loose fitting constraints
+                apd.astrometry(atfimages, scamprun=1, pipevar=pipevar)
+            
+                # Do same thing again but with more stringent scamp parameters
+                apd.astrometry(atfimages, scamprun=2, pipevar=pipevar)
+                   
+                
+    # If remove intermediate files keyword set, delete p(PREFIX)*.fits, fp(PREFIX)*.fits,
+    # sky-*.fits, sfp(PREFIX)*.fits, zsfp(PREFIX)*.fits files
+    if pipevar['rmifiles'] != 0:
+        
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'zsfp' + pipevar['prefix'] + '*.fits')
+
+def autopipestack(pipevar=inpipevar):
+    """
+    NAME:
+        autopipepipestack
+    PURPOSE:
+    	Does zeropoint correction on each individual frame using sextractor and get_SEDs. 
+        Creates flux scale (newflxsc) from how close to median of zeropoint values.  Uses
+        flux scale to stack images in Swarp (has moved bad zeropoint values and bad newflxsc
+        values to marked folders - badzptfit/ and badflxsc/) and calculates absolute zeropoint 
+        correction of coadd. Saves zeropoint plot as zpt_(FILTER).ps
+    OPTIONAL KEYWORDS:
+        pipevar  - input pipeline parameters (typically set in ratautoproc.pro, 
+                   but can be set to default)
+    EXAMPLE:
+        autopipestack(pipevar=inpipevar)
+    DEPENDENCIES:
+        SWarp, get_SEDs, calc_zpt, findsexobj (sextractor)
+    FUTURE IMPROVEMENTS:
+        header keywords to keep change for RIMAS
+    """
+  
+    print 'STACK'
+    
+    os.system('export CDSCLIENT=http') #Fix for problem with timeout with CDSCLIENT
+    
+    qtcmd = 'True'; quiet = 1
+    if pipevar['verbose'] > 0: quiet = 0; qtcmd = 'False'
+    
+    # If swarp configuration file ('default.swarp') does not exist, move swarp 
+    # output default configuration file
+    if not os.path.isfile('default.swarp'): 
+        os.system(pipevar['swarpcommand']+' -d > default.swarp')
+    
+    # Find files that have had astrometry performed on them, stop program if don't exist
+    files = glob.glob(pipevar['imworkingdir'] + 'a*sfp' + pipevar['prefix'] + '*.fits')
+    
+    if len(files) == 0:
+        print 'Did not find any files! Check your data directory path!'
+        return
+
+    filetargs = []; fileexpos = []; filefilts = []; fileairmv = [] 
+    filesatvs = []; filearms1 = []; filearms2 = []
+    
+    # Grab information in the headers of astrometry corrected file and save to array
+    for i,file in enumerate(files):
+        head = pf.getheader(file)
+        if i == 0: datestr = head['DATE-OBS']
+        
+        filetargs += [head['TARGNAME']]; fileexpos += [head['EXPOSURE']]
+        filefilts += [head['FILTER']]  ; fileairmv += [head['AIRMASS']]
+        filesatvs += [head['SATURATE']]
+        filearms1 += [head['ASTRRMS1']]; filearms2 += [head['ASTRRMS2']]
+    
+    files     = np.array(files); filetargs = np.array(filetargs)
+    fileexpos = np.array(fileexpos); filefilts = np.array(filefilts)
+    filesatvs = np.array(filesatvs); fileairmv = np.array(fileairmv)
+    filearms1 = np.array(filearms1); filearms2 = np.array(filearms2)
+    targets = set(filetargs)
+    
+    # Dictionary of corresponding columns for catalog file
+    catdict = {'u': 2, 'g': 3, 'r': 4, 'i': 5, 'z': 6, 'y': 7, 
+               'B': 8, 'V': 9, 'R':10, 'I':11, 'J':12, 'H':13, 'K':14,
+               'ue':15,'ge':16,'re':17,'ie':18,'ze':19,'ye':20,
+               'Be':21,'Ve':22,'Re':23,'Ie':24,'Je':25,'He':26,'Ke':27,'mode':28}
+    
+    # Finds files with same target and the filters associated with this target
+    for targ in targets:
+        thistarget = np.where(filetargs == targ)
+        if len(thistarget) == 0: continue
+        
+        thistargetfilts = set(filefilts[thistarget])
+        
+        # Find files that have the same target and same filter and store information 
+        # on the exposure times and airmass. Only use good Scamp astrometric fit files
+        for filter in thistargetfilts:
+            stacki = np.where(np.logical_and.reduce((filetargs == targ, filefilts == filter,
+                                            filearms1 < 2.0e-4, filearms1 > 5.0e-6,
+                                            filearms2 < 2.0e-4, filearms2 > 5.0e-6)))
+                                            
+            if len(stacki[0]) == 0: continue
+            
+            stacklist = files[stacki]
+            stackexps = fileexpos[stacki]
+            stackairm = fileairmv[stacki]
+            
+            medexp = np.median(stackexps)
+            medair = np.median(stackairm)
+            minair = min(stackairm)
+            maxair = max(stackairm)
+            totexp = sum(stackexps)
+            nstack = len(stacklist)
+            
+            textslist = ' '.join(stacklist)
+            
+            zpts = []
+            
+            # Find stars for each individual frame and try to find matches with coadded 
+            # frame with each frame optimized with PSF size
+            for sfile in stacklist:
+                head = pf.getheader(sfile)
+                ipixscl = head['PIXSCALE']
+                
+                apd.findsexobj(sfile, 3.0, pipevar,pix=ipixscl,aperture=20.0, quiet=quiet)
+                starfile = sfile + '.stars'
+                
+                svars = np.loadtxt(starfile, unpack=True)
+                xim  = svars[1,:]
+                yim  = svars[2,:]
+                mag  = svars[3,:]
+                mage = svars[4,:]
+                flag = svars[5,:]
+                elon = svars[8,:]
+                
+                # astropy does not like SWarp PV keywords or unicode, temporarily delete
+                for key in head.keys():
+                    if any(x in key for x in ['PV1_', 'PV2_', 'COMMENT', 'HISTORY']):
+                        del head[key]
+                        
+                w = wcs.WCS(head)
+                wrd = w.all_pix2world(np.transpose([xim, yim]), 0)                
+                imfile  = file + '.im'
+                catfile = file + '.cat'
+                
+                # Save stars from image
+                np.savetxt(imfile, np.transpose([wrd[:,0],wrd[:,1],mag]))
+                
+                # Filter name correction:
+                if filter == 'Z' or filter == 'Y': filter = filter.lower()
+                
+                # Create catalog star file 
+                # (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars)
+                sedcmd = 'python ' + pipevar['getsedcommand'] + ' ' + imfile + ' ' +\
+                         filter + ' ' + catfile + " 15 True "+ qtcmd
+                
+                if pipevar['verbose'] > 0: print sedcmd
+                os.system(sedcmd)
+                
+                if not os.path.isfile(catfile):
+                    zpts += [float('NaN')]
+                    continue
+                
+                # Read in catalog file
+                cvars = np.loadtxt(catfile, unpack=True)
+                
+                refmag = cvars[catdict[filter],:]
+                mode   = cvars[catdict['mode'],:]
+                
+                # Find catalog filter values and only cutoff values of actual detections
+                goodind = np.where(np.logical_and.reduce((mode != -1, refmag < 90.0,
+                                                          flag < 8, elon <= 1.3)))
+                
+                refmag = refmag[goodind]
+                obsmag = mag[goodind]
+                obserr = mage[goodind]
+                obswts = np.zeros(len(obserr))
+                obskpm = np.zeros(len(obsmag))
+                
+                # Store magnitudes and weights (with minimum magnitude error of 0.01)
+                for i in np.arange(len(obsmag)):
+                    if obserr[i] < 0.1:
+                        obskpm[i] = obsmag[i]
+                        obswts[i] = 1.0/(max(obserr[i], 0.01)**2)
+                
+                zpt, scats, rmss = apd.calc_zpt(np.array([refmag]), np.array([obskpm]), 
+                                                np.array([obswts]), sigma=3.0)
+                
+                # Reload because we had to remove distortion parameters before
+                head = pf.getheader(sfile)
+                data = pf.getdata(sfile)
+                head['ABSZPT']   = (zpt[0] + 25.0, 'Relative zeropoint from calc_zpt')
+                head['ABSZPTSC'] = (scats[0], 'Robust scatter of relative zeropoint')
+                head['ABSZPRMS'] = (rmss[0], 'RMS of relative zeropoint')
+
+                pf.update(file, data, head)
+                zpts += zpt             
+                
+            # Move files with bad zeropoint calculations to folder 'badzptfit' 
+            # and do not use those frames
+            zpts = np.array(zpts)
+            goodframes = np.isfinite(zpts)
+            badframes  = ~np.isfinite(zpts)
+            
+            if len(zpts[badframes]) !=0:
+                if not os.path.exists(pipevar['imworkingdir']+'/badzptfit'):
+                    os.makedirs(pipevar['imworkingdir']+'/badzptfit')
+                for file in files[badframes]:
+                    os.system('mv ' + file + ' ' +  pipevar['imworkingdir']+'/badzptfit/')
+                zpts = zpts[goodframes]
+                newstack = stacklist[goodframes]
+            else:
+                newstack = stacklist
+            
+            badnewflxsc = []
+            # Add relative zeropoint values to headers and calculate flux scale. 
+            # Remove unphysical fluxscale files
+            medzp = np.median(zpts)
+            for i,file in enumerate(newstack):
+                head = pf.getheader(file)
+                head['NEWFLXSC'] = (1.0/(10.0**( (zpts[i] - medzp)/2.5 )), 
+                                    'Flux scaling based on median zp') 
+                
+                if 1.0/(10.0**( (zpts[i] - medzp)/2.5 )) < 0.1:
+                    badnewflxsc += [file]
+            
+                data = pf.getdata(file)
+                pf.update(file, data, head)
+            
+            removedframes = []
+            # Removes files that have bad newflxsc values and removes from stack list
+            if len(badnewflxsc) > 0:
+                if not os.path.exists(pipevar['imworkingdir']+'/badflxsc'):
+                    os.makedirs(pipevar['imworkingdir']+'/badflxsc')
+                    
+                os.system('mv ' + badnewflxsc +' '+ pipevar['imworkingdir']+'badflxsc/')
+                
+                removedframes += badnewflxsc
+            
+                # Remove files that have bad newflxsc values from list of stack
+                bad = set(badnewflxsc)
+                newstack = [x for x in newstack if x not in bad]                       
+
+            newtextslist = ' '.join(newstack)   
+            
+            stackcmd = pipevar['swarpcommand']
+            
+            # Keywords to carry through, change for RIMAS
+            stackcmd += ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,' +\
+                        'INSTRUME,OBSERVAT,ORIGIN,CCD_TYPE,JD,SOFTGAIN,' +\
+                        'PIXSCALE,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
+                             	
+            # Create output variables that will be used by SWarp
+            outfl = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ filter + '.fits'
+            outwt = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ filter + '.weight.fits'
+            
+            if pipevar['verbose'] > 0:
+                stackcmd += ' -VERBOSE_TYPE NORMAL '
+            else:
+                stackcmd = stackcmd + ' -VERBOSE_TYPE QUIET '
+            
+            # Coadd with flux scale
+            stackcmd = stackcmd + ' -SUBTRACT_BACK N -WRITE_XML N -IMAGEOUT_NAME ' +\
+                       outfl + ' -WEIGHTOUT_NAME ' + outwt +\
+                       ' -FSCALE_KEYWORD NEWFLXSC ' + newtextslist
+                       
+            if pipevar['verbose'] > 0:
+                print stackcmd
+            
+            os.system(stackcmd)
+            head   = pf.getheader(outfl)
+            pixscl = head['PIXSCALE']
+            
+            apd.findsexobj(outfl, 10.0, pipevar, pix=pixscl, aperture=20.0,
+                           wtimage=outwt, quiet=quiet)
+                           
+            head   = pf.getheader(outfl)
+            cpsfdi = 1.34 * float(head['SEEPIX'])
+            
+            # Run sextractor again on new coadd file
+            apd.findsexobj(outfl, 3.0, pipevar, pix=pixscl, aperture=cpsfdi, 
+                           wtimage=outwt, quiet=quiet)
+            
+            head = pf.getheader(outfl)
+            
+            coaddvars = np.loadtxt(outfl+'.stars', unpack=True)
+            xim  = coaddvars[1,:]
+            yim  = coaddvars[2,:]
+            mag  = coaddvars[3,:]
+            mage = coaddvars[4,:]
+            flag = coaddvars[5,:]
+            elon = coaddvars[8,:]
+                
+            # astropy does not like SWarp PV keywords or unicode, temporarily delete
+            for key in head.keys():
+                if any(x in key for x in ['PV1_', 'PV2_', 'COMMENT', 'HISTORY']):
+                    del head[key]
+                        
+            w = wcs.WCS(head)
+            wrd = w.all_pix2world(np.transpose([xim, yim]), 0)                
+            imfile  = file + '.im'
+            catfile = file + '.cat'      		
+
+            # Save stars from image
+            np.savetxt(imfile, np.transpose([wrd[:,0],wrd[:,1],mag]))
+
+            # Filter name correction:
+            if filter == 'Z' or filter == 'Y': filter = filter.lower()
+            
+            # Create catalog star file 
+            # (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars)
+            sedcmd = 'python ' + pipevar['getsedcommand'] + ' ' + imfile + ' ' +\
+                     filter + ' ' + catfile + " 15 True "+ qtcmd
+            
+            if pipevar['verbose'] > 0: print sedcmd
+            os.system(sedcmd)
+            
+            # Read in catalog file
+            cvars = np.loadtxt(catfile, unpack=True)
+            
+            refmag = cvars[catdict[filter],:]
+            mode   = cvars[catdict['mode'],:]
+
+            # Find catalog filter values and only cutoff values of actual detections
+            goodind = np.where(np.logical_and.reduce((mode != -1, refmag < 90.0,
+                                                      flag < 8, elon <= 1.3)))
+            
+            refmag = refmag[goodind]
+            obsmag = mag[goodind]
+            obserr = mage[goodind]
+            obswts = np.zeros(len(obserr))
+            obskpm = np.zeros(len(obsmag))
+
+            # Store magnitudes and weights (with minimum magnitude error of 0.01)
+            for i in np.arange(len(obsmag)):
+                if obserr[i] < 0.1:
+                    obskpm[i] = obsmag[i]
+                    obswts[i] = 1.0/(max(obserr[i], 0.01)**2)
+            
+            czpts, cscats, crmss = apd.calc_zpt(np.array([refmag]), np.array([obskpm]), 
+                                    np.array([obswts]), sigma=3.0,
+                                    plotter=pipevar['imworkingdir']+'zpt_'+filter+'.ps')
+            
+            chead = pf.getheader(outfl)
+            
+            # Add zeropoint keywords to header
+            chead['SPIX']     = (cpsfdi, 'Final aperture size')
+            chead['ABSZPT']   = (czpts[0]+25.0, 'Absolute zeropoint from calc_zpt')
+            chead['ABSZPTSC'] = (cscats[0], 'Robust scatter of absolute zeropoint')
+            chead['ABSZPRMS'] = (crmss[0], 'RMS of absolute zeropoint')
+            
+            # Add summary of stack information to header
+            chead['DATE']     = (datestr, 'First frame time')
+            chead['NSTACK']   = nstack
+            chead['AIRMASS']  = (medair, 'Median exposure airmass')
+            chead['AIRMIN']   = (minair, 'Minimum exposure airmass')
+            chead['AIRMAX']   = (maxair, 'Maximum exposure airmass')
+            chead['EXPOSURE'] = (medexp, 'Effective rescaled exposure time')
+            chead['TOTALEXP'] = (totexp, 'Total summed integration time')
+            chead['MAXEXP']   = (max(stackexps), 'Length of longest exposure')
+            chead['MINEXP']   = (min(stackexps), 'Length of shortest exposure')
+            
+            for i, file in enumerate(newstack):
+                chead['STACK'+str(i)] = file    
+      		
+      		cdata = pf.getdata(outfl)
+      		pf.update(outfl, cdata, chead)
+      		
+      	    if len(removedframes) > 0:
+      	        print 'Removed frames with bad zeropoint fits: ' 
+      	        print removedframes
+
+    # If remove intermediate files keyword set, delete p(PREFIX)*.fits, fp(PREFIX)*.fits,
+    # sky-*.fits, sfp(PREFIX)*.fits, zsfp(PREFIX)*.fits files
+    if pipevar['rmifiles'] != 0:
+        
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'zsfp' + pipevar['prefix'] + '*.fits')  		                            
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'a*fp' + pipevar['prefix'] + '*.im')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'a*fp' + pipevar['prefix'] + '*.stars')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'a*fp' + pipevar['prefix'] + '*.cat')
+        

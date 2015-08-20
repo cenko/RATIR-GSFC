@@ -5,6 +5,7 @@ import numpy as np
 import datetime
 import astrometrystats as astst
 import cosmics
+import matplotlib.pyplot as plt
 
 def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1):
 
@@ -94,9 +95,7 @@ def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1)
         # If they are not the same size, quit program without saving with preparation prefix (will not move
         # on in following processing steps)
         if biasfile != None:
-            bf = pf.open(biasfile)
-            bias = bf[0].data
-            bf.close()
+            bias = pf.getdata(biasfile)
             
             if np.shape(data) != np.shape(bias):
                 
@@ -112,9 +111,7 @@ def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1)
             # If they are not the same size, quit program without saving with preparation prefix (will not move
             # on in following processing steps)
             if darkfile != None:
-                ff = pf.open(darkfile)
-                dark = ff[0].data * newhead['EXPTIME']
-                ff.close()
+                dark = pf.getdata(darkfile) * newhead['EXPTIME']
                 
                 if np.shape(data) != np.shape(dark):
                     print ' '
@@ -179,9 +176,7 @@ def flatpipeproc(filename, flatname, flatminval=0, flatmaxval=0):
     else:
         files = filename
         
-    f = pf.open(flatname)
-    flat = f[0].data
-    f.close()
+    flat = pf.getdata(flatname)
     
     med = np.median(flat)
     if (med < 0.5) or (med > 2.0): print 'Warning: flat is not normalized to one'
@@ -487,9 +482,7 @@ def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
         files = filename  
     
     # Open flat    
-    f = pf.open(flatname)
-    flat = f[0].data  
-    f.close()
+    flat = pf.getdata(flatname) 
     
     med = np.median(flat)
     
@@ -589,6 +582,322 @@ def cosmiczap(filename, outname, sigclip=6.0, maxiter=3, verbose=True):
     
     cosmics.tofits(outname, c.cleanarray, head, verbose=False)
 
+
+def astrometry(atfimages, scamprun=1, pipevar=None):
+
+    """
+    NAME:
+        astrometry
+    PURPOSE:
+        Run sextractor and scamp to refine astrometric solution
+    INPUTS:
+        atfimages - list of files to run through scamp
+        scamprun  - the first run does a LOOSE run with distortion degree 1, any
+                    other run will look for high distortion parameters, if it
+                    finds it will use distortion degree 7, otherwise 3 (will also cut out
+                    FLXSCALE on runs after 1)
+    EXAMPLE:
+        astrometry(atfimages, scamprun=2, pipevar=pipevar)
+    FUTURE IMPROVEMENTS:
+        Better difference between scamp runs.
+    """
+        
+    acatlist = ''
+    scat = {'sdss': 'SDSS-R7', 'tmpsc': '2MASS', 'tmc': '2MASS', 'ub2': 'USNO-B1'} 
+
+    for cfile in atfimages:
+        head = pf.getheader(cfile)
+        pixscale  = head['PIXSCALE']
+        sourcecat = head['ASTR_CAT']
+                
+        trunfile = os.path.splitext(cfile)[0]
+                
+        if pipevar['verbose'] > 0:
+            sexcom = pipevar['sexcommand'] + ' -CATALOG_NAME ' + trunfile + \
+                    '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv ' + \
+                    '-PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 ' + \
+                    '-ANALYSIS_THRESH 2.0 -PIXEL_SCALE ' + str(pixscale) + \
+                    ' ' + cfile
+            print sexcom
+        else:
+            sexcom = pipevar['sexcommand'] + ' -CATALOG_NAME ' + trunfile + \
+                    '.cat -CATALOG_TYPE FITS_LDAC -FILTER_NAME astrom.conv ' + \
+                    '-PARAMETERS_NAME astrom.param -DETECT_THRESH 2.0 ' + \
+                    '-ANALYSIS_THRESH 2.0 -VERBOSE_TYPE QUIET -PIXEL_SCALE ' + \
+                    str(pixscale) + ' ' + cfile
+                
+        os.system(sexcom)
+                
+        if head['ASTR_NUM'] > 0: acatlist += ' ' + trunfile + '.cat'
+                
+    if sourcecat in scat:
+        cat_u = scat[sourcecat]
+    else:
+        cat_u = 'NONE'
+        print 'No valid catalogs available for SCAMP, check that ' +\
+                'vlt_autoastrometry.py ran correctly'
+        return
+    
+    if scamprun == 1:
+        loose = ' -MOSAIC_TYPE LOOSE'
+        distdeg = 1
+    else:
+        loose = ' '
+        try:
+            distort = head['PV1_37']
+            distdeg = 7
+        except:
+            distdeg = 3 
+                
+    if pipevar['verbose'] > 0:
+        scampcmd = "scamp -POSITION_MAXERR 0.2 -DISTORT_DEGREES " + str(distdeg)+\
+                    loose + " -ASTREF_CATALOG " + cat_u + \
+                    " -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 " + \
+                    "-CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE FULL " +\
+                    acatlist
+        print scampcmd
+    else:
+        scampcmd = "scamp -POSITION_MAXERR 0.2 -DISTORT_DEGREES " + str(distdeg)+\
+                    loose + " -ASTREF_CATALOG " + cat_u + \
+                    " -SOLVE_PHOTOM N -SN_THRESHOLDS 3.0,10.0 " + \
+                    "-CHECKPLOT_DEV NULL -WRITE_XML N -VERBOSE_TYPE QUIET " +\
+                    acatlist                                    
+                
+    os.system(scampcmd)
+    os.system('rm ' + acatlist)
+            
+    # Adds header information to file and delete extra files
+    for cfile in atfimages:
+        trunfile = os.path.splitext(cfile)[0]
+                
+        if pipevar['verbose'] > 0:
+            os.system('missfits -WRITE_XML N ' + cfile)
+        else:
+            os.system('missfits -WRITE_XML N -VERBOSE_TYPE QUIET' + cfile)
+                    
+        os.system('rm ' + trunfile + '.head ' + cfile + '.back')
+
+        if scamprun != 1:
+            him  = pf.getheader(cfile)
+            data = pf.getdata(cfile)
+            del him['FLXSCALE']
+            pf.update(cfile, data, him)
+
+
+def findsexobj(file, sigma, pipevar, masksfx=None, zeropt=25.0, maptype='MAP_WEIGHT',
+               wtimage=None, fwhm=1.5, pix=0.3787, aperture=5.0, elong_cut=1.3, 
+               quiet=0):
+    """
+    NAME:
+        findsexobj
+    PURPOSE:
+        Finds sextractor objects with optional inputs. Estimates seeing from stars found. 
+    INPUTS:
+    	file    - fits file to run sextractor on
+    	sigma   - detection threshold and analysis threshold for sextractor
+    	pipevar - pipeline parameters (typically set in autopipedefaults or autoproc)
+    	
+    OPTIONAL KEYWORDS:
+    	masksfx   - text string identifier for sextractor CHECKIMAGE_NAME
+    	zeropt    - input value for sextractor MAG_ZEROPOINT
+    	wtimage   - file for input for sextractor WEIGHT_IMAGE
+    	fwhm      - input value for sextractor SEEING_FWHM
+    	pix       - input value for sextractor PIXEL_SCALE
+    	aperture  - input value for sextractor PHOT_APERTURES
+    	elong_cut - cutoff limit for FWHM calculation of elongation to eliminate non-stars
+    	quiet     - no output from sextractor if set
+    EXAMPLE:
+        findsexobj(file, 3.0, pipevar, aperture=20.0)
+    DEPENDENCIES:
+        sextractor
+    FUTURE IMPROVEMENTS:
+        More keywords to sextractor?
+    """
+    
+    # Move necessary sextractor configuration files if they are not in current directory
+    if not os.path.isfile('coadd.param'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/coadd.param .')
+    if not os.path.isfile('coadd.conv'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/coadd.conv .') 
+    if not os.path.isfile('coadd.config'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/coadd.config .') 
+    if not os.path.isfile('default.nnw'): 
+        os.system('cp ' + pipevar['defaultspath'] + '/default.nnw .')  
+
+    if quiet > 0: 
+        verbosetype = 'QUIET'
+    else:
+        verbosetype = 'NORMAL'
+        
+    # Run sextractor with given input parameters. Saves temp.cat as 
+    # starfile, saves starmask, and calculates seeing from starlike objects. Saves 
+    # necessary parameters to header
+    if file == '': return
+    
+    if not os.path.isfile(file): return
+    starfile = file + '.stars'
+        
+    trunfile = os.path.splitext(file)[0]
+        
+    sexcmd = pipevar['sexcommand'] + ' -c coadd.config -DETECT_THRESH ' +\
+             str(sigma) + ' -ANALYSIS_THRESH ' + str(sigma) + ' -PHOT_APERTURES ' +\
+             str(aperture) + ' -MAG_ZEROPOINT ' + str(zeropt) + ' -PIXEL_SCALE ' +\
+             str(pix) + ' -SEEING_FWHM ' + str(fwhm) + ' -VERBOSE_TYPE ' +verbosetype
+        
+    if masksfx != None:
+        mskimg = trunfile + '_' + masksfx + '.fits'
+        sexcmd += ' -CHECKIMAGE_TYPE OBJECTS' + ' -CHECKIMAGE_NAME ' + mskimg
+        
+    if wtimage != None:
+        sexcmd += ' -WEIGHT_TYPE '+maptype+' -WEIGHT_IMAGE ' + wtimage + ' '
+        
+    sexcmd += ' ' + file
+    if quiet == 0: print sexcmd
+    os.system(sexcmd)
+        
+    if quiet == 0: print 'mv -f test.cat ' + starfile
+    os.system('mv -f test.cat ' + starfile)
+    
+    num = 0    
+    # Calculates seeing with starlike objects
+    if os.path.isfile(starfile):
+        vars   = np.loadtxt(starfile, unpack=True)
+        num    = vars[0,:]
+        flag   = vars[5,:]
+        elon   = vars[8,:]
+        fwhmim = vars[9,:]
+        keep = np.where(np.logical_and.reduce((flag ==0, elon < elong_cut,
+                                               fwhmim > fwhm, fwhmim < 20.0)))
+        if len(keep[0]) <= 1: 
+            seepix = float('NAN')
+        else:
+            seepix = np.median(fwhmim[keep])        
+    else:
+        print 'Failed to find Sextractor output file!'
+        seepix = float('NaN')
+		 
+    head = pf.getheader(file)
+    
+    if masksfx != None:
+        head['MASKNAME'] = (mskimg, "Object mask image from Sextractor")
+    
+    head['STARFILE'] = (starfile, "Objects file from Sextractor" )
+    head['ZEROPT']   = (zeropt, "Photometric zero-point used for Sextractor")
+    head['SEEPIX']   = (seepix, "Estimated seeing from Sextractor objects (pix)")
+    head['NSTARS']   = (len(num), "Estimated number of objects from Sextractor")
+    
+    data = pf.getdata(file)
+    pf.update(file, data, head)
+    
+    # Removes config files after done
+    os.system('rm -f coadd.param')
+    os.system('rm -f coadd.conv')
+    os.system('rm -f coadd.config')
+    os.system('rm -f default.nnw')
+    
+
+def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
+
+    """
+    NAME:
+        calc_zpt
+    PURPOSE:
+        Find zeropoint using robust scatter
+    INPUTS:
+        catmag  - 2d array with catalog magnitudes catmag[nobs,nstar]
+        obsmag  - 2d array with observed magnitudes obsmag[nobs,nstar]
+        wts     - 2d array with weights wts[nobs,nstar]
+    OPTIONAL KEYWORDS:
+        sigma   - sigma value for how far values can be from robust scatter value
+        plotter - filename to save zeropoint plot
+    OUTPUTS:
+        z2     - zeropoint correction
+        scats  - robust scatter of each observation
+        rmss   - standard deviation (without bad weight points) of each observation
+    EXAMPLE:
+        zpt,scats,rmss = calc_zpt(catmag,obsmag,wts, sigma=3.0)     
+    """
+  
+    # Find difference between catalog and observed magnitudes
+    diff = catmag - obsmag
+    
+    # Find number of observations and stars	
+    sz = np.shape(obsmag)
+    nobs   = sz[0]
+    nstars = sz[1]
+    
+    # For each observation (i.e. frame) find the weighted difference and store zeropoint
+    # and new magnitude with zeropoint correction
+    z = []
+    modmag = np.copy(obsmag)
+    for i in np.arange(nobs):
+        indz = sum(diff[i,:]*wts[i,:])/sum(wts[i,:])
+        z += [indz]
+        modmag[i,:] = obsmag[i, :] + indz
+
+    # Find difference of catalog and zeropoint corrected values. Remove any values with 
+    # weights set to 0 or lower.  Calculate robust scatter on these values.  If difference 
+    # with these weights is not within sigma*robust scatter then set weight to 0
+    adiff1 = catmag - modmag
+    scats, rmss = robust_scat(adiff1, wts, nobs, nstars, sigma)
+    
+    z2 = []
+    # Recalculate zeropoint using corrected weights (difference still same)        
+    modmag2 = np.copy(obsmag)
+    for i in np.arange(nobs):
+        indz = sum(diff[i,:]*wts[i,:])/sum(wts[i,:])
+        z2 += [indz]
+        modmag2[i,:] = obsmag[i, :] + indz
+      
+    adiff2 = catmag - modmag2
+    # Recalculate robust scatter and rms scatter value on twice zeropoint corrected mags
+    scats, rmss = robust_scat(adiff2, wts, nobs, nstars, sigma)   
+
+    if plotter != None:
+        keep = np.where(wts != 0)
+        plt.plot(catmag[keep], adiff2[keep], '*')
+        plt.errorbar(catmag[keep], adiff2[keep], yerr = 1.0/np.sqrt(wts[keep]), fmt='.')
+        plt.ylabel('Difference between Catalog and Observed')
+        plt.xlabel('Catalog magnitude')
+        plt.savefig(plotter)
+        plt.clf()
+
+    return z2, scats, rmss
+
+
+def robust_scat(diff, wts, nobs, nstars, sigma):
+
+    """
+    NAME:
+        robust_scat
+    PURPOSE:
+        Calculate robust scatter and set the weight of those above this limit to 0
+    INPUTS:
+        diff   - values to calculate robust scatter over
+        wts    - weighting (0 is bad)
+        nobs   - number of observations to iterate over
+        nstars - number of stars to iterate over
+        sigma  - sigma*robust scatter that is acceptable
+    OUTPUTS:
+        scats  - robust scatter of each observation
+        rmss   - standard deviation (without bad weight points) of each observation
+    EXAMPLE:
+        robust_scat(diff, wts, 1, 12, 3)
+    """
+        
+    scats = np.zeros(nobs)
+    rmss  = np.zeros(nobs)
+    for i in np.arange(nobs):
+        goodwts = np.where( wts[i,:] > 0 )
+        if len(goodwts[0]) == 0: continue
+        gooddiff = diff[i,goodwts]
+        scat = 1.48 * np.median(abs(gooddiff-np.median(gooddiff)))
+        for j in np.arange(nstars):
+            if abs(diff[i,j] - np.median(gooddiff)) > (sigma*scat):
+                wts[i,j] = 0
+        scats[i] = scat
+        rmss[i]  = np.std(gooddiff)
+    return scats, rmss
 
 def medclip(indata, clipsig=3.0, maxiter=5, verbose=0):
 

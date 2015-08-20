@@ -9,7 +9,7 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
     pipevar = {'autoastrocommand':'autoastrometry', 'getsedcommand':'get_SEDs', 
             'sexcommand':'sex' , 'swarpcommand':'swarp' , 'rmifiles':0, 
             'prefix':'', 'datadir':'' , 'imworkingdir':'' , 'overwrite':0 , 'verbose':1,
-            'flatfail':'' , 'catastrofail':'' , 'relastrofail':'' , 'fullastrofail':'' ,
+            'flatfail':'' , 'fullastrofail':'' ,
             'pipeautopath':'' , 'refdatapath':'', 'defaultspath':'' }
     
     ap.autopipedefaults(pipevar=pipevar)
@@ -98,6 +98,10 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
     ap.autopipemakesky(pipevar=pipevar)
     ap.autopipeskysub(pipevar=pipevar)
     ap.autopipecrcleanim(pipevar=pipevar)
+    #ap.autopipeastrometry(pipevar=pipevar)
+    ap.autopipestack(pipevar=pipevar)
+    
+    print pipevar
 
 '''    
 	
