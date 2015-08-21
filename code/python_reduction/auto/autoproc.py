@@ -146,7 +146,6 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
     if imdir    != None: pipevar['imworkingdir'] = imdir
     if rmifiles != None: pipevar['rmifiles'] = 1
     
-    print pipevar
     # Step options
     steps = ['prepare', 'flatten', 'makesky', 'skysub', 'crclean', 'astrometry', 'stack']
     
@@ -216,7 +215,8 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
         if os.stat('temp.txt').st_size == 0:
             print "Error: Swarp is not installed or not configured."
             print "       Cannot run image coadds. Configure or stop='astrometry'"
-            
+    
+    if isinstance(steps, str): steps = [steps]       
     # Runs each processing step specified in the correct order (crclean is optional)      
     for step in steps:
         
@@ -224,7 +224,7 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
         if step == 'flatten': ap.autopipeimflatten(pipevar=pipevar)
         if step == 'makesky': ap.autopipemakesky(pipevar=pipevar)
         if step == 'skysub':  ap.autopipeskysub(pipevar=pipevar)
-        if step == 'crclean' and nocrclean == 'None': ap.autopipecrcleanim(pipevar=pipevar)
+        if step == 'crclean' and nocrclean == None: ap.autopipecrcleanim(pipevar=pipevar)
         if step == 'astrometry': ap.autopipeastrometry(pipevar=pipevar),
         if step == 'stack'     : ap.autopipestack(pipevar=pipevar)
 

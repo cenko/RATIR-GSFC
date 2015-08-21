@@ -128,7 +128,7 @@ def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1)
             newdata = data
         
         # Write changes to disk
-        pf.writeto(outname, newdata, newhead)
+        pf.writeto(outname, newdata, newhead, clobber=True)
         
         if verbose > 0: print file, '-> ', outname
         
@@ -219,7 +219,7 @@ def flatpipeproc(filename, flatname, flatminval=0, flatmaxval=0):
         filedir  = os.path.dirname(file)
         outnameim = filedir + '/f' + fileroot
         
-        pf.writeto(outnameim, fdata, head)
+        pf.writeto(outnameim, fdata, head, clobber=True)
         
 def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None, 
     objthresh=6, algorithm='median', trimlo=None, trimhi=None, mincounts=1, 
@@ -356,11 +356,11 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
             datamed, datastd = medclip(indata, clipsig=5, maxiter=5)
             sourcepixels = np.where( abs(indata-datamed) >= objthresh*datastd)
             
-            if len(sourcepixels[0]) > 0:
-                indata[sourcepixels] = float('NaN')
-            
             satpixels = np.where( indata >= satlevel )
             
+            if len(sourcepixels[0]) > 0:
+                indata[sourcepixels] = float('NaN')
+
             if len(satpixels[0]) > 0:
                 indata[satpixels] = float('NaN')
             
@@ -434,7 +434,7 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
         
         if pipevar['verbose'] > 0: print '  Median-combining...'
         
-        pf.writeto(outfile, reflat, head_m)       
+        pf.writeto(outfile, reflat, head_m, clobber=True)       
                     
 def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
 
@@ -540,7 +540,7 @@ def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
         date = datetime.datetime.now().isoformat()
         head.add_history('Processed by skypipeproc ' + date)
         
-        pf.writeto(outfile, fdata, head) 
+        pf.writeto(outfile, fdata, head, clobber=True) 
 
 def cosmiczap(filename, outname, sigclip=6.0, maxiter=3, verbose=True):
 

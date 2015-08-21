@@ -284,7 +284,7 @@ def autopipemakesky(pipevar=inpipevar):
                   ' image(s) without a flat from another source:'
 
             for i in np.arange(len(skyflats[0])):
-                print '    ' + files[skyflats[i]]           
+                print '    ' + str(files[skyflats[i]])           
 
     # If remove intermediate files keyword set, delete p(PREFIX)*.fits files
     if pipevar['rmifiles'] != 0:
@@ -496,7 +496,7 @@ def autopipeastrometry(pipevar=inpipevar):
         else:
             os.system(cmd + ' -q')
             
-        if ~os.path.isfile(outfile):
+        if not os.path.isfile(outfile):
             pipevar['fullastrofail'] += ' ' + file
 
     if not os.path.isfile('astrom.param'): 
@@ -510,7 +510,6 @@ def autopipeastrometry(pipevar=inpipevar):
     if not os.path.isfile('scamp.conf'): 
         os.system('cp ' + pipevar['defaultspath'] + '/scamp.conf .')          
 
-
     # Calculate astrometry again using Scamp. First identify objects using sextractor, 
     # then Scamp will solve by comparing reference catalog (currently set by default to 
     # SDSS) to sources found by sextractor. Adds WCS corrections and second astrometry 
@@ -519,12 +518,12 @@ def autopipeastrometry(pipevar=inpipevar):
     
     # If no files, look for those that were not cosmic ray zapped
     if len(afiles) == 0:
-        files = glob.glob(pipevar['imworkingdir'] + 'asfp' + pipevar['prefix'] + '*.fits')
+        afiles = glob.glob(pipevar['imworkingdir'] + 'asfp' + pipevar['prefix'] + '*.fits')
 
     if len(afiles) == 0:
         print 'Did not find any files! Check your data directory path!'
         return
-        
+    
     afiletarg = []
     afilefilt = []
     

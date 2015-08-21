@@ -79,8 +79,8 @@ pro autopipeskysub, outpipevar=outpipevar, inpipevar=inpipevar
         	if ct eq 0 then begin
             	skyfilenoothbin = where(skyfilts eq filter,ctwobin)
             	print, 'Sky field not found for '
-            	print, removerpath(files[f])
-            	flatfail = [flatfail, files[f]]
+            	print, removepath(files[f])
+            	pipevar.flatfail = pipevar.flatfail +' '+  files[f]
             	continue
          	endif
          
