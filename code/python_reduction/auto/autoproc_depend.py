@@ -6,6 +6,7 @@ import datetime
 import astrometrystats as astst
 import cosmics
 import matplotlib.pyplot as plt
+import timeit
 
 def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1):
 
@@ -374,18 +375,11 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
             if pipevar['verbose'] > 0: print '  Median-combining...'
             
             for y in np.arange(ny):
-                for x in np.arange(nx):
-                    vector = data[:,y,x]
-                    temp = np.isfinite(vector)
-                    
-                    if len(vector[temp]) == 2:
-                        reflat[y,x] = np.median(vector[temp])
-                        continue                    
-                        
-                    if len(vector[temp]) < 2: continue
-                    
-                    me, st = medclip(vector[temp], clipsig=3, maxiter=5)
-                    reflat[y,x] = me
+            
+                vector = data[:,y,:]
+                temp = np.isfinite(vector)
+                me, st = medclip2d(vector, clipsig=3, maxiter=5, overaxis=0)
+                reflat[y,:] = me
 
             # Replace bad pixels with median of entire sky
             good = np.isfinite(reflat)
@@ -425,14 +419,13 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
         for f in np.arange(z-1):
             head_m['SKY'+str(f)] = usefiles[f]
             
-        
         if type != None:
             head_m['SKYTYPE'] = type
         
         date = datetime.datetime.now().isoformat()
         head_m.add_history('Processed by skypipecombine ' + date) 
         
-        if pipevar['verbose'] > 0: print '  Median-combining...'
+        if pipevar['verbose'] > 0: print '  Written to ' + outfile
         
         pf.writeto(outfile, reflat, head_m, clobber=True)       
                     
@@ -816,7 +809,7 @@ def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
   
     # Find difference between catalog and observed magnitudes
     diff = catmag - obsmag
-    
+
     # Find number of observations and stars	
     sz = np.shape(obsmag)
     nobs   = sz[0]
@@ -850,9 +843,12 @@ def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
     scats, rmss = robust_scat(adiff2, wts, nobs, nstars, sigma)   
 
     if plotter != None:
+
         keep = np.where(wts != 0)
         plt.plot(catmag[keep], adiff2[keep], '*')
         plt.errorbar(catmag[keep], adiff2[keep], yerr = 1.0/np.sqrt(wts[keep]), fmt='.')
+        
+        
         plt.ylabel('Difference between Catalog and Observed')
         plt.xlabel('Catalog magnitude')
         plt.savefig(plotter)
@@ -941,3 +937,51 @@ def medclip(indata, clipsig=3.0, maxiter=5, verbose=0):
         print 'Mean = %.6f, sigma = %.6f' % (med, sigma)
  
     return med, sigma
+
+def medclip2d(indata, clipsig=3.0, maxiter=5, verbose=0, overaxis=0):
+
+    """
+    NAME:
+        medclip2d
+    PURPOSE:
+        Median iterative sigma-clipping over 2d array
+    INPUTS:
+        indata - array to be clipped
+    OPTIONAL KEYWORDS:
+        clipsig - sigma to clip around
+        maxiter - maximum number of times to clip
+        verbose - allow to print messages
+        overaxis - axis that we want to take median over
+    EXAMPLE:
+        med, sigma = medclip2d(indata, sigma=5.0, overaxis=0)
+    """
+        
+    # Flatten array
+    skpix = np.ma.masked_array(indata)
+    
+    iter = 0
+    
+    while (iter < maxiter):
+        medval = np.ma.median(skpix, axis=overaxis)
+        sig = np.ma.std(skpix, axis=overaxis)
+        
+        if overaxis == 0:
+            mask = ( abs(skpix-medval) < clipsig*sig )
+        else:
+            mask = ( abs(skpix.T-medval) < clipsig*sig )
+        if (mask == skpix.mask).all:
+            break
+        skpix.mask = mask
+
+        #if ct <=2: return 'Too few remaining'
+        iter += 1
+ 
+    med   = np.ma.median( skpix, axis=overaxis )
+    sigma = np.ma.std( skpix, axis=overaxis )
+ 
+    if verbose:
+        print '%.1f-sigma clipped median' % (clipsig)
+        print 'Mean computed in %i iterations' % (iter)
+        print 'Mean = %.6f, sigma = %.6f' % (med, sigma)
+ 
+    return med, sigma    
