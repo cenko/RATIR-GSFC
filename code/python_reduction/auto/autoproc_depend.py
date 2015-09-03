@@ -305,7 +305,7 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
         if (inx != nx) or (iny != ny):
             print 'File ' + file + ' has wrong dimensions ('+str(inx)+ \
                   ' x '+ str(iny)+'; should have '+str(nx)+' x '+str(ny)+')'
-              
+        
         # Perform 3 sigma clipped median and save to inmeds
         inmed, instd = medclip(data_i, clipsig=3, maxiter=3)
         
@@ -675,7 +675,7 @@ def astrometry(atfimages, scamprun=1, pipevar=None):
             pf.update(cfile, data, him)
 
 def findsexobj(file, sigma, pipevar, masksfx=None, zeropt=25.0, maptype='MAP_WEIGHT',
-               wtimage=None, fwhm=1.5, pix=0.3787, aperture=5.0, elong_cut=1.3, 
+               wtimage=None, fwhm=1.5, pix=0.3787, aperture=5.0, elong_cut=1.5, 
                quiet=0):
     """
     NAME:
@@ -733,7 +733,7 @@ def findsexobj(file, sigma, pipevar, masksfx=None, zeropt=25.0, maptype='MAP_WEI
              str(sigma) + ' -ANALYSIS_THRESH ' + str(sigma) + ' -PHOT_APERTURES ' +\
              str(aperture) + ' -MAG_ZEROPOINT ' + str(zeropt) + ' -PIXEL_SCALE ' +\
              str(pix) + ' -SEEING_FWHM ' + str(fwhm) + ' -VERBOSE_TYPE ' +verbosetype
-        
+    
     if masksfx != None:
         mskimg = trunfile + '_' + masksfx + '.fits'
         sexcmd += ' -CHECKIMAGE_TYPE OBJECTS' + ' -CHECKIMAGE_NAME ' + mskimg
@@ -756,16 +756,16 @@ def findsexobj(file, sigma, pipevar, masksfx=None, zeropt=25.0, maptype='MAP_WEI
         flag   = vars[5,:]
         elon   = vars[8,:]
         fwhmim = vars[9,:]
-        keep = np.where(np.logical_and.reduce((flag ==0, elon < elong_cut,
-                                               fwhmim > fwhm, fwhmim < 20.0)))
-        if len(keep[0]) <= 1: 
+        keep = (flag ==0) & (elon < elong_cut) & (fwhmim > fwhm) & (fwhmim < 20.0)
+
+        if sum(keep) <= 1: 
             seepix = float('NAN')
         else:
             seepix = np.median(fwhmim[keep])        
     else:
         print 'Failed to find Sextractor output file!'
         seepix = float('NaN')
-		 
+	 
     head = pf.getheader(file)
     
     if masksfx != None:
@@ -823,13 +823,13 @@ def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
         indz = sum(diff[i,:]*wts[i,:])/sum(wts[i,:])
         z += [indz]
         modmag[i,:] = obsmag[i, :] + indz
-
+    
     # Find difference of catalog and zeropoint corrected values. Remove any values with 
     # weights set to 0 or lower.  Calculate robust scatter on these values.  If difference 
     # with these weights is not within sigma*robust scatter then set weight to 0
     adiff1 = catmag - modmag
     scats, rmss = robust_scat(adiff1, wts, nobs, nstars, sigma)
-    
+
     z2 = []
     # Recalculate zeropoint using corrected weights (difference still same)        
     modmag2 = np.copy(obsmag)
@@ -837,17 +837,16 @@ def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
         indz = sum(diff[i,:]*wts[i,:])/sum(wts[i,:])
         z2 += [indz]
         modmag2[i,:] = obsmag[i, :] + indz
-      
+    
     adiff2 = catmag - modmag2
     # Recalculate robust scatter and rms scatter value on twice zeropoint corrected mags
     scats, rmss = robust_scat(adiff2, wts, nobs, nstars, sigma)   
-
+    
     if plotter != None:
 
         keep = np.where(wts != 0)
         plt.plot(catmag[keep], adiff2[keep], '*')
         plt.errorbar(catmag[keep], adiff2[keep], yerr = 1.0/np.sqrt(wts[keep]), fmt='.')
-        
         
         plt.ylabel('Difference between Catalog and Observed')
         plt.xlabel('Catalog magnitude')
@@ -875,13 +874,15 @@ def robust_scat(diff, wts, nobs, nstars, sigma):
     EXAMPLE:
         robust_scat(diff, wts, 1, 12, 3)
     """
-        
+    
     scats = np.zeros(nobs)
     rmss  = np.zeros(nobs)
     for i in np.arange(nobs):
         goodwts = np.where( wts[i,:] > 0 )
         if len(goodwts[0]) == 0: continue
         gooddiff = diff[i,goodwts]
+        
+        # Median absolute deviation
         scat = 1.48 * np.median(abs(gooddiff-np.median(gooddiff)))
         for j in np.arange(nstars):
             if abs(diff[i,j] - np.median(gooddiff)) > (sigma*scat):
@@ -910,6 +911,8 @@ def medclip(indata, clipsig=3.0, maxiter=5, verbose=0):
     # Flatten array
     skpix = indata.reshape( indata.size, )
  
+    keep = np.isfinite(skpix)
+    skpix = skpix[keep]
     ct = indata.size
     iter = 0
     numrej = len(skpix)

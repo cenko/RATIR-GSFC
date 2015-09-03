@@ -645,12 +645,12 @@ def autopipestack(pipevar=inpipevar):
         # Find files that have the same target and same filter and store information 
         # on the exposure times and airmass. Only use good Scamp astrometric fit files
         for filter in thistargetfilts:
-            stacki = np.where(np.logical_and.reduce((filetargs == targ, filefilts == filter,
-                                            filearms1 < 2.0e-4, filearms1 > 5.0e-6,
-                                            filearms2 < 2.0e-4, filearms2 > 5.0e-6)))
+            stacki = (filetargs == targ) & (filefilts == filter) &\
+                     (filearms1 < 2.0e-4) & (filearms1 > 5.0e-6) &\
+                     (filearms2 < 2.0e-4) & (filearms2 > 5.0e-6)
                                             
-            if len(stacki[0]) == 0: continue
-            
+            if sum(stacki) == 0: continue
+
             stacklist = files[stacki]
             stackexps = fileexpos[stacki]
             stackairm = fileairmv[stacki]
@@ -690,8 +690,8 @@ def autopipestack(pipevar=inpipevar):
                         
                 w = wcs.WCS(head)
                 wrd = w.all_pix2world(np.transpose([xim, yim]), 0)                
-                imfile  = file + '.im'
-                catfile = file + '.cat'
+                imfile  = sfile + '.im'
+                catfile = sfile + '.cat'
                 
                 # Save stars from image
                 np.savetxt(imfile, np.transpose([wrd[:,0],wrd[:,1],mag]))
@@ -718,8 +718,7 @@ def autopipestack(pipevar=inpipevar):
                 mode   = cvars[catdict['mode'],:]
                 
                 # Find catalog filter values and only cutoff values of actual detections
-                goodind = np.where(np.logical_and.reduce((mode != -1, refmag < 90.0,
-                                                          flag < 8, elon <= 1.3)))
+                goodind = (mode != -1) & (refmag < 90.0) & (flag < 8) & (elon <= 1.5)
                 
                 refmag = refmag[goodind]
                 obsmag = mag[goodind]
@@ -732,10 +731,11 @@ def autopipestack(pipevar=inpipevar):
                     if obserr[i] < 0.1:
                         obskpm[i] = obsmag[i]
                         obswts[i] = 1.0/(max(obserr[i], 0.01)**2)
-                
+
                 zpt, scats, rmss = apd.calc_zpt(np.array([refmag]), np.array([obskpm]), 
                                                 np.array([obswts]), sigma=3.0)
                 
+                                
                 # Reload because we had to remove distortion parameters before
                 head = pf.getheader(sfile)
                 data = pf.getdata(sfile)
@@ -743,7 +743,7 @@ def autopipestack(pipevar=inpipevar):
                 head['ABSZPTSC'] = (scats[0], 'Robust scatter of relative zeropoint')
                 head['ABSZPRMS'] = (rmss[0], 'RMS of relative zeropoint')
 
-                pf.update(file, data, head)
+                pf.update(sfile, data, head)
                 zpts += zpt             
                 
             # Move files with bad zeropoint calculations to folder 'badzptfit' 
@@ -755,7 +755,7 @@ def autopipestack(pipevar=inpipevar):
             if len(zpts[badframes]) !=0:
                 if not os.path.exists(pipevar['imworkingdir']+'/badzptfit'):
                     os.makedirs(pipevar['imworkingdir']+'/badzptfit')
-                for file in files[badframes]:
+                for file in stacklist[badframes]:
                     os.system('mv ' + file + ' ' +  pipevar['imworkingdir']+'/badzptfit/')
                 zpts = zpts[goodframes]
                 newstack = stacklist[goodframes]
@@ -848,8 +848,8 @@ def autopipestack(pipevar=inpipevar):
                         
             w = wcs.WCS(head)
             wrd = w.all_pix2world(np.transpose([xim, yim]), 0)                
-            imfile  = file + '.im'
-            catfile = file + '.cat'      		
+            imfile  = outfl + '.im'
+            catfile = outfl + '.cat'      		
 
             # Save stars from image
             np.savetxt(imfile, np.transpose([wrd[:,0],wrd[:,1],mag]))
@@ -872,8 +872,7 @@ def autopipestack(pipevar=inpipevar):
             mode   = cvars[catdict['mode'],:]
 
             # Find catalog filter values and only cutoff values of actual detections
-            goodind = np.where(np.logical_and.reduce((mode != -1, refmag < 90.0,
-                                                      flag < 8, elon <= 1.3)))
+            goodind = (mode != -1) & (refmag < 90.0) & (flag < 8) & (elon <= 1.3)
             
             refmag = refmag[goodind]
             obsmag = mag[goodind]
@@ -888,7 +887,7 @@ def autopipestack(pipevar=inpipevar):
                     obswts[i] = 1.0/(max(obserr[i], 0.01)**2)
             
             czpts, cscats, crmss = apd.calc_zpt(np.array([refmag]), np.array([obskpm]), 
-                                    np.array([obswts]), sigma=3.0,
+                                    np.array([obswts]), sigma=1.0,
                                     plotter=pipevar['imworkingdir']+'zpt_'+filter+'.ps')
             
             chead = pf.getheader(outfl)
