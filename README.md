@@ -140,12 +140,20 @@ Outline
     
 More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *preproc.py* and *astro_functs.py*.
 
-### 2.2 Run *ratautoproc.pro*
+### 2.2 Run *ratautoproc.pro* OR run *autoproc.py*
 
-This IDL script should be run from the data directory (the directory above processed data and reduction folder).  
+Either script should be run from the data directory (the directory above processed data and reduction folder).  
+(Now written in Python with same keywords. IDL version will not be maintained after 9/1/2015)
 
-```IDL
+
+```IDL>
 ratautoproc, datadir='raw/', imdir='reduced/', redo=1
+```
+
+or
+
+```python>
+autoproc(datadir='raw/', imdir='reduced/', redo=1)
 ```
     
 * *datadir* specifies where processed data is stored (should be in lower directory), will run all data in this directory  
@@ -178,31 +186,31 @@ ratautoproc, datadir='raw/', imdir='reduced/', redo=1
     
 Description of each step:
 
-1. Prepare (*autopipeprepare.pro*, *pipeprepare.pro*)
+1. Prepare (Python: *autoproc_steps.py*, *autoproc_depend.py*, IDL: *autopipeprepare.pro*, *pipeprepare.pro*)
 
     - Header information manipulation and bias subtraction for images with master bias files
     
-2. Flatten (*autopipeimflatten.pro*, *flatpipeproc.pro*)
+2. Flatten (Python: *autoproc_steps.py*, *autoproc_depend.py*, IDL: *autopipeimflatten.pro*, *flatpipeproc.pro*)
 
     - Divides master flat for each filter
         
-3. Makesky (*autopipemakesky.pro*, *skypipecombine.pro*)
+3. Makesky (Python: *autoproc_steps.py*, *autoproc_depend.py*, IDL: *autopipemakesky.pro*, *skypipecombine.pro*)
 
     - Creates master sky by removing sources (using outlier rejection) and then median iterative sigma clipping for each pixel
         
-4. Skysub (*autopipeskysub.pro*, *skypipeproc.pro*)
+4. Skysub (Python: *autoproc_steps.py*, *autoproc_depend.py*, IDL: *autopipeskysub.pro*, *skypipeproc.pro*)
 
     - Subtracts sky, then subtracts median, then adds 1000
     
-5. Crclean (*autopipecrcleanim.pro*, *pzap_perley.pro*)
+5. Crclean (Python: *autoproc_steps.py*, *autoproc_depend.py*, *cosmics.py*, IDL: *autopipecrcleanim.pro*, *pzap_perley.pro*)
 
-    - Cosmic ray cleaning, details fuzzy
+    - Cosmic ray cleaning
         
-6. Astrometry (*autopipeastrometry.pro*, *vlt_autoastrometry.py*)
+6. Astrometry (Python: *autoproc_steps.py*, *autoproc_depend.py*, *vlt_autoastrometry.py*, IDL: *autopipeastrometry.pro*, *vlt_autoastrometry.py*)
 
     - Fixes WCS coordinates by using pair-distance matching and asterism matching (also runs Scamp for extra astrometry correction)
     
-7. Stack (*autopipestack.pro*)
+7. Stack (Python: *autoproc_steps.py*, *autoproc_depend.py*, IDL: *autopipestack.pro*)
 
     - Uses SWarp to stack images with same filter and calculates both relative and absolute zeropoint info (absolute only for coadded)
 
