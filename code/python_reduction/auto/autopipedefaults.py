@@ -423,7 +423,7 @@ def autopipecrcleanim(pipevar=inpipevar):
             print 'Cleaning cosmic rays from', file      
         
         # Runs cosmics.py
-        apd.cosmiczap(file, outfile, sigclip=6.0, maxiter=3, verbose=pipevar['verbose'])
+        apd.cosmiczap(file, outfile, sigclip=6.0, maxiter=1, verbose=pipevar['verbose'])
         
         
     # If remove intermediate files keyword set, delete p(PREFIX)*.fits, fp(PREFIX)*.fits,
