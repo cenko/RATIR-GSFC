@@ -1,4 +1,4 @@
-import autopipedefaults as ap
+import autoproc_steps as ap
 import os
 
 def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=None,
