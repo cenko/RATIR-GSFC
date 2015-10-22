@@ -1,16 +1,5 @@
 """
     Purpose:    this is a collection of preprocessing functions for use with data from RATIR.
-
-    Usage:
-        1)  enter python or ipython environment
-        2)  can load all functions using:
-            - "from preproc import *" if you want to call functions using just the function's name
-
-    Notes:
-        - 
-
-    Future Improvements:
-        - 
 """
 
 import os
@@ -33,44 +22,30 @@ from astro_functs import show_list # allow user to call show_list without "af." 
 # Preprocessing constants
 FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keywords to store file names of combined frames
 
-"""
-    Translated from plotratir_flat.pro by John Capone (jicapone@astro.umd.edu).
-    Modified by Vicki Toy 8/15/14
 
-    Purpose:        display calibration images for verification by user
-
-    Input:
-        ftype:      type of calibration frames
-        workdir:    directory where function is to be executed
-        cams:       camera numbers.  all by default
-        auto:       automated selection of frames.  if ftype is af.BIAS_NAME, select all.  if ftype is af.FLAT_NAME, select non-saturated frames with sufficient counts.
-        reject_sat: reject frames with saturated pixels
-        amin:       minimum median value for automated or manual selection as fraction of saturation value
-        amax:       maximum median value for automated or manual selection as fraction of saturation value
-        save_select:save dictionary of selected frames to python pickle file
-
-    Usage:
-        1)  enter python or ipython environment
-        2)  load function -> 'from preproc import choose_calib'
-        3)  run function -> 'file_dict = choose_calib(ftype = bias, dark or flat name, workdir = 'path/to/data/', cams = [#,#,...])'
-            - since default workdir is '.', this argument can be ignored if you are in the same directory as the data
-        4)  select which frames you would like to use to create master calibration frames
-        5)  call mkmaster using the dictionary returned by this function
-
-    Notes:
-        - added option to specify working directory
-        - added error handling for if a camera list is missing
-        - camera argument can now be int
-            - ccd lists are now by filter rather than camera number
-        - automated bias and flat frame selection can be done relative to the detectors' staturation points
-            * this is dangerous when selecting flats!!!
-        - removed the need for list files.  uses Python dictionaries instead.
-            - the returned dictionary MUST be stored to create master frames using mkmaster()
-
-    Future Improvements:
-        - better way to do cameras with multiple filters (current way uses camera # -2, won't work for other instruments)
-"""
 def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.2, amax=0.8, save_select=True, figsize=(8,5)):
+    """
+    NAME:
+        choose_calib
+    PURPOSE:
+        Either auto-select or display calibration images for user verification
+    INPUT:
+        ftype       - type of calibration frames (ex. 'flat', 'bias', 'dark')
+        workdir     - directory where function executed
+        cams        - camera numbers (default is all)
+        auto        - automated frame selection. If 'bias', will select all, if 'flat' 
+                      will select non-saturated frames with sufficient counts
+        reject_sat  - reject frames with saturated pixels
+        amin        - minimum fraction of saturation value for median (automated)
+        amax        - maximum fraction of saturation value for median (automated)
+        save_select - save dictionary of selected frames to python pickle file
+    EXAMPLE:
+        file_dict = choose_calib(ftype = bias, dark or flat name, workdir = 'path/to/data/', cams = [#,#,...])
+        *** call mkmaster using dictionary or pickle file ***
+    FUTURE IMPROVEMENTS:
+        Better way to do cameras with split filter (currently uses camera # -2 this won't
+        work for any other instrument)
+    """
 
     if auto and (ftype is af.FLAT_NAME):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -143,38 +118,24 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                 if np.any(im == sat_pt):
                     af.print_warn("Warning: saturated pixels in frame.  Skipping frame {}.".format(fits_fn))
                     continue
+
+            if (h['FILTER'] not in af.RAT_FILTERS) and (ftype is af.FLAT_NAME):
+                af.print_warn("Warning: invalid filter detected.  Skipping {} band.".format(h['FILTER']))
+                continue
             
+            if ftype is af.FLAT_NAME:
+                print '\t* Filter used: {}'.format(h['FILTER'])
+                
+            [im1, m, s, sfrac] = image_summary(im, sat_pt, cam_i, af, split=af.CAM_SPLIT[cam_i])
+
             if af.CAM_SPLIT[cam_i]:
-                im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
-                m1  = np.median(im1)
-                s1  = af.robust_sigma(im1)
-                sfrac1 = float(m1)/sat_pt
-                im2 = im[af.SLICES[af.SPLIT_FILTERS[cam_i]]]
-                m2  = np.median(im2)
-                s2  = af.robust_sigma(im2)
-                sfrac2 = float(m2)/sat_pt
-                print '\t* Median of left side is {} counts ({:.0%} of saturation level).'.format(m1, sfrac1)
-                print '\t* Median of right side is {} counts ({:.0%} of saturation level).'.format(m2, sfrac2)
-            else:
-                if (h['FILTER'] not in af.RAT_FILTERS) and (ftype is af.FLAT_NAME):
-                    af.print_warn("Warning: invalid filter detected.  Skipping {} band.".format(h['FILTER']))
-                    continue
-                im1 = im[af.SLICES['C'+str(cam_i)]]
-                m  = np.median(im1)
-                s  = af.robust_sigma(im1)
-                sfrac = float(m)/sat_pt
-                print '\t* Median is {} counts ({:.0%} of saturation level).'.format(m, sfrac)
-                if ftype is af.FLAT_NAME:
-                    print '\t* Filter used: {}'.format(h['FILTER'])
+                [m1,m2] = m; [s1,s2] = s; [im1,im2] = im1; [sfrac1, sfrac2] = sfrac    
 
             if auto:
 
                 # all bias and dark frames are selected
                 if ftype in [af.BIAS_NAME, af.DARK_NAME]:
-                    if fits_list_dict.has_key('C{}'.format(cam_i)):
-                        fits_list_dict['C{}'.format(cam_i)].append(fits_fn)
-                    else:
-                        fits_list_dict['C{}'.format(cam_i)] = [fits_fn]
+                    addtodict(dict=fits_list_dict, key='C{}'.format(cam_i), value=fits_fn)
 
                 # flats are selected based on median value
                 elif ftype is af.FLAT_NAME:
@@ -186,14 +147,10 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                         # bottom side
                         if m1 > vmin and m1 < vmax:
                             af.print_blue("\t* Bottom side selected.")
-                            imfits_1 = '{}_{}.fits'.format(fits_id, af.SPLIT_FILTERS[cam_i-2])
-                            h['FILTER'] = af.SPLIT_FILTERS[cam_i-2]
-                            if os.path.exists(imfits_1): os.remove(imfits_1) # delete old copy
-                            pf.writeto(imfits_1, im1, header=h, clobber=True) # save left frame
-                            if fits_list_dict.has_key(af.SPLIT_FILTERS[cam_i-2]):
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i-2]].append(imfits_1)
-                            else:
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i-2]] = [imfits_1]
+                            savefile(fits_id, im1, af.SPLIT_FILTERS[cam_i-2], h)
+                            addtodict(dict=fits_list_dict, 
+                                key=af.SPLIT_FILTERS[cam_i-2], value=imfits_1)
+
                         else:
                             if m1 < vmin:
                                 af.print_warn("\t* Bottom side rejected:\tUNDEREXPOSED.")
@@ -203,14 +160,9 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                         # top side
                         if m2 > vmin and m2 < vmax:
                             af.print_blue("\t* Top side selected.")
-                            imfits_2 = '{}_{}.fits'.format(fits_id, af.SPLIT_FILTERS[cam_i])
-                            h['FILTER'] = af.SPLIT_FILTERS[cam_i]
-                            if os.path.exists(imfits_2): os.remove(imfits_2) # delete old copy
-                            pf.writeto(imfits_2, im2, header=h, clobber=True) # save object frame
-                            if fits_list_dict.has_key(af.SPLIT_FILTERS[cam_i]):
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i]].append(imfits_2)
-                            else:
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i]] = [imfits_2]
+                            savefile(fits_id, im2, af.SPLIT_FILTERS[cam_i], h)
+                            addtodict(dict=fits_list_dict, 
+                                key=af.SPLIT_FILTERS[cam_i], value=imfits_2)
                         else:
                             if m2 < vmin:
                                 af.print_warn("\t* Top side rejected:\tUNDEREXPOSED.")
@@ -219,13 +171,13 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     
                     #Not split frame            
                     else:
+                        
                         # check whether median value is in specified range
                         if m > vmin and m < vmax:
                             af.print_blue("\t* Frame selected.")
-                            if fits_list_dict.has_key(h['FILTER']):
-                                fits_list_dict[h['FILTER']].append(fits_fn)
-                            else:
-                                fits_list_dict[h['FILTER']] = [fits_fn]
+                            addtodict(dict=fits_list_dict, 
+                                key=h['FILTER'], value=fits_fn)
+
                         else:
                             if m < vmin:
                                 af.print_warn("\t* Frame rejected:\tUNDEREXPOSED.")
@@ -239,74 +191,36 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     if (sfrac1 < amin) or (sfrac1 > amax) or (sfrac2 < amin) or (sfrac2 > amax):
                         af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
                         continue
+                    # show top frame
+                    ax1 = fig.add_subplot(221)
+                    plot_params_calib(ax1, im1, m1, s1, sat_pt, hist=False)
+                    
+                    # show pixel distribution
+                    axhist = fig.add_subplot(222)
+                    plot_params_calib(axhist, im1, m1, s1, sat_pt, hist=True)
+                    
+                    # show bottom frame
+                    ax2 = fig.add_subplot(223)
+                    plot_params_calib(ax2, im2, m2, s2, sat_pt, hist=False)
+                    
+                    # show pixel distribution
+                    axhist = fig.add_subplot(224)
+                    plot_params_calib(axhist, im2, m2, s2, sat_pt, hist=True)
+                    fig.subplots_adjust(wspace=0.1, hspace=0.45)
+                    
                 else:
                     if (sfrac < amin) or (sfrac > amax):
                         af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
                         continue
 
-                if af.CAM_SPLIT[cam_i]:
-                    # show top frame
-                    ax1 = fig.add_subplot(221)
-                    z1, z2 = af.zscale(im1)
-                    if z2 <= z1:
-                        z1 = m1 - s1; z2 = m1 + s1
-                    ax1.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
-                    ax1.set_xticks([])
-                    ax1.set_yticks([])
-                    ax1.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m1), s1))
-                    ax1.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m1)/sat_pt))
-                    # show pixel distribution
-                    axhist = fig.add_subplot(222)
-                    axhist.hist(im1.flatten(), bins=50, normed=True, log=True, range=(0, sat_pt))
-                    axhist.set_xlim((0, sat_pt))
-                    axhist.set_xticks([0, 0.5*sat_pt, sat_pt])
-                    axhist.set_xticklabels(['0%', '50%', '100%'])
-                    axhist.set_yticks([])
-                    axhist.grid()
-                    axhist.set_title("Pixel distribution")
-                    axhist.set_ylabel("Log Scale")
-                    # show bottom frame
-                    ax2 = fig.add_subplot(223)
-                    z1, z2 = af.zscale(im2)
-                    if z2 <= z1:
-                        z1 = m2 - s2; z2 = m2 + s2
-                    ax2.imshow(im2, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
-                    ax2.set_xticks([])
-                    ax2.set_yticks([])
-                    ax2.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m2), s2))     
-                    ax2.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m2)/sat_pt))
-                    # show pixel distribution
-                    axhist = fig.add_subplot(224)
-                    axhist.hist(im2.flatten(), bins=50, normed=True, log=True, range=(0, sat_pt))
-                    axhist.set_xlim((0, sat_pt))
-                    axhist.set_xticks([0, 0.5*sat_pt, sat_pt])
-                    axhist.set_xticklabels(['0%', '50%', '100%'])
-                    axhist.set_yticks([])
-                    axhist.grid()
-                    axhist.set_title("Pixel distribution")
-                    axhist.set_ylabel("Log Scale")
-                    fig.subplots_adjust(wspace=0.1, hspace=0.45)
-                else:
                     # show frame
-                    z1, z2 = af.zscale(im1)
-                    if z2 <= z1:
-                        z1 = m - s; z2 = m + s
                     ax = fig.add_subplot(121)
-                    ax.imshow(im1, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
-                    ax.set_xticks([])
-                    ax.set_yticks([])                        
-                    ax.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m), s))
-                    ax.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m)/sat_pt))
+                    plot_params_calib(ax, im1, m, s, sat_pt, hist=False)
+                    
                     # show pixel distribution
                     axhist = fig.add_subplot(122)
-                    axhist.hist(im1.flatten(), bins=50, normed=True, log=True, range=(0, sat_pt))
-                    axhist.set_xlim((0, sat_pt))
-                    axhist.set_xticks([0, 0.5*sat_pt, sat_pt])
-                    axhist.set_xticklabels(['0%', '50%', '100%'])
-                    axhist.set_yticks([])
-                    axhist.grid()
-                    axhist.set_title("Pixel distribution")
-                    axhist.set_ylabel("Log Scale")
+                    plot_params_calib(axhist, im1, m, s, sat_pt, hist=True)
+                    
                 fig.canvas.draw()
                         
                 # query user until valid response is provided
@@ -318,32 +232,20 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     if user.lower() == 'y':
                                 
                         if af.CAM_SPLIT[cam_i]:
-                            imfits_1 = '{}_{}.fits'.format(fits_id, af.SPLIT_FILTERS[cam_i-2])
-                            h['FILTER'] = af.SPLIT_FILTERS[cam_i-2]
-                            if os.path.exists(imfits_1): os.remove(imfits_1) # delete old copy
-                            pf.writeto(imfits_1, im1, header=h, clobber=True) # save object frame
-                            if fits_list_dict.has_key(af.SPLIT_FILTERS[cam_i-2]):
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i-2]].append(imfits_1)
-                            else:
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i-2]] = [imfits_1]
+                            savefile(fits_id, im1, af.SPLIT_FILTERS[cam_i-2], h)
+                            addtodict(dict=fits_list_dict, 
+                                key=af.SPLIT_FILTERS[cam_i-2], value=imfits_1)
                                 
-                            imfits_2 = '{}_{}.fits'.format(fits_id, af.SPLIT_FILTERS[cam_i])
-                            h['FILTER'] = af.SPLIT_FILTERS[cam_i]
-                            if os.path.exists(imfits_2): os.remove(imfits_2) # delete old copy
-                            pf.writeto(imfits_2, im2, header=h, clobber=True) # save object frame
-                            if fits_list_dict.has_key(af.SPLIT_FILTERS[cam_i]):
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i]].append(imfits_2)
-                            else:
-                                fits_list_dict[af.SPLIT_FILTERS[cam_i]] = [imfits_2]
+                            savefile(fits_id, im2, af.SPLIT_FILTERS[cam_i], h)
+                            addtodict(dict=fits_list_dict, 
+                                key=af.SPLIT_FILTERS[cam_i], value=imfits_2)
+
                         else:
                             if ftype is af.FLAT_NAME:
                                 fl_key = h['FILTER']
                             else:
                                 fl_key = 'C{}'.format(cam_i)
-                            if fits_list_dict.has_key(fl_key):
-                                fits_list_dict[fl_key].append(fits_fn)
-                            else:
-                                fits_list_dict[fl_key] = [fits_fn]
+                            addtodict(dict=fits_list_dict, key=fl_key, value=fits_fn)                            
                                 
                         valid_entry = True
                             
@@ -359,16 +261,14 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
                     else: # invalid case
                         af.print_warn("'{}' is not a valid entry.".format(user))
 
-            if not auto:
-                fig.clear() # clear image
+            if not auto: fig.clear() # clear image
             hdulist.close() # close FITs file
-        
-    if not auto:
-        pl.close('all') # close image to free memory
 
     if auto:
         af.print_head("\nDisplaying automatically selected {} frames:".format(ftype))
         af.show_list(fits_list_dict)
+    else:
+        pl.close('all') # close image to free memory
 
     if save_select:
         dt = datetime.datetime.now()
@@ -379,6 +279,123 @@ def choose_calib(ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True
     os.chdir(start_dir) # move back to starting directory
 
     return fits_list_dict
+
+def image_summary(im, sat_pt, cam_i, af, split=False):
+    """
+    NAME:
+        image_summary
+    PURPOSE:
+        Calculate median, robust scatter, and fraction of saturation point for slice.  If
+        split array then will output information for both sides of array
+    INPUTS:
+        im     - data 
+        sat_pt - saturation point
+        cam_i  - camera that is being used
+        af     - module that contains instrument specific information about cameras and split
+        split  - is camera split with filters?
+    """
+    
+    if split == True:
+        im1 = im[af.SLICES[af.SPLIT_FILTERS[cam_i-2]]]
+        m1  = np.median(im1)
+        s1  = af.robust_sigma(im1)
+        sfrac1 = float(m1)/sat_pt
+        im2 = im[af.SLICES[af.SPLIT_FILTERS[cam_i]]]
+        m2  = np.median(im2)
+        s2  = af.robust_sigma(im2)
+        sfrac2 = float(m2)/sat_pt
+        print '\t* Median of left side is {} counts ({:.0%} of saturation level).'.format(m1, sfrac1)
+        print '\t* Median of right side is {} counts ({:.0%} of saturation level).'.format(m2, sfrac2)
+        
+        return [[im1,im2], [m1,m2], [s1,s2],[sfrac1,sfrac2]]
+        
+    else:
+        im1 = im[af.SLICES['C'+str(cam_i)]]
+        m  = np.median(im1)
+        s  = af.robust_sigma(im1)
+        sfrac = float(m)/sat_pt
+        print '\t* Median is {} counts ({:.0%} of saturation level).'.format(m, sfrac)
+
+        return [im1,m,s,sfrac]
+
+
+def plot_params_calib(ax, im, m, s, sat_pt, hist=False):
+    """
+    NAME:
+        plot_params_calib
+    PURPOSE:
+        Plots calibration files (image and histogram) for user selection
+    INPUTS:
+        ax     - plot reference that we will be using to plot images
+        im     - data to plot
+        m      - median
+        s      - robust scatter
+        sat_pt - saturation point
+    EXAMPLE:
+        plot_params_calib(ax, im, m, s, sat_pt, hist=False)
+    NOTE:
+        Will not plot unless you have a show() or something to display    
+    """
+    
+    z1, z2 = af.zscale(im)
+    if z2 <= z1:
+        z1 = m1 - s1; z2 = m1 + s1
+          
+    if hist:
+        ax.hist(im.flatten(), bins=50, normed=True, log=True, range=(0, sat_pt))
+        ax.set_xlim((0, sat_pt))
+        ax.set_xticks([0, 0.5*sat_pt, sat_pt])
+        ax.set_xticklabels(['0%', '50%', '100%'])
+        ax.set_yticks([])
+        ax.grid()
+        ax.set_title("Pixel distribution")
+        ax.set_ylabel("Log Scale")
+    else:
+        ax.imshow(im, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m), s))
+        ax.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m)/sat_pt))    
+
+def addtodict(dict=None, key=None, value=None):
+    """
+    NAME:
+        addtodict
+    PURPOSE:
+        Adds (key, value) to dictionary by initializing or appending
+    INPUTS:
+        dict  - dictionary to add to
+        key   - key to add to dictionary
+        value - value of key to add to dictionary
+    EXAMPLE:
+        addtodict(dict=dictionary, key='test', value='testing')
+    """
+    
+    try:
+        dict[key].append(value)
+    except:
+        dict[key] = [value]
+        
+def savefile(file, im, filter, h):
+    """
+    NAME:
+        savefile
+    PURPOSE:
+        Adds filter keyword and saves file (usually for split filter cameras)
+    INPUT:
+        file   - filename without extension
+        im     - data
+        filter - filter name to add
+        h      - header
+    EXAMPLE:
+        savefile('test', data, 'Z', header)
+    """
+    newfile = '{}_{}.fits'.format(file, filter)
+    h['FILTER'] = filter
+    if os.path.exists(newfile): os.remove(newfile) # delete old copy
+    pf.writeto(newfile, im, header=h, clobber=True) # save object frame
+
+
 
 """
     Translated from plotratir.pro by John Capone (jicapone@astro.umd.edu).
