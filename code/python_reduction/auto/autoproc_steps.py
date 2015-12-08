@@ -98,7 +98,7 @@ def autopipeprepare(pipevar=inpipevar):
     if len(biasfiles) > 0:
         for bfile in biasfiles:
             head = pf.getheader(bfile)  
-            camera = head['CAMERA'] 
+            camera = head['CAMERA'].strip('C')
             biascamera += [camera]
             
     # Finds any master dark files and filter name from header keyword
@@ -108,7 +108,7 @@ def autopipeprepare(pipevar=inpipevar):
     if len(darkfiles) > 0:
         for dfile in darkfiles:
             head = pf.getheader(dfile)  
-            camera = head['CAMERA'] 
+            camera = head['CAMERA'].strip('C')
             darkcamera += [camera]     
         
     # For each file (that doesn't have an existing p file or can be overwritten), 
@@ -131,7 +131,7 @@ def autopipeprepare(pipevar=inpipevar):
         
         try:
             dcamloc  = darkcamera.index(str(camera))    
-            darkfile = darkfiles[bcamloc]      
+            darkfile = darkfiles[dcamloc]      
         except:
             darkfile = None
 

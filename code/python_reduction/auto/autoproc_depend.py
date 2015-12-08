@@ -120,7 +120,7 @@ def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1)
                                  ' size as the master dark, remove file to avoid confusion'
                     return  
                           
-                if pipevar['verbose'] > 0: print '    dark subtracting'
+                if verbose > 0: print '    dark subtracting'
                 
                 newdata = newdata - dark
             else:
