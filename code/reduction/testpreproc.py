@@ -8,20 +8,15 @@
 """
 
 import os
-import itertools
-from fnmatch import fnmatch
-import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
 import shutil
 from glob import glob
-import gc
 import datetime
 import pickle
 import sys
 
-
 # installed modules
-import astropy.io.fits as pf
+import pyfits as pf
 import matplotlib.pylab as pl
 import numpy as np
 from scipy.ndimage.interpolation import zoom
@@ -34,7 +29,7 @@ from zscale import zscale
 #from astro_functs import show_list # allow user to call show_list without "af." prefix
 import astro_functs as af
 
-from instrument_class import *
+from test_class import *
 
 # Preprocessing constants
 FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keywords to store file names of combined frames
@@ -60,12 +55,10 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
         file_dict = choose_calib(ftype = bias, dark or flat name, workdir = 'path/to/data/', cams = [#,#,...])
         *** call mkmaster using dictionary or pickle file ***
     FUTURE IMPROVEMENTS:
-        Better way to do cameras with split filter (currently uses camera # -2 this won't
-        work for any other instrument)
     """
 
     if instrument == 'ratir': 
-        instrum = ratir
+        instrum = ratir()
 
     if auto and (ftype is instrum.flatname):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -108,11 +101,11 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
         af.print_under("\n{:^50}".format('CAMERA {}'.format(cam_i)))
 
         # check for valid calibration request
-        if instrum.cam_bias[cam_i] == False and ftype is instrum.biasname:
+        if instrum.has_cam_bias(cam_i) == False and ftype is instrum.biasname:
             af.print_warn("Warning: Camera C{} does not have {} frames.  "+
                 "Skipping...".format(cam_i, instrum.biasname))
             continue
-        if instrum.cam_dark[cam_i] == False and ftype is instrum.darkname:
+        if instrum.has_cam_dark(cam_i) == False and ftype is instrum.darkname:
             af.print_warn("Warning: Camera C{} does not have {} frames.  "+
                 "Skipping...".format(cam_i, instrum.darkname))
             continue
@@ -136,11 +129,7 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
             im = hdulist[0].data
             h  = hdulist[0].header
 
-            # get detector's saturation level
-            if instrument == 'ratir':
-                sat_pt = instrum.cam_satur[cam_i](h['SOFTGAIN'])
-            else:
-                sat_pt = h['SATUR']
+            sat_pt = instrum.get_cam_sat(h, cam_i)
                 
             if reject_sat:
                 if np.any(im == sat_pt):
@@ -148,25 +137,21 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
                     continue
 
             # check if instrument camera is split, if it is make sure correct specs being used
-            if instrum.split == True:
-                if instrum.CAM_SPLIT[cam_i]:
-                    print '\t* Split filter used'
-                else:
-                    if (h['FILTER'] not in instrum.filters) and (ftype is instrum.flatname):
-                        af.print_warn("Warning: invalid filter detected.  Skipping {} band.".format(h['FILTER']))
-                        continue
+            if instrum.is_cam_split(cam_i) == True:
+                print '\t* Split filter used'
+            else:
+                if (instrum.get_filter(h, 'C{}'.format(cam_i)) not in instrum.possible_filters()) and (ftype is instrum.flatname):
+                    af.print_warn("Warning: invalid filter detected.  Skipping {} band.".format(instrum.get_filter(h, 'C{}'.format(cam_i))))
+                    continue
             
-                    if ftype is instrum.flatname:
-                        print '\t* Filter used: {}'.format(h['FILTER'])
+                if ftype is instrum.flatname:
+                    print '\t* Filter used: {}'.format(instrum.get_filter(h, 'C{}'.format(cam_i)))
             
             # return quick image summary    
-            [im1, m, s, sfrac] = image_summary(im, sat_pt, cam_i, instrum, split=instrum.CAM_SPLIT[cam_i])
+            [im1, m, s, sfrac] = image_summary(im, sat_pt, cam_i, instrum, split=instrum.is_cam_split(cam_i))
             
-            isplit = False
-            if instrum.split == True:
-                if instrum.CAM_SPLIT[cam_i] == True: 
-                    isplit = True 
-                    [m1,m2] = m; [s1,s2] = s; [im1,im2] = im1; [sfrac1, sfrac2] = sfrac  
+            if instrum.is_cam_split(cam_i) == True:
+                [m1,m2] = m; [s1,s2] = s; [im1,im2] = im1; [sfrac1, sfrac2] = sfrac  
             
             # if auto select then find values with correct ranges
             if auto:
@@ -180,16 +165,16 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
 
                     vmin = amin * sat_pt; vmax = amax * sat_pt
                     
-                    if isplit == True:
-                            
+                    if instrum.is_cam_split(cam_i) == True:
+                                                
                         # check whether median values are in specified range
                         # bottom side
                         if m1 > vmin and m1 < vmax:
-                            print '\t* Filter used: {}'.format(instrum.SLICE_FILTERS['C{}a'.format(cam_i)])
+                            print '\t* Filter used: {}'.format(instrum.get_filter(h,'C{}a'.format(cam_i)))
                             af.print_blue("\t* Bottom side selected.")
-                            imfits_1 = savefile(fits_id, im1, instrum.SLICE_FILTERS['C{}a'.format(cam_i)], h)
+                            imfits_1 = savefile(fits_id, im1, instrum.get_filter(h,'C{}a'.format(cam_i)), h)
                             addtodict(dict=fits_list_dict, 
-                                key=instrum.SLICE_FILTERS['C{}a'.format(cam_i)], value=imfits_1)
+                                key=instrum.get_filter(h,'C{}a'.format(cam_i)), value=imfits_1)
 
                         else:
                             if m1 < vmin:
@@ -199,11 +184,11 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
 
                         # top side
                         if m2 > vmin and m2 < vmax:
-                            print '\t* Filter used: {}'.format(instrum.SLICE_FILTERS['C{}b'.format(cam_i)])
+                            print '\t* Filter used: {}'.format(instrum.get_filter(h,'C{}b'.format(cam_i)))
                             af.print_blue("\t* Top side selected.")
-                            imfits_2 = savefile(fits_id, im2, instrum.SLICE_FILTERS['C{}b'.format(cam_i)], h)
+                            imfits_2 = savefile(fits_id, im2, instrum.get_filter(h,'C{}b'.format(cam_i)), h)
                             addtodict(dict=fits_list_dict, 
-                                key=instrum.SLICE_FILTERS['C{}b'.format(cam_i)], value=imfits_2)
+                                key=instrum.get_filter(h,'C{}b'.format(cam_i)), value=imfits_2)
                         else:
                             if m2 < vmin:
                                 af.print_warn("\t* Top side rejected:\tUNDEREXPOSED.")
@@ -217,7 +202,7 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
                         if m > vmin and m < vmax:
                             af.print_blue("\t* Frame selected.")
                             addtodict(dict=fits_list_dict, 
-                                key=h['FILTER'], value=fits_fn)
+                                key=instrum.get_filter(h,'C{}'.format(cam_i)), value=fits_fn)
 
                         else:
                             if m < vmin:
@@ -228,7 +213,7 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
             # display image and prompt user
             else:
                 
-                if isplit == True:
+                if instrum.is_cam_split(cam_i):
                 
                     if (sfrac1 < amin) or (sfrac1 > amax) or (sfrac2 < amin) or (sfrac2 > amax):
                         af.print_warn("Warning: median value outside specified range of {:.0%} - {:.0%} of saturation value in frame.  Skipping frame {}.".format(amin, amax, fits_fn))
@@ -273,22 +258,22 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
                             
                     if user.lower() == 'y':
                                 
-                        if isplit == True:
+                        if instrum.is_cam_split(cam_i) == True:
                             imfits_1 = savefile(fits_id, im1,
-                                instrum.SLICE_FILTERS['C{}a'.format(cam_i)], h)
+                                instrum.get_filter(h,'C{}a'.format(cam_i)), h)
                             addtodict(dict=fits_list_dict, 
-                                key=instrum.SLICE_FILTERS['C{}a'.format(cam_i)],
+                                key=instrum.get_filter(h,'C{}a'.format(cam_i)),
                                 value=imfits_1)
                                 
                             imfits_2 = savefile(fits_id, im2,
-                                instrum.SLICE_FILTERS['C{}b'.format(cam_i)], h)
+                                instrum.get_filter(h,'C{}b'.format(cam_i)), h)
                             addtodict(dict=fits_list_dict, 
-                                key=instrum.SLICE_FILTERS['C{}b'.format(cam_i)],
+                                key=instrum.get_filter(h,'C{}b'.format(cam_i)),
                                 value=imfits_2)
 
                         else:
                             if ftype is instrum.flatname:
-                                fl_key = h['FILTER']
+                                fl_key = instrum.get_filter(h,'C{}'.format(cam_i))
                             else:
                                 fl_key = 'C{}'.format(cam_i)
                             addtodict(dict=fits_list_dict, key=fl_key, value=fits_fn)                            
@@ -326,7 +311,6 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
 
     return fits_list_dict
     
-    
 def image_summary(im, sat_pt, cam_i, instrum, split=False):
     """
     NAME:
@@ -343,11 +327,11 @@ def image_summary(im, sat_pt, cam_i, instrum, split=False):
     """
     
     if split == True:
-        im1 = im[instrum.slice['C{}a'.format(cam_i)]]
+        im1 = im[instrum.slice('C{}a'.format(cam_i))]
         m1  = np.median(im1)
         s1  = af.robust_sigma(im1)
         sfrac1 = float(m1)/sat_pt
-        im2 = im[instrum.slice['C{}b'.format(cam_i)]]
+        im2 = im[instrum.slice('C{}b'.format(cam_i))]
         m2  = np.median(im2)
         s2  = af.robust_sigma(im2)
         sfrac2 = float(m2)/sat_pt
@@ -357,7 +341,7 @@ def image_summary(im, sat_pt, cam_i, instrum, split=False):
         return [[im1,im2], [m1,m2], [s1,s2],[sfrac1,sfrac2]]
         
     else:
-        im1 = im[instrum.slice['C{}'.format(cam_i)]]
+        im1 = im[instrum.slice('C{}'.format(cam_i))]
         m  = np.median(im1)
         s  = af.robust_sigma(im1)
         sfrac = float(m)/sat_pt
@@ -442,7 +426,6 @@ def plot_params_calib(ax, im, m, s, sat_pt, hist=False):
         ax.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m), s))
         ax.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m)/sat_pt))    
         
-
 def plot_params_science(ax, im, filter, h, central=False, split=False, 
                         window_zoom=4, calibrate=False):
 
@@ -471,3 +454,492 @@ def plot_params_science(ax, im, filter, h, central=False, split=False,
         ax.contour(disp_im, levels=[z2], origin='lower', colors='r')
         ax.add_patch(Rectangle((ym-yr, xm-xr), 2*yr, 2*xr, ec='b', fc='none', lw=2))
         ax.set_title(r"{} band".format(filter))
+        
+
+def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True, 
+                    figsize=(10,10), window_zoom=4, calibrate=False):
+
+    """
+    Translated from plotratir.pro by John Capone (jicapone@astro.umd.edu).
+    Modified by Vicki Toy 8/14/14
+
+    Purpose:    display RATIR images for verification by user
+
+    Input:
+        workdir:    directory where function is to be executed
+        targetdir:  directory where selected frames and lists are output
+        cams:       camera numbers.  all by default
+        auto:       select all science frames
+        save_select:save dictionary of selected frames to python pickle file
+        figsize:    dimensions of figure used to display frames for selection
+        window_zoom:zoom level for closer look
+
+    Usage:
+        1)  enter python or ipython environment
+        2)  load function -> 'from preproc import choose_science'
+        3)  run function -> 'choose_science(workdir = 'path/to/data/', targetdir = 'path/to/new data/', cams = [#,#,...])'
+            - since default workdir is '.', this argument can be ignored if you are in the same directory as the data
+        4)  select which frames you would like to use
+
+    Notes:
+        - added option to specify working directory
+        - added error handling for if a camera list is missing
+        - camera argument can now be int
+        - added target directory option.  sky and object frames are written to the same dir.
+        - prompts user for overwrite
+                - ccd lists are now by filter rather than camera number
+        - added GAIN and SATURATE keywords to headers
+        - added automated option
+        - removed frame rotation and added WCS keywords
+
+    Future Improvements:
+    """
+
+    if instrument == 'ratir': 
+        instrum = ratir()
+
+    # check for non-list camera argument
+    if type(cams) is not list:
+        cams = [cams] # convert to list
+
+    # check for non-integer camera designators
+    if type(cams[0]) is not int:
+        af.print_err("Error: cameras must be specified by an integer. Exiting...")
+        return
+    
+    pl.ion() # pylab in interactive mode
+
+    # move to working directory
+    start_dir = os.getcwd()
+    os.chdir(workdir)
+    
+    d = os.getcwd().split('/')[-1] # name of current directory
+    if not auto:
+        af.print_head("\nDisplaying science frames in {} for selection:".format(d))
+    else:
+        af.print_head("\nSelecting all science frames in {}:".format(d))
+
+    # dictionary to store selected fits files by camera or filter
+    fits_list_dict = {}
+    
+    # remove tailing / from target directory name if present
+    if targetdir[-1] == '/':
+        targetdir = targetdir[:-1]
+
+    # make target directory if it does not exist
+    if not os.path.exists(targetdir):
+        af.print_blue("Creating target directory: {}".format(targetdir))
+        os.makedirs(targetdir)
+    # warn user if previous files may be overwritten
+    else:
+        af.print_warn("Warning: Target directory exists. Existing files will be overwritten.")
+        resp = raw_input("Proceed? (y/n): ")
+        if resp.lower() != 'y':
+            af.print_bold("Exiting...")
+            os.chdir(start_dir) # move back to starting directory
+            return
+        else:
+            shutil.rmtree(targetdir)
+            os.makedirs(targetdir)
+
+    # open figure for images if not auto
+    if not auto:
+        fig = pl.figure(figsize=figsize)
+
+    # work on FITs files for specified cameras
+    for cam_i in cams:
+        
+        # print current camera number
+        af.print_under("\n{:^50}".format('CAMERA {}'.format(cam_i)))
+        
+        if calibrate:
+            # get master dark and bias frames for current camera if required
+            if instrum.has_cam_bias(cam_i) == True:
+                # if instrum.has_cam_bias(cam_i) == True:
+                mbias_fn = '{}_C{}.fits'.format(instrum.biasname, cam_i)
+                
+                if not os.path.exists(mbias_fn):
+                    af.print_err('Error: {} not found.  Move master bias file to working directory to proceed.'.format(mbias_fn))
+                    continue
+                else:
+                    mbias_data = pf.getdata(mbias_fn)
+                    
+            if instrum.has_cam_dark(cam_i) == True:
+                mdark_fn = '{}_C{}.fits'.format(instrum.darkname, cam_i)
+
+                if not os.path.exists(mdark_fn):
+                    af.print_err('Error: {} not found.  Move master dark file to working directory to proceed.'.format(mdark_fn))
+                    continue
+                else:
+                    mdark_data = pf.getdata(mdark_fn)        
+                    
+        # find raw files of selected type for this camera
+        fits_list = glob('????????T??????C{}{}.fits'.format(cam_i, instrum.ftype_post[instrum.objname]))
+        if len(fits_list) == 0:
+            af.print_warn("Warning: no fits files found.  Skipping camera {}.".format(cam_i))
+            continue
+
+        # look at FITs data sequentially
+        for fits_fn in fits_list:
+
+            fits_id = fits_fn.split('.')[0] # fits file name with extension removed
+            print '{}'.format(fits_fn)
+                
+            # open data
+            hdulist = pf.open(fits_fn)
+            im = hdulist[0].data
+            h = hdulist[0].header
+
+            if calibrate:
+                # get master flat frame for current filter
+                
+                if instrum.is_cam_split(cam_i) == True:
+
+                    mflat_fn1 = '{}_{}.fits'.format(instrum.flatname, instrum.get_filter(h,'C{}a'.format(cam_i)))
+                    if not os.path.exists(mflat_fn1):
+                        af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn1))
+                        continue
+                    else:
+                        mflat_data1 = pf.getdata(mflat_fn1)
+                    mflat_fn2 = '{}_{}.fits'.format(instrum.flatname, instrum.get_filter(h,'C{}b'.format(cam_i)))
+                    if not os.path.exists(mflat_fn2):
+                        af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn2))
+                        continue
+                    else:
+                        mflat_data2 = pf.getdata(mflat_fn2)                
+                
+                else:
+                    mflat_fn = '{}_{}.fits'.format(instrum.flatname, instrum.get_filter(h,'C{}'.format(cam_i)))
+                    if not os.path.exists(mflat_fn):
+                        af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn))
+                        continue
+                    else:
+                        mflat_data = pf.getdata(mflat_fn)
+                 
+            # check for required header keywords            
+                                
+            # get image statistics
+            if instrum.is_cam_split(cam_i) == True:            
+                im1 = im[instrum.slice('C{}a'.format(cam_i))]
+                im2 = im[instrum.slice('C{}b'.format(cam_i))]
+            else:
+                im1 = im[instrum.slice('C{}'.format(cam_i))]
+                    
+            # display image and prompt user
+            if not auto:
+            
+                if instrum.is_cam_split(cam_i) == True:
+
+                    # display top
+                    ax1 = fig.add_subplot(221)
+                    plot_params_science(ax1, im1, instrum.get_filter(h,'C{}a'.format(cam_i)),
+                        h, central=False, split=True, calibrate=calibrate)
+
+                    # and central subregion
+                    ax1s = fig.add_subplot(222)
+                    plot_params_science(ax1s, im1, instrum.get_filter(h,'C{}a'.format(cam_i)),
+                        h, central=True, split=True, calibrate=calibrate)
+
+                    # display bottom
+                    ax2 = fig.add_subplot(223)
+                    plot_params_science(ax2, im2, instrum.get_filter(h,'C{}b'.format(cam_i)),
+                        h, central=False, split=True, calibrate=calibrate)
+
+                    # and central subregion
+                    ax2s = fig.add_subplot(224)
+                    plot_params_science(ax2s, im2, instrum.get_filter(h, 'C{}b'.format(cam_i)),
+                        h, central=True, split=True, calibrate=calibrate)
+                
+                else:
+
+                    ax = fig.add_subplot(121)
+                    plot_params_science(ax, im1, instrum.get_filter(h, 'C{}'.format(cam_i)),
+                        h, central=False, split=False, calibrate=calibrate)
+
+                    # and central subregion
+                    axs = fig.add_subplot(122)
+                    plot_params_science(axs, im1, instrum.get_filter(h, 'C{}'.format(cam_i)),
+                        h, central=True, split=False, calibrate=calibrate)                    
+                
+                fig.set_tight_layout(True)
+                fig.canvas.draw()
+            
+            if instrum.is_cam_split(cam_i) == True:
+                if instrum.get_centered_filter(h, cam_i).count(instrum.get_filter(h, 'C{}a'.format(cam_i))) != 0:
+                    print "\t* The target is focused on the {} filter.".format(instrum.get_filter(h, 'C{}a'.format(cam_i)))
+                elif instrum.get_centered_filter(h, cam_i).count(instrum.get_filter(h, 'C{}b'.format(cam_i))) != 0:
+                    print "\t* The target is focused on the {} filter.".format(instrum.get_filter(h, 'C{}b'.format(cam_i)))
+                else:
+                    af.print_warn("\t* Warning: The target is NOT focused on an split filter. The target is focused on the {} filter.".format(instrum.get_centered_filter(h, cam_i)))
+            else:
+                # print filter name
+                print '\t* Filter used: {}'.format(instrum.get_filter(h, 'C{}'.format(cam_i)))
+
+            # query user until valid response is provided
+            valid_entry = False
+            while not valid_entry:
+                    
+                # either select all if auto, or have user select
+                if auto:
+                    user = 'y'
+                else:
+                    user = raw_input("\nType Y for YES, N for NO, Q for QUIT: ")
+                
+                if user.lower() == 'y' and instrum.is_cam_split(cam_i): 
+                    if instrum.get_centered_filter(h, cam_i).count(instrum.get_filter(h, 'C{}b'.format(cam_i))) != 0:
+                        direction = 't'
+                    elif instrum.get_centered_filter(h, cam_i).count(instrum.get_filter(h, 'C{}a'.format(cam_i))) != 0:
+                        direction = 'b'
+                    else:
+                        af.print_warn("\t* Warning: Skipping frame not centered on split filter.")
+                        user = 'n'
+                        direction = ''
+               
+                if user.lower() == 'y':
+
+                    h_c = h.copy()
+                    
+                    if instrum.is_cam_split(cam_i) == True:
+                        
+                        if direction.lower() == 'b':
+                            f_img_post = 'a'
+                            f_sky_post = 'b'
+                        else:
+                            f_img_post = 'b'
+                            f_sky_post = 'a'
+                        
+                        imfits = '{}/{}_{}_{}.fits'.format(targetdir, fits_id, instrum.objname, 
+                            instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_img_post)))
+                        im_img = im[instrum.slice('C{}{}'.format(cam_i, f_img_post))]
+                        hnew = instrum.change_header_keywords(h_c, 'C{}{}'.format(cam_i, f_img_post))
+                        pf.writeto(imfits, im_img, header=hnew, clobber=True) # save object frame
+                        if fits_list_dict.has_key(instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_img_post))):
+                            fits_list_dict[instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_img_post))].append(imfits)
+                        else:
+                            fits_list_dict[instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_img_post))] = [imfits]
+                        
+                        # filter side with sky, now saved as object, but different list to keep track
+                        skyfits = '{}/{}_{}_{}.fits'.format(targetdir, fits_id, instrum.objname, 
+                            instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_sky_post)))
+                        im_sky = im[instrum.slice('C{}{}'.format(cam_i, f_sky_post))]
+                        hnew = instrum.change_header_keywords(h_c, 'C{}{}'.format(cam_i, f_sky_post))
+                        pf.writeto(skyfits, im_sky, header=hnew, clobber=True) # save sky frame
+                        if fits_list_dict.has_key(instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_sky_post))):
+                            fits_list_dict[instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_sky_post))].append(skyfits)
+                        else:
+                            fits_list_dict[instrum.get_filter(h_c,'C{}{}'.format(cam_i, f_sky_post))] = [skyfits]
+
+                        valid_entry = True
+
+                    else:
+                        
+                        imfits = '{}/{}_{}_{}.fits'.format(targetdir, fits_id, instrum.objname, cam_i)
+                        im_img = im[instrum.slice('C{}'.format(cam_i))]
+                        hnew = instrum.change_header_keywords(h_c, 'C{}'.format(cam_i))
+                        pf.writeto(imfits, im_img, header=hnew, clobber=True)
+                        if fits_list_dict.has_key(instrum.get_filter(h_c,'C{}'.format(cam_i))):
+                            fits_list_dict[instrum.get_filter(h_c,'C{}'.format(cam_i))].append(imfits)
+                        else:
+                            fits_list_dict[instrum.get_filter(h_c,'C{}'.format(cam_i))] = [imfits]
+
+                        valid_entry = True                      
+                    
+                elif user.lower() == 'q': # exit function
+                    af.print_bold("Exiting...")
+                    os.chdir(start_dir) # move back to starting directory
+                    pl.close('all') # close image to free memory
+                    return
+                
+                elif user.lower() == 'n': # 'N' selected, skip
+                    valid_entry = True
+                        
+                else: # invalid case
+                    af.print_warn("'{}' is not a valid entry.".format(user))
+
+            if not auto:
+                fig.clear() # clear image
+            hdulist.close() # close FITs file
+
+    if not auto:
+        pl.close('all') # close image to free memory
+
+    if auto:
+        af.print_head("\nDisplaying automatically selected science frames:")
+        af.show_list(fits_list_dict)
+
+    if save_select:
+        dt = datetime.datetime.now()
+        fnout = 'object_'+dt.isoformat().split('.')[0].replace('-','').replace(':','')+'.p' # python pickle extension
+        af.print_head("\nSaving selection dictionary to {}".format(fnout))
+        pickle.dump( fits_list_dict, open( fnout, 'wb' ) ) # save dictionary to pickle
+
+    os.chdir(start_dir) # move back to starting directory
+
+    return fits_list_dict
+    
+
+def mkmaster(instrument, fn_dict, mtype, fmin=5):
+
+    """
+    Written by John Capone (jicapone@astro.umd.edu).
+
+    Purpose:        make master bias and master flat frames
+                    * currently no outlier rejection other than median combine
+
+    Input:
+        fn_dict:    dictionary output by choose_calib() containing organized fits file names.  can also provide file name of pickled dictionary.
+        mtype:      type of master frame. should be either 'flat', 'dark' or 'bias'
+        fmin:       minimum number of files needed to make a master frame
+
+    Usage:
+        1)  follow directions for choose_calib()
+        2)  make sure to assign the output from choose_calib() to a variable!
+        3)  run function -> 'mkmaster(fn_dict=output from choose_calib(), mtype = bias, dark or flat name)'
+        4)  create a master configuration file using the frames previously selected by choose_calib()
+
+    Notes:
+        - checks that data being combined used same filter
+        - added filter keyword master frame's header
+        - added fmin parameter.  allows user to abort if fewer files are found to make a master frame.
+
+    Future Improvements:
+        - 
+    """
+    if instrument == 'ratir': 
+        instrum = ratir()
+
+    # check if input is a file name
+    if type(fn_dict) is str:
+        if fn_dict.split('.')[-1] == 'p':
+            af.print_bold("Loading pickled dictionary from file.")
+            fn_dict = pickle.load(open(fn_dict, 'rb'))
+        else:
+            af.print_err("Invalid pickle file extension detected. Exiting...")
+            return
+
+    # check for valid mtype
+    if mtype not in [instrum.flatname, instrum.biasname, instrum.darkname]:
+        af.print_err("Error: valid arguments for mtype are {}, {} and {}. Exiting...".format(instrum.flatname, instrum.biasname, instrum.darkname))
+        return
+
+    bands = fn_dict.keys()
+
+    sorttype = 'BAND'
+
+    if mtype in [instrum.biasname, instrum.darkname]:
+        sorttype = 'CAMERA' 
+        
+    d = os.getcwd().split('/')[-1] # name of current directory
+    af.print_head("\nMaking master {} frame in {}:".format(mtype, d))
+
+    # work on FITs files for specified photometric bands
+    for band in bands:
+
+        # print current band
+        af.print_under("\n{:^50}".format('{} {}'.format(band, sorttype)))
+
+        first_file = fn_dict[band][0]
+        ind_C = first_file.index('C')
+        cam = first_file[ind_C:ind_C + 2]
+        cam_i = int(cam[1])
+  
+        # check if required files are present
+        if instrum.has_cam_bias(cam_i):
+            mbias_fn = '{}_{}.fits'.format(instrum.biasname, cam)
+        else:
+            mbias_fn = None
+            
+        if instrum.has_cam_dark(cam_i):
+            mdark_fn = '{}_{}.fits'.format(instrum.darkname, cam)
+        else:
+            mdark_fn = None
+            
+        if mtype is not instrum.biasname:
+            if mbias_fn is not None:
+                if not os.path.exists(mbias_fn):
+                    af.print_err('Error: {} not found.  Move master bias file to working directory to proceed.'.format(mbias_fn))
+                    continue
+                if (mtype is instrum.flatname) and (not os.path.exists(mdark_fn)):
+                    af.print_err('Error: {} not found.  Move master dark file to working directory to proceed.'.format(mdark_fn))
+                    continue
+
+        # check dictionary entries
+        fns = fn_dict[band]
+        if len(fns) < fmin:
+            if len(fns) == 0:
+                af.print_err('Error: no frames available to make master {} for {} {}.'.format(mtype, band, sorttype.lower()))
+                continue
+            else:
+                temp = raw_input(af.bcolors.WARNING+"Only {} frames available to make master {} for {} {}.  Continue? (y/n): ".format(len(fns), mtype, band, sorttype.lower())+af.bcolors.ENDC)
+                if temp.lower() != 'y' and temp.lower() != 'yes':
+                    af.print_warn("Skipping {}...".format(band))
+                    continue
+
+        # load calibration data
+        hdu = pf.PrimaryHDU()
+        filter_arr = [] # to check that all frames used the same filter
+        exptime_arr = [] # to check that all frames have the same exposure time (where relevant)
+        data_arr = []
+        i = 0
+        for fn in fns:
+            print fn
+            hdu.header[FITS_IN_KEY(i)] = fn # add flat fn to master flat header
+            hdulist = pf.open(fn)
+            data_arr.append(hdulist[0].data)
+            filter_arr.append(hdulist[0].header['FILTER'])
+            exptime_arr.append(hdulist[0].header['EXPTIME'])
+            i += 1
+        data_arr = np.array(data_arr, dtype=np.float)
+
+        # check that frames match
+        for i in range(len(fns)-1):
+            if (filter_arr[i+1] != filter_arr[0]) and (mtype is instrum.flatname):
+                af.print_err("Error: cannot combine flat frames with different filters. Skipping {} {}...".format(band, sorttype.lower()))
+                continue
+            if (exptime_arr[i+1] != exptime_arr[0]) and (mtype is instrum.darkname):
+                af.print_err("Error: cannot combine dark frames with different exposure times. Skipping {} {}...".format(band, sorttype.lower()))
+                continue
+        if instrum.flatname:
+            hdu.header['FILTER'] = filter_arr[0] # add filter keyword to master frame
+        if instrum.darkname:
+            hdu.header['EXPTIME'] = exptime_arr[0] # add exposure time keyword to master frame
+        
+        # add CAMERA header keyword
+        hdu.header['CAMERA'] = cam_i  # add camera keyword to master frame
+
+        # crop bias frames
+        if mtype is instrum.biasname:
+            data_arr = data_arr[(np.s_[:],instrum.slice(cam)[0],instrum.slice(cam)[1])]
+        # crop dark frames and perform calculations
+        elif mtype is instrum.darkname:
+            data_arr = data_arr[(np.s_[:],instrum.slice(cam)[0],instrum.slice(cam)[1])]
+            data_arr = (data_arr - pf.getdata(mbias_fn))/hdu.header['EXPTIME'] # calculate dark current
+        # crop flat frames and perform calculations
+        elif mtype is instrum.flatname:
+            if mbias_fn is not None:
+                mbd = pf.getdata(mbias_fn)
+                mdd = pf.getdata(mdark_fn)
+            
+            if instrum.is_cam_split(cam_i):
+                pass # split data is already cropped
+            else:  
+                data_arr = data_arr[(np.s_[:],instrum.slice(cam)[0],instrum.slice(cam)[1])]
+                
+            for i in range(len(exptime_arr)):
+                if mbias_fn is not None:
+                    data_arr[i] = (data_arr[i] - mbd - mdd*exptime_arr[i])
+                data_arr[i] /= np.median(data_arr[i])
+
+        # make master frame
+        master = af.imcombine(data_arr, type='median').astype(np.float)
+
+        # add master to hdu
+        if mtype is instrum.flatname:
+            hdu.data = master/np.median(master) # normalize master flat
+        else:
+            hdu.data = master
+
+        # save master to fits
+        hdulist = pf.HDUList([hdu])
+        hdulist.writeto('{}_{}.fits'.format(mtype, band), clobber=True)
+
