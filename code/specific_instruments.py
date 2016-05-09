@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 from abc import ABCMeta, abstractmethod
-from test_class import instrument
+from instrument_class import instrument
 
 
 class ratir(instrument):
