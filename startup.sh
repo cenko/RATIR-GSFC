@@ -52,6 +52,6 @@ export PATH=$PIPE_ROOT/code/sdss:$PATH
 export IDL_PATH=+$PIPE_ROOT/code/reduction:+$PIPE_ROOT/code/photometry:$IDL_PATH
 
 # add pipeline directories to python path
-export PYTHONPATH=$PIPE_ROOT/code:$PIPE_ROOT/code/photometry:$PIPE_ROOT/code/photometry/dependencies:$PIPE_ROOT/code/reduction/astrom:$PIPE_ROOT/code/reduction:$PYTHONPATH
+export PYTHONPATH=$PIPE_ROOT/code:$PIPE_ROOT/code/photometry:$PIPE_ROOT/code/photometry/dependencies:$PIPE_ROOT/code/reduction/astrom:$PIPE_ROOT/code/reduction:$PIPE_ROOT/code/python_reduction/auto:$PYTHONPATH
 
 echo "Pipeline ready."
