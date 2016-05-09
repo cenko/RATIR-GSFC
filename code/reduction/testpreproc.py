@@ -1,12 +1,6 @@
 """
-    Purpose:    this is a collection of preprocessing functions for use with data from RATIR.
-
-    Usage:
-        1)  enter python or ipython environment
-        2)  can load all functions using:
-            - "from preproc import *" if you want to call functions using just the function's name
+Purpose:    this is a collection of preprocessing functions for general use.
 """
-
 import os
 from matplotlib.patches import Rectangle
 import shutil
@@ -23,17 +17,12 @@ from scipy.ndimage.interpolation import zoom
 
 # custom modules/functions
 from zscale import zscale
-
-#import ratir_functs as ratir # contains basic functions and RATIR constants
-#import lmi_functs as lmi     # contains basic functions and LMI constants
-#from astro_functs import show_list # allow user to call show_list without "af." prefix
 import astro_functs as af
 
-from test_class import *
+from specific_instruments import instrument_dict
 
 # Preprocessing constants
 FITS_IN_KEY = lambda n: 'IMCMB{:03}'.format(int(n)) # function to make FITS keywords to store file names of combined frames
-
 
 def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, reject_sat=True, amin=0.2, amax=0.8, save_select=True, figsize=(8,5)):
     """
@@ -42,6 +31,7 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
     PURPOSE:
         Either auto-select or display calibration images for user verification
     INPUT:
+        instrument  - instrument name defined in instrument_dict (ex. 'ratir')
         ftype       - type of calibration frames (ex. 'flat', 'bias', 'dark')
         workdir     - directory where function executed
         cams        - camera numbers (default is all)
@@ -52,13 +42,12 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
         amax        - maximum fraction of saturation value for median (automated)
         save_select - save dictionary of selected frames to python pickle file
     EXAMPLE:
-        file_dict = choose_calib(ftype = bias, dark or flat name, workdir = 'path/to/data/', cams = [#,#,...])
+        file_dict = choose_calib('ratir', ftype = bias, dark or flat name, 
+            workdir = 'path/to/data/', cams = [#,#,...])
         *** call mkmaster using dictionary or pickle file ***
-    FUTURE IMPROVEMENTS:
     """
 
-    if instrument == 'ratir': 
-        instrum = ratir()
+    instrum = instrument_dict[instrument]
 
     if auto and (ftype is instrum.flatname):
         temp = raw_input(af.bcolors.WARNING+"Warning: automated selection of flats is not recommended! Continue? (y/n): "+af.bcolors.ENDC)
@@ -89,6 +78,17 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
     
     # dictionary to store selected fits files by camera or filter
     fits_list_dict = {}
+
+    fits_check = glob('????????T??????C??.fits')
+
+    if len(fits_check) == 0:
+        files = instrum.change_file_names(glob(instrum.original_file_format()))
+        
+        fits_check_2 = glob('????????T??????C??.fits')
+    
+        if len(fits_check_2) == 0:
+            af.print_err("Error: no files with correct format after file name changes")
+            return
 
     # open figure for images if not auto
     if not auto:
@@ -319,11 +319,11 @@ def image_summary(im, sat_pt, cam_i, instrum, split=False):
         Calculate median, robust scatter, and fraction of saturation point for slice.  If
         split array then will output information for both sides of array
     INPUTS:
-        im     - data 
-        sat_pt - saturation point
-        cam_i  - camera that is being used
-        af     - module that contains instrument specific information about cameras and split
-        split  - is camera split with filters?
+        im      - data 
+        sat_pt  - saturation point
+        cam_i   - camera that is being used
+        instrum - module that contains instrument specific information about cameras and split
+        split   - boolean that tells if camera has split filters
     """
     
     if split == True:
@@ -426,15 +426,24 @@ def plot_params_calib(ax, im, m, s, sat_pt, hist=False):
         ax.set_title(r"Median = {}, $\sigma$ = {:.1f}".format(int(m), s))
         ax.set_xlabel(r"Median is {:.0%} of saturation level.".format(float(m)/sat_pt))    
         
-def plot_params_science(ax, im, filter, h, central=False, split=False, 
-                        window_zoom=4, calibrate=False):
+def plot_params_science(ax, disp_im, filter, h, central=False, window_zoom=4):
 
-    disp_im = np.copy(im)
-    if calibrate:
-        if split:
-            disp_im = np.copy(im)/mflat_data
-        else:
-            disp_im = (np.copy(im)-mbias_data-mdark_data*h['EXPTIME'])/mflat_data
+    """
+    NAME:
+        plot_params_science
+    PURPOSE:
+        Plots science files (image and histogram) for user selection
+    INPUTS:
+        ax          - plot reference that we will be using to plot images
+        disp_im     - data to plot
+        filter      - filter for labeling plot
+        h           - header
+        central     - boolean to center image to zoomed window
+        window_zoom - zoom level for closer look
+    NOTE:
+        Will not plot unless you have a show() or something to display    
+    """
+
     z1, z2 = af.zscale(disp_im)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -455,48 +464,27 @@ def plot_params_science(ax, im, filter, h, central=False, split=False,
         ax.add_patch(Rectangle((ym-yr, xm-xr), 2*yr, 2*xr, ec='b', fc='none', lw=2))
         ax.set_title(r"{} band".format(filter))
         
-
 def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=False, save_select=True, 
                     figsize=(10,10), window_zoom=4, calibrate=False):
 
     """
-    Translated from plotratir.pro by John Capone (jicapone@astro.umd.edu).
-    Modified by Vicki Toy 8/14/14
-
-    Purpose:    display RATIR images for verification by user
-
-    Input:
-        workdir:    directory where function is to be executed
-        targetdir:  directory where selected frames and lists are output
-        cams:       camera numbers.  all by default
-        auto:       select all science frames
-        save_select:save dictionary of selected frames to python pickle file
-        figsize:    dimensions of figure used to display frames for selection
-        window_zoom:zoom level for closer look
-
-    Usage:
-        1)  enter python or ipython environment
-        2)  load function -> 'from preproc import choose_science'
-        3)  run function -> 'choose_science(workdir = 'path/to/data/', targetdir = 'path/to/new data/', cams = [#,#,...])'
-            - since default workdir is '.', this argument can be ignored if you are in the same directory as the data
-        4)  select which frames you would like to use
-
-    Notes:
-        - added option to specify working directory
-        - added error handling for if a camera list is missing
-        - camera argument can now be int
-        - added target directory option.  sky and object frames are written to the same dir.
-        - prompts user for overwrite
-                - ccd lists are now by filter rather than camera number
-        - added GAIN and SATURATE keywords to headers
-        - added automated option
-        - removed frame rotation and added WCS keywords
-
-    Future Improvements:
+    PURPOSE:
+        Display science images for verification by user
+    INPUT:
+        instrument  - instrument name defined in instrument_dict (ex. 'ratir')
+        workdir     - directory where function is to be executed
+        targetdir   - directory where selected frames and lists are output
+        cams        - camera numbers to process data, all by default
+        auto        - select all science frames
+        save_select - save dictionary of selected frames to python pickle file
+        figsize     - dimensions of figure used to display frames for selection
+        window_zoom - zoom level for closer look
+    EXAMPLE:
+        file_dict = choose_science('ratir', workdir = 'path/to/data/', 
+            targetdir = 'path/to/processeddata/',cams = [#,#,...], calibrate=True)
     """
 
-    if instrument == 'ratir': 
-        instrum = ratir()
+    instrum = instrument_dict[instrument]
 
     # check for non-list camera argument
     if type(cams) is not list:
@@ -541,6 +529,17 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
         else:
             shutil.rmtree(targetdir)
             os.makedirs(targetdir)
+
+    fits_check = glob('????????T??????C??.fits')
+
+    if len(fits_check) == 0:
+        files = instrum.change_file_names(glob(instrum.original_file_format()))
+        
+        fits_check_2 = glob('????????T??????C??.fits')
+    
+        if len(fits_check_2) == 0:
+            af.print_err("Error: no files with correct format after file name changes")
+            return
 
     # open figure for images if not auto
     if not auto:
@@ -592,9 +591,7 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
 
             if calibrate:
                 # get master flat frame for current filter
-                
                 if instrum.is_cam_split(cam_i) == True:
-
                     mflat_fn1 = '{}_{}.fits'.format(instrum.flatname, instrum.get_filter(h,'C{}a'.format(cam_i)))
                     if not os.path.exists(mflat_fn1):
                         af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn1))
@@ -606,7 +603,7 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
                         af.print_err('Error: {} not found.  Move master flat file to working directory to proceed.'.format(mflat_fn2))
                         continue
                     else:
-                        mflat_data2 = pf.getdata(mflat_fn2)                
+                        mflat_data2 = pf.getdata(mflat_fn2)
                 
                 else:
                     mflat_fn = '{}_{}.fits'.format(instrum.flatname, instrum.get_filter(h,'C{}'.format(cam_i)))
@@ -615,8 +612,6 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
                         continue
                     else:
                         mflat_data = pf.getdata(mflat_fn)
-                 
-            # check for required header keywords            
                                 
             # get image statistics
             if instrum.is_cam_split(cam_i) == True:            
@@ -629,37 +624,62 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
             if not auto:
             
                 if instrum.is_cam_split(cam_i) == True:
-
+                    
+                    disp_im1 = np.copy(im1)
+                    disp_im2 = np.copy(im2)
+                    
+                    if calibrate:
+                        if instrum.has_cam_bias(cam_i):
+                            disp_im1 -= mbias_data
+                            disp_im2 -= mbias_data
+                        
+                        if instrum.has_cam_dark(cam_i):
+                            disp_im1 -= mbias_data*instrum.get_exptime(h)
+                            disp_im2 -= mbias_data*instrum.get_exptime(h)
+                        
+                        disp_im1 /= mflat_data1
+                        disp_im2 /= mflat_data2
+                    
                     # display top
                     ax1 = fig.add_subplot(221)
-                    plot_params_science(ax1, im1, instrum.get_filter(h,'C{}a'.format(cam_i)),
-                        h, central=False, split=True, calibrate=calibrate)
+                    plot_params_science(ax1, disp_im1, instrum.get_filter(h,'C{}a'.format(cam_i)),
+                        h, central=False)
 
                     # and central subregion
                     ax1s = fig.add_subplot(222)
-                    plot_params_science(ax1s, im1, instrum.get_filter(h,'C{}a'.format(cam_i)),
-                        h, central=True, split=True, calibrate=calibrate)
+                    plot_params_science(ax1s, disp_im1, instrum.get_filter(h,'C{}a'.format(cam_i)),
+                        h, central=True)
 
                     # display bottom
                     ax2 = fig.add_subplot(223)
-                    plot_params_science(ax2, im2, instrum.get_filter(h,'C{}b'.format(cam_i)),
-                        h, central=False, split=True, calibrate=calibrate)
+                    plot_params_science(ax2, disp_im2, instrum.get_filter(h,'C{}b'.format(cam_i)),
+                        h, central=False)
 
                     # and central subregion
                     ax2s = fig.add_subplot(224)
-                    plot_params_science(ax2s, im2, instrum.get_filter(h, 'C{}b'.format(cam_i)),
-                        h, central=True, split=True, calibrate=calibrate)
+                    plot_params_science(ax2s, disp_im2, instrum.get_filter(h, 'C{}b'.format(cam_i)),
+                        h, central=True)
                 
                 else:
+                    disp_im1 = np.copy(im1)
+                    
+                    if calibrate:
+                        if instrum.has_cam_bias(cam_i):
+                            disp_im1 -= mbias_data
+                        
+                        if instrum.has_cam_dark(cam_i):
+                            disp_im1 -= mdark_data*instrum.get_exptime(h)
+                        
+                        disp_im1 /= mflat_data
 
                     ax = fig.add_subplot(121)
-                    plot_params_science(ax, im1, instrum.get_filter(h, 'C{}'.format(cam_i)),
-                        h, central=False, split=False, calibrate=calibrate)
+                    plot_params_science(ax, disp_im1, instrum.get_filter(h, 'C{}'.format(cam_i)),
+                        h, central=False)
 
                     # and central subregion
                     axs = fig.add_subplot(122)
-                    plot_params_science(axs, im1, instrum.get_filter(h, 'C{}'.format(cam_i)),
-                        h, central=True, split=False, calibrate=calibrate)                    
+                    plot_params_science(axs, disp_im1, instrum.get_filter(h, 'C{}'.format(cam_i)),
+                        h, central=True)                    
                 
                 fig.set_tight_layout(True)
                 fig.canvas.draw()
@@ -781,32 +801,21 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
 def mkmaster(instrument, fn_dict, mtype, fmin=5):
 
     """
-    Written by John Capone (jicapone@astro.umd.edu).
-
-    Purpose:        make master bias and master flat frames
-                    * currently no outlier rejection other than median combine
-
-    Input:
-        fn_dict:    dictionary output by choose_calib() containing organized fits file names.  can also provide file name of pickled dictionary.
-        mtype:      type of master frame. should be either 'flat', 'dark' or 'bias'
-        fmin:       minimum number of files needed to make a master frame
-
-    Usage:
-        1)  follow directions for choose_calib()
-        2)  make sure to assign the output from choose_calib() to a variable!
-        3)  run function -> 'mkmaster(fn_dict=output from choose_calib(), mtype = bias, dark or flat name)'
-        4)  create a master configuration file using the frames previously selected by choose_calib()
-
-    Notes:
-        - checks that data being combined used same filter
-        - added filter keyword master frame's header
-        - added fmin parameter.  allows user to abort if fewer files are found to make a master frame.
-
-    Future Improvements:
-        - 
+    PURPOSE:        
+        Make master calibration frames (bias, dark, flat)
+        * currently no outlier rejection other than median combine
+    INPUT:
+        instrument  - instrument name defined in instrument_dict (ex. 'ratir')
+        fn_dict     - dictionary output by choose_calib() containing organized 
+                      fits file names.  can also provide file name of pickled dictionary.
+        mtype       - type of master frame. should be either 'flat', 'dark' or 'bias'
+        fmin        - minimum number of files needed to make a master frame
+    EXAMPLE:
+        mkmaster('ratir', fn_dict=output from choose_calib(), mtype = bias, dark or flat name)
+    FUTURE IMPROVEMENTS:
+        - Better outlier rejection
     """
-    if instrument == 'ratir': 
-        instrum = ratir()
+    instrum = instrument_dict[instrument]
 
     # check if input is a file name
     if type(fn_dict) is str:
@@ -942,4 +951,3 @@ def mkmaster(instrument, fn_dict, mtype, fmin=5):
         # save master to fits
         hdulist = pf.HDUList([hdu])
         hdulist.writeto('{}_{}.fits'.format(mtype, band), clobber=True)
-
