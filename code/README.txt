@@ -27,25 +27,39 @@ To add a new instrument:
     - In the change_header_keywords must have or create
       the following keywords for future pipeline use:
       
-        NAXIS1
+        CAMERA   (int)
+        SIMPLE
+        BITPIX
+        NAXIS
+        NAXIS1 
         NAXIS2
-        EXPTIME
-        FILTER
-        CRPIX1
-        CRPIX2
-        CTYPE1
-        CTYPE2
-        CD1_1
-        CD2_1
-        CD1_2
-        CD2_2
-        SATURATE
-        GAIN
+        EXPTIME  (in seconds)
+        SATURATE (ADU/DN)
+        GAIN     (e-/ADU)
+        FILTER   (case-sensitive)
+        PIXSCALE
+        TARGNAME
+        CD*_*    (WCS CD matrix)
+        CRPIX1   (WCS info)
+        CRPIX2   (WCS info)
+        CTYPE1   (WCS info)
+        CTYPE2   (WCS info)
+        (PV*_* if there are distortion parameters)
+        
+      The following keywords are optional:
+        
+        INSTRUME
+        LATITUDE
+        LONGITUD
+        BINNING
+        BINX
+        BINY
+        WAVELENG
         TARGNAME
         PIXSCALE
         WAVELENG
-        
-        (PV*_* if there are distortion parameters)
+        UTC
+        OBJECT
 
 - Add instrument with instrument name and class name to
   instrument_dict

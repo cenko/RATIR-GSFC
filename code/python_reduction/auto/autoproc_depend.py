@@ -29,10 +29,6 @@ def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1)
         pipeprepare(filename, outname=outname, biasfile=biasfile, darkfile=darkfile, verbose=1)
     DEPENDENCIES:
         autoproc_depend.pipeprepare()
-    FUTURE IMPROVEMENTS:
-        Need to check what additional keywords need to propagate, and check if values 
-        that are set with magic numbers can be set from existing keywords.  
-        Change airmass keywords for RIMAS
     """
     
     # ------ Process input filenames(s) ------
@@ -70,19 +66,14 @@ def pipeprepare(filename, outname=None, biasfile=None, darkfile=None, verbose=1)
         data = f[0].data
         f.close()
         
-        # Grabs starting airmass, can alternatively use ETROBAM (ending time observed airmass)
-        # and saves as AIRMASS.  CHANGE FOR RIMAS
-        head['AIRMASS'] = head['STROBAM']
-        head['DATE-OBS'] = head['SDATE']
-        
+        # If these keys exist keep, otherwise delete all extraneous keywords
         mandatorykey = ['SIMPLE','BITPIX','NAXIS','NAXIS1','NAXIS2',
- 					    'HISTORY','DATE-OBS','EXPOSURE','EXPTIME','INSTRUME',
- 					    'ORIGIN','LATITUDE','LONGITUD',
- 					    'CCD_TYPE','CCD_SER','SATURATE','BINNING','BINY','BINX',
- 					    'WAVELENG','TARGNAME','CAMERA','UTC','UT','OBJECT','PIXSCALE',
- 					    'SUN_ALT','SMNSP','CD1_1','CD1_2','CD2_1','CD2_2',
+ 					    'HISTORY','DATE-OBS','EXPTIME','INSTRUME',
+ 					    'LATITUDE','LONGITUD','BINNING','BINY','BINX',
+ 					    'CAMERA','TARGNAME','UTC','OBJECT', 'OBJNAME','AIRMASS', 					    
+ 					    'GAIN','SATURATE','PIXSCALE','FILTER','WAVELENG',
+ 					    'CD1_1','CD1_2','CD2_1','CD2_2',
  					    'CRPIX1','CRPIX2','CRVAL1','CRVAL2','CTYPE1','CTYPE2', 
- 					    'SOFTGAIN','FILTER','AVERAGE','STDEV','GAIN','AIRMASS','CCD_NAME', 
  					    'PV1_1','PV2_1','PV1_17','PV2_17','PV1_19','PV2_19','PV1_21','PV2_21',
  					    'PV1_31','PV2_31','PV1_33','PV2_33','PV1_35','PV2_35','PV1_37','PV2_37']
  					    

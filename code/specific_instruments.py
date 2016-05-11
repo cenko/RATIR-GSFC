@@ -45,12 +45,14 @@ class ratir(instrument):
                     'PV1_37':b, 'PV2_37': b}
                       
         # Keyword names
-        RA_KEY = 'ETRRQRA'
-        DEC_KEY = 'ETRRQDE'
-        CENTER_KEY = 'STRRQAP' # RATIR header keyword specifying which H2RG filters the target is focused on
-        OFFRA_KEY = 'ETRRQRAO'
-        OFFDEC_KEY = 'ETRRQDEO'
+        RA_KEY       = 'ETRRQRA'
+        DEC_KEY      = 'ETRRQDE'
+        CENTER_KEY   = 'STRRQAP' # RATIR header keyword specifying which H2RG filters the target is focused on
+        OFFRA_KEY    = 'ETRRQRAO'
+        OFFDEC_KEY   = 'ETRRQDEO'
         SOFTGAIN_KEY = 'SOFTGAIN'
+        AIRMASS_KEY  = 'STROBAM'
+        DATEOBS_KEY  = 'SDATE'
         
         # Definitions for camera
         CAM_WAVE  = ['OPT', 'OPT', 'IR', 'IR']
@@ -92,8 +94,12 @@ class ratir(instrument):
         # set keyword values
         h['CAMERA']   = cam_i
         h['TARGNAME'] = targname
+        h['OBJECT']   = targname
+        h['OBJNAME']  = targname
         h['PIXSCALE'] = CAM_PXSCALE[cam_i]
         h['WAVELENG'] = CAM_WAVE[cam_i]
+        h['AIRMASS']  = h[AIRMASS_KEY]
+        h['DATE-OBS'] = h[DATEOBS_KEY]
         h['GAIN']     = (self.get_cam_gain(h, cam_i), 'in electrons/DN')
         h['SATURATE'] = (self.get_cam_sat(h, cam_i), 'in electrons/DN')
         h['CRPIX1']   = CAM_X0[cam_i]
@@ -106,8 +112,7 @@ class ratir(instrument):
         h['CD2_2']    =   CAM_SECPIX2[cam_i]*np.cos(CAM_THETA[cam_i]*np.pi/180.0)/3600.  
         h['CRVAL1']   =  h[RA_KEY]  - APOFFS[h[CENTER_KEY]][0]/60.0 + h[OFFRA_KEY] #includes aperture offsets and target offsets (ie. dithering)
         h['CRVAL2']   =  h[DEC_KEY] - APOFFS[h[CENTER_KEY]][1]/60.0 + h[OFFDEC_KEY]      
-        
-        
+            
         h['FILTER'] = self.get_filter(h, cam)
         h['NAXIS1'] = self.slice(cam)[1].stop - self.slice(cam)[1].start
         h['NAXIS2'] = self.slice(cam)[0].stop - self.slice(cam)[0].start

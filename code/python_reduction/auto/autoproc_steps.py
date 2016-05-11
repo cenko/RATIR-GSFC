@@ -71,12 +71,6 @@ def autopipeprepare(pipevar=inpipevar):
         autopipeprepare(pipevar=inpipevar)
     DEPENDENCIES:
         autoproc_depend.pipeprepare()
-    FUTURE IMPROVEMENTS:
-        MOST REFER TO pipeprepare.pro: Need to check what additional keywords need to 
-        propagate, and check if values that are set with magic numbers can be set from 
-        existing keywords.
-        Check pipeprepare for RIMAS, RATIR, or VLT/VT to see changes that 
-        need to be made for RIMAS pipeline
     """
     
     print 'PREPARE'
@@ -98,7 +92,7 @@ def autopipeprepare(pipevar=inpipevar):
     if len(biasfiles) > 0:
         for bfile in biasfiles:
             head = pf.getheader(bfile)  
-            camera = head['CAMERA'].strip('C')
+            camera = int(head['CAMERA'])
             biascamera += [camera]
             
     # Finds any master dark files and filter name from header keyword
@@ -108,7 +102,7 @@ def autopipeprepare(pipevar=inpipevar):
     if len(darkfiles) > 0:
         for dfile in darkfiles:
             head = pf.getheader(dfile)  
-            camera = head['CAMERA'].strip('C')
+            camera = int(head['CAMERA'])
             darkcamera += [camera]     
         
     # For each file (that doesn't have an existing p file or can be overwritten), 
@@ -116,21 +110,21 @@ def autopipeprepare(pipevar=inpipevar):
     # will run bias subtraction if bias master available (checks based on how bias 
     # file and data file are named
     for file in files:
-        print file
+
         fileroot = os.path.basename(file)
         outnameim = pipevar['imworkingdir'] + 'p' + fileroot
         
         head = pf.getheader(file)
-        camera = head['CAMERA']
-        
+        camera = int(head['CAMERA'])
+                
         try:
-            bcamloc  = biascamera.index(str(camera))    
+            bcamloc  = biascamera.index(camera)    
             biasfile = biasfiles[bcamloc]      
         except:
             biasfile = None
         
         try:
-            dcamloc  = darkcamera.index(str(camera))    
+            dcamloc  = darkcamera.index(camera)    
             darkfile = darkfiles[dcamloc]      
         except:
             darkfile = None
@@ -587,8 +581,6 @@ def autopipestack(pipevar=inpipevar):
         autopipestack(pipevar=inpipevar)
     DEPENDENCIES:
         SWarp, get_SEDs, calc_zpt, findsexobj (sextractor)
-    FUTURE IMPROVEMENTS:
-        header keywords to keep change for RIMAS
     """
   
     print 'STACK'
@@ -618,7 +610,7 @@ def autopipestack(pipevar=inpipevar):
         head = pf.getheader(file)
         if i == 0: datestr = head['DATE-OBS']
         
-        filetargs += [head['TARGNAME']]; fileexpos += [head['EXPOSURE']]
+        filetargs += [head['TARGNAME']]; fileexpos += [head['EXPTIME']]
         filefilts += [head['FILTER']]  ; fileairmv += [head['AIRMASS']]
         filesatvs += [head['SATURATE']]
         filearms1 += [head['ASTRRMS1']]; filearms2 += [head['ASTRRMS2']]
@@ -795,10 +787,9 @@ def autopipestack(pipevar=inpipevar):
             
             stackcmd = pipevar['swarpcommand']
             
-            # Keywords to carry through, change for RIMAS
-            stackcmd += ' -COPY_KEYWORDS OBJECT,TARGNAME,TELESCOP,FILTER,' +\
-                        'INSTRUME,OBSERVAT,ORIGIN,CCD_TYPE,JD,SOFTGAIN,' +\
-                        'PIXSCALE,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
+            # Keywords to carry through
+            stackcmd += ' -COPY_KEYWORDS OBJECT,TARGNAME,FILTER,' +\
+                        'INSTRUME,PIXSCALE,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
                              	
             # Create output variables that will be used by SWarp
             outfl = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ filter + '.fits'
@@ -904,7 +895,7 @@ def autopipestack(pipevar=inpipevar):
             chead['AIRMASS']  = (medair, 'Median exposure airmass')
             chead['AIRMIN']   = (minair, 'Minimum exposure airmass')
             chead['AIRMAX']   = (maxair, 'Maximum exposure airmass')
-            chead['EXPOSURE'] = (medexp, 'Effective rescaled exposure time')
+            chead['EXPTIME']  = (medexp, 'Effective rescaled exposure time')
             chead['TOTALEXP'] = (totexp, 'Total summed integration time')
             chead['MAXEXP']   = (max(stackexps), 'Length of longest exposure')
             chead['MINEXP']   = (min(stackexps), 'Length of shortest exposure')
