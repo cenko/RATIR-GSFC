@@ -2,7 +2,7 @@ import autoproc_steps as ap
 import os
 
 def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=None,
-    nocrclean=None, redo=None, quiet=None, rmifiles=None):
+    nocrclean=None, nomastersky=None, redo=None, quiet=None, rmifiles=None):
 
     """
     NAME:
@@ -12,16 +12,17 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
     CALLING SEQUENCE:
         ratautoproc, [settings]
     INPUTS (all optional):
-        datadir   - Location of raw data (current directory if unspecified)
-        imdir	  - Location of processed data ('imredux' if unspecified)
-        start	  - Start with this step, skipping previous ones
-        stop      - End with this step, skipping subsequent ones
-        only      - Do only this step
-        step      -  (completely identical to only, takes precedence)
-        redo      - Repeat step(s), overwriting any existing files
-        nocrclean - Do not zap cosmic rays
-        quiet	  - (mainly) silent output unless errors
-        rmifiles  - Removes intermediate files
+        datadir     - Location of raw data (current directory if unspecified)
+        imdir	    - Location of processed data ('imredux' if unspecified)
+        start	    - Start with this step, skipping previous ones
+        stop        - End with this step, skipping subsequent ones
+        only        - Do only this step
+        step        -  (completely identical to only, takes precedence)
+        redo        - Repeat step(s), overwriting any existing files
+        nocrclean   - Do not zap cosmic rays
+        nomastersky - Do not create master sky, only subtract median of sky
+        quiet	    - (mainly) silent output unless errors
+        rmifiles    - Removes intermediate files
     ADDITIONAL OPTIONS:
         If any of the following files are found in the directory where ratautoproc
         is run, it will change the default behavior.
@@ -222,8 +223,9 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
         
         if step == 'prepare': ap.autopipeprepare(pipevar=pipevar)
         if step == 'flatten': ap.autopipeimflatten(pipevar=pipevar)
-        if step == 'makesky': ap.autopipemakesky(pipevar=pipevar)
-        if step == 'skysub':  ap.autopipeskysub(pipevar=pipevar)
+        if step == 'makesky' and nomastersky == None: ap.autopipemakesky(pipevar=pipevar)
+        if step == 'skysub' and nomastersky == None:  ap.autopipeskysub(pipevar=pipevar)
+        if step == 'skysub' and nomastersky != None:  ap.autopipeskysubmed(pipevar=pipevar)    
         if step == 'crclean' and nocrclean == None: ap.autopipecrcleanim(pipevar=pipevar)
         if step == 'astrometry': ap.autopipeastrometry(pipevar=pipevar),
         if step == 'stack'     : ap.autopipestack(pipevar=pipevar)

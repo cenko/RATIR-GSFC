@@ -2,6 +2,10 @@ import numpy as np
 import sys
 from abc import ABCMeta, abstractmethod
 from instrument_class import instrument
+import pyfits as pf
+import re
+import shutil
+import os
 
 
 class ratir(instrument):
@@ -182,6 +186,137 @@ class ratir(instrument):
         file_format = '????????T??????C??.fits'
         return file_format
         
+class lmi(instrument):
+
+    def __init__(self):
+        instrument.__init__(self, 'lmi', 1)
+
+    def possible_filters(self):
+        filters = ['U','B','V','R','I','SDSS-U', 'SDSS-G', 'SDSS-R', 'SDSS-I', 'SDSS-Z']
+        return filters
+
+    def has_cam_bias(self, idx):
+        cam_bias = [True]
+        return cam_bias[idx]
+
+    def has_cam_dark(self, idx):
+        cam_dark = [False]
+        return cam_dark[idx]
+
+    def is_cam_split(self, idx):
+        CAM_SPLIT = [False]
+        return CAM_SPLIT[idx]
         
+    def change_header_keywords(self, h, cam):
+    
+        f1 = h["FILTER1"]; f2 = h["FILTER2"]
         
-instrument_dict = {'ratir': ratir()}
+        if f1 == "OPEN":
+            h['FILTER'] = f2
+        elif f2 == "OPEN":
+            h['FILTER'] = f1
+        else:
+            h['FILTER'] = "%s-%s" % (f1, f2)
+                
+        if h['OBJECT'] == '':
+            h['TARGNAME'] = h['OBSTYPE']
+            h['OBJECT']   = h['OBSTYPE']
+            h['OBJNAME']  = h['OBSTYPE']
+        else:
+            h['TARGNAME'] = h['OBJNAME']
+        
+        # set keyword values
+        h['CAMERA']   = 0
+        h['BINNING']  = h['CCDSUM']
+        h['BINX'] = h['ADELX_01']
+        h['BINY'] = h['ADELY_01']
+        h['PIXSCALE'] = 0.12*h['BINX']
+        h['WAVELENG'] = 'OPT'
+        h['SATURATE'] = (self.get_cam_sat(h, 'C0'), 'in electrons/DN') 
+        h['UTC']      = h['UT']
+        #h['NAXIS1']   = 3096-27+1 
+        #h['NAXIS2']   = 3079-3+1 
+    
+        return h
+        
+    def slice(self, cam):
+        C0_SLICE = np.s_[3:3079,27:3096]
+        
+        return C0_SLICE
+        
+    def get_cam_sat(self, h, idx):
+        sat = 65000.
+        return sat
+    
+    def get_cam_gain(self, h, idx):
+        gain = h['GAIN']
+        
+        return gain      
+
+    def get_exptime(self, h):
+        return h['EXPTIME']
+
+    def get_filter(self, h, cam):
+    
+        f1 = h["FILTER1"]; f2 = h["FILTER2"]
+        
+        if f1 == "OPEN":
+            h['FILTER'] = f2
+        elif f2 == "OPEN":
+            h['FILTER'] = f1
+        else:
+            h['FILTER'] = "%s-%s" % (f1, f2)
+            
+        return h['FILTER']      
+            
+    def get_centered_filter(self, h, idx):
+
+        f1 = h["FILTER1"]; f2 = h["FILTER2"]
+        
+        if f1 == "OPEN":
+            h['FILTER'] = f2
+        elif f2 == "OPEN":
+            h['FILTER'] = f1
+        else:
+            h['FILTER'] = "%s-%s" % (f1, f2)
+            
+        return h['FILTER']  
+
+    def change_file_names(self,files):
+        # Has correct file format, no changes needed
+        
+        obstype_postdict = {'SKY FLAT': 'f', 'DOME FLAT': 'f', 
+            'BIAS': 'b', 'OBJECT': 'o'}
+        
+        datesearch = r"(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d+"
+        
+        for file in files:
+            pyim = pf.open(file)
+            h = pyim[0].header
+            
+            obstype_post = obstype_postdict[h['OBSTYPE']]
+            
+            idate = h['DATE-OBS']
+            match = re.search(datesearch, idate)
+            match.groups()
+            
+            newname = ''
+            
+            for i,item in enumerate(match.groups()):
+            
+                if i == 3:
+                    newname += 'T'
+                
+                newname += item
+            
+            newname += 'C0'+obstype_post+'.fits'
+            print newname
+            os.rename(file, newname)
+        
+        return
+        
+    def original_file_format(self):
+        file_format = 'lmi.????.fits'
+        return file_format        
+        
+instrument_dict = {'ratir': ratir(), 'lmi':lmi()}

@@ -36,9 +36,13 @@ To add a new instrument:
         EXPTIME  (in seconds)
         SATURATE (ADU/DN)
         GAIN     (e-/ADU)
-        FILTER   (case-sensitive)
+        FILTER   (case-sensitive, currently only supports ugrizyBVRIJHK.
+                  in stacking phase allows filters with "SDSS-*" to be changed
+                  to lower case filter name *. To expand number of filters need
+                  to include more SED fitting in code/photometry/dependencies/get_SEDs.py)
         PIXSCALE
         TARGNAME
+        AIRMASS
         CD*_*    (WCS CD matrix)
         CRPIX1   (WCS info)
         CRPIX2   (WCS info)

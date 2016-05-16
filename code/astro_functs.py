@@ -236,7 +236,12 @@ def show_list(fits_fns, nx=5, ny=3, size_mult=3.2, zoom_lvl=None, fontsize=8):
 			ax.imshow(imdisp, vmin=z1, vmax=z2, origin='lower', cmap=pl.cm.gray, interpolation='none')
 			ax.set_xticks([])
 			ax.set_yticks([])
-			ax.set_title("{} - {} filter".format(fits_id, h['FILTER']), fontsize=fontsize) # title with identifier
+			
+			try:
+				ax.set_title("{} - {} filter".format(fits_id, h['FILTER']), fontsize=fontsize) # title with identifier
+			except:
+				ax.set_title("{}".format(fits_id), fontsize=fontsize) # title with identifier
+			
 			
 		fig.canvas.draw()
 		usr_select = raw_input("Press any key to continue or \"q\" to quit: ") # prompt user to continue

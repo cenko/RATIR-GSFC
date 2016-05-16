@@ -4,6 +4,8 @@ import pyfits as pf
 import numpy as np
 import autoproc_depend as apd
 from astropy import wcs
+import re
+import datetime
 
 inpipevar = {'autoastrocommand':'autoastrometry', 'getsedcommand':'get_SEDs', 
 			'sexcommand':'sex' , 'swarpcommand':'swarp' , 'rmifiles':0,  
@@ -247,7 +249,7 @@ def autopipemakesky(pipevar=inpipevar):
     for file in files:
         head = pf.getheader(file)
         filter = head['FILTER']
-        filters += filter
+        filters += [filter]
     filters = np.array(filters)
     
     # Unique list of filters
@@ -283,6 +285,66 @@ def autopipemakesky(pipevar=inpipevar):
     # If remove intermediate files keyword set, delete p(PREFIX)*.fits files
     if pipevar['rmifiles'] != 0:
         os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
+
+def autopipeskysubmed(pipevar=inpipevar):
+    """
+    NAME:
+        autopipeskysubmed
+    PURPOSE:
+        Subtract median, does NOT use master sky
+    OPTIONAL KEYWORDS:
+        pipevar  - input pipeline parameters (typically set in ratautoproc.pro, 
+                   but can be set to default)
+    EXAMPLE:
+        autopipeskysub(pipevar=inpipevar)
+    DEPENDENCIES:
+        autoproc_depend.skypipeproc
+    """
+    
+    print 'SKY-SUBTRACT MEDIAN ONLY'
+    
+    # Find data that needs to be sky subtracted
+    files  = glob.glob(pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+    sfiles = glob.glob(pipevar['imworkingdir'] + 'sfp' + pipevar['prefix'] + '*.fits')
+    
+    if len(files) == 0:
+        print 'Did not find any files! Check your data directory path!'
+        return
+    
+    # For each file if output files don't exist or override set check if we have master 
+    # skyflat for filter, sky subtract if it exists using skypipeproc
+    for file in files:
+        print file
+        fileroot = os.path.basename(file)
+        outfile = pipevar['imworkingdir'] + 's' + fileroot    
+    
+        if os.path.isfile(outfile) and pipevar['overwrite'] == 0:
+            print 'Skipping sky subtraction for '+file+'. File already exists'
+            continue
+            
+        head = pf.getheader(file)
+        data = pf.getdata(file)
+        
+        data -= np.median(data)
+
+        filter = head['FILTER'] 
+        
+        if pipevar['verbose'] > 0:
+            print 'Sky subtracting median only'
+            
+        date = datetime.datetime.now().isoformat()
+        head.add_history('Processed by skypipeprocmed ' + date)   
+             
+        pf.writeto(outfile, data, head, clobber=pipevar['overwrite'])
+
+    # If remove intermediate files keyword set, delete p(PREFIX)*.fits, fp(PREFIX)*.fits,
+    # and sky-*.fits files
+    if pipevar['rmifiles'] != 0:
+        
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'p' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + 'fp' + pipevar['prefix'] + '*.fits')
+        os.system('rm -f ' + pipevar['imworkingdir'] + '*sky-*.fits')
+
         
 def autopipeskysub(pipevar=inpipevar):
     """
@@ -503,7 +565,7 @@ def autopipeastrometry(pipevar=inpipevar):
         os.system('cp ' + pipevar['defaultspath'] + '/default.missfits .') 
     if not os.path.isfile('scamp.conf'): 
         os.system('cp ' + pipevar['defaultspath'] + '/scamp.conf .')          
-
+    
     # Calculate astrometry again using Scamp. First identify objects using sextractor, 
     # then Scamp will solve by comparing reference catalog (currently set by default to 
     # SDSS) to sources found by sextractor. Adds WCS corrections and second astrometry 
@@ -532,13 +594,17 @@ def autopipeastrometry(pipevar=inpipevar):
     afiletarg = np.array(afiletarg)
     afilefilt = np.array(afilefilt) 
     afiles    = np.array(afiles) 
+    
     for atarg in atargets:
         for afilt in afilters:
         
             thisatarget = np.where(np.logical_and(atarg == afiletarg, afilt == afilefilt))
             atfimages = afiles[thisatarget]
             
-            head = pf.getheader(atfimages[0])
+            try:
+                head = pf.getheader(atfimages[0])
+            except:
+                continue
                 
             # If scamp has already been run, skip
             try:
@@ -610,9 +676,10 @@ def autopipestack(pipevar=inpipevar):
         head = pf.getheader(file)
         if i == 0: datestr = head['DATE-OBS']
         
-        filetargs += [head['TARGNAME']]; fileexpos += [head['EXPTIME']]
-        filefilts += [head['FILTER']]  ; fileairmv += [head['AIRMASS']]
-        filesatvs += [head['SATURATE']]
+        # Strip target name of whitespace
+        filetargs += [re.sub(r'\s+', '', head['TARGNAME'])]; 
+        fileexpos += [head['EXPTIME']]; filefilts += [head['FILTER']]
+        fileairmv += [head['AIRMASS']]; filesatvs += [head['SATURATE']]
         filearms1 += [head['ASTRRMS1']]; filearms2 += [head['ASTRRMS2']]
     
     files     = np.array(files); filetargs = np.array(filetargs)
@@ -629,6 +696,7 @@ def autopipestack(pipevar=inpipevar):
     
     # Finds files with same target and the filters associated with this target
     for targ in targets:
+
         thistarget = np.where(filetargs == targ)
         if len(thistarget) == 0: continue
         
@@ -691,6 +759,9 @@ def autopipestack(pipevar=inpipevar):
                 # Filter name correction:
                 if filter == 'Z' or filter == 'Y': filter = filter.lower()
                 
+                if 'SDSS' in filter:
+                    filter = filter[-1].lower()
+                
                 # Create catalog star file 
                 # (python get_SEDs.py imfile filter catfile USNOB_THRESH alloptstars)
                 sedcmd = 'python ' + pipevar['getsedcommand'] + ' ' + imfile + ' ' +\
@@ -726,7 +797,6 @@ def autopipestack(pipevar=inpipevar):
 
                 zpt, scats, rmss = apd.calc_zpt(np.array([refmag]), np.array([obskpm]), 
                                                 np.array([obswts]), sigma=3.0)
-                
                                 
                 # Reload because we had to remove distortion parameters before
                 head = pf.getheader(sfile)

@@ -125,7 +125,7 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
             print '{}'.format(fits_fn)
 
             # open data
-            hdulist = pf.open(fits_fn)
+            hdulist = pf.open(fits_fn, mode='update')
             im = hdulist[0].data
             h  = hdulist[0].header
 
@@ -146,6 +146,8 @@ def choose_calib(instrument, ftype, workdir='.', cams=[0,1,2,3], auto=False, rej
             
                 if ftype is instrum.flatname:
                     print '\t* Filter used: {}'.format(instrum.get_filter(h, 'C{}'.format(cam_i)))
+            
+            h = instrum.change_header_keywords(h, 'C{}'.format(cam_i)) 
             
             # return quick image summary    
             [im1, m, s, sfrac] = image_summary(im, sat_pt, cam_i, instrum, split=instrum.is_cam_split(cam_i))
@@ -868,6 +870,7 @@ def mkmaster(instrument, fn_dict, mtype, fmin=5):
                 if not os.path.exists(mbias_fn):
                     af.print_err('Error: {} not found.  Move master bias file to working directory to proceed.'.format(mbias_fn))
                     continue
+            if mdark_fn is not None:
                 if (mtype is instrum.flatname) and (not os.path.exists(mdark_fn)):
                     af.print_err('Error: {} not found.  Move master dark file to working directory to proceed.'.format(mdark_fn))
                     continue
@@ -927,16 +930,21 @@ def mkmaster(instrument, fn_dict, mtype, fmin=5):
         elif mtype is instrum.flatname:
             if mbias_fn is not None:
                 mbd = pf.getdata(mbias_fn)
+                mbd = mbd
+            if mdark_fn is not None:
                 mdd = pf.getdata(mdark_fn)
+                mdd = mdd
             
             if instrum.is_cam_split(cam_i):
                 pass # split data is already cropped
             else:  
                 data_arr = data_arr[(np.s_[:],instrum.slice(cam)[0],instrum.slice(cam)[1])]
-                
+
             for i in range(len(exptime_arr)):
                 if mbias_fn is not None:
-                    data_arr[i] = (data_arr[i] - mbd - mdd*exptime_arr[i])
+                    data_arr[i] -= mbd
+                if mdark_fn is not None:
+                    data_arr[i] -= mdd*exptime_arr[i]
                 data_arr[i] /= np.median(data_arr[i])
 
         # make master frame

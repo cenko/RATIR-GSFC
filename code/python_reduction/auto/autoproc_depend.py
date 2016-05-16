@@ -347,7 +347,7 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
             # Set sources above objthresh  limit to NaN
             datamed, datastd = medclip(indata, clipsig=5, maxiter=5)
             sourcepixels = np.where( abs(indata-datamed) >= objthresh*datastd)
-            
+                        
             satpixels = np.where( indata >= satlevel )
             
             if len(sourcepixels[0]) > 0:
@@ -801,6 +801,7 @@ def calc_zpt(catmag, obsmag, wts, sigma=3.0, plotter=None):
     # Find difference between catalog and observed magnitudes
     diff = catmag - obsmag
 
+    print diff
     # Find number of observations and stars	
     sz = np.shape(obsmag)
     nobs   = sz[0]
