@@ -51,6 +51,8 @@ Outline
 
 3. Alter *pipeautoproc.par* to point to full path of *autoastrometry.py* on individual computer (under code/reduction/ratauto)  
 
+4. **For configuring for other instruments see README.txt under code/**
+
 2. Reduction
 ------------
 
@@ -67,7 +69,8 @@ Outline
 3. Select calibration frames you want to use:
 
     ```python
-    In [2]: calibration_dict = choose_calib( ftype,
+    In [2]: calibration_dict = choose_calib( instrument, 
+                                             ftype,
                                              workdir='path/to/FITS/flats/',
                                              cams=[0,1,2,3],
                                              auto=False,
@@ -77,6 +80,9 @@ Outline
     ```
     
     #### Input
+    - *instrument*:
+        - string name of instrument to process
+        - instruments defined in specific_instruments.py (ex. 'ratir')  
     - *ftype*:
         - the type of calibration (af.FLAT_NAME or af.BIAS_NAME)
     - *workdir*:
@@ -101,7 +107,8 @@ Outline
 4. Select science frames you want to use:
 
     ```python
-    In [3]: science_dict = choose_science( workdir='path/to/FITS/files/',
+    In [3]: science_dict = choose_science( instrument,
+                                           workdir='path/to/FITS/files/',
                                            targetdir='path/to/new/FITS/files/',
                                            cams=[0,1,2,3],
                                            auto=True,
@@ -109,6 +116,9 @@ Outline
     ```
 
     #### Input
+    - *instrument*:
+        - string name of instrument to process
+        - instruments defined in specific_instruments.py (ex. 'ratir')  
     - *workdir*:
         - defaults to current directory
     - *cams*:
@@ -126,10 +136,13 @@ Outline
 5. Make master bias or flat frame:
 
     ```python
-    In [4]: mkmaster( calibration_dict, ftype, fmin=5 )
+    In [4]: mkmaster( instrument, calibration_dict, ftype, fmin=5 )
     ```
     
     #### Input
+    - *instrument*:
+        - string name of instrument to process
+        - instruments defined in specific_instruments.py (ex. 'ratir')  
     - *calibration_dict*:
         - python dictionary created by *choose_calib*
         - can also provide the file name of a pickled dictionary to re-load it from a previous session
@@ -138,7 +151,7 @@ Outline
     - *fmin*:
         - the minimum number of calibration frames allowed for a given camera or band
     
-More detailed instructions can be found in *reduction_instructions.rtf* or code comments in *preproc.py* and *astro_functs.py*.
+More detailed instructions can be found in code comments in *preproc.py* and *specific_instruments.py*.
 
 ### 2.2 Run *ratautoproc.pro* OR run *autoproc.py*
 
@@ -173,6 +186,8 @@ autoproc(datadir='raw/', imdir='reduced/', redo=1)
     - step
 
     - only (allows you to run particular steps if you don't want to run full reduction)
+    
+    - nomastersky (if set does not create master sky and subtracts median of entire frame)
 
     - nocrclean (if set skips cosmic ray cleaning)  
     

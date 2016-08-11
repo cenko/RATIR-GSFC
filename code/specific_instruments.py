@@ -58,6 +58,15 @@ class ratir(instrument):
         AIRMASS_KEY  = 'STROBAM'
         DATEOBS_KEY  = 'SDATE'
         
+        try:
+            h[RA_KEY]
+        except:
+            print 'No ' + RA_KEY + ' keyword set, use 0 for RA and offset values, set center key to rcenter'
+            h[RA_KEY] = 0
+            h[OFFRA_KEY] = 0
+            h[OFFDEC_KEY] = 0
+            h[CENTER_KEY] = 'rcenter'
+        
         # Definitions for camera
         CAM_WAVE  = ['OPT', 'OPT', 'IR', 'IR']
         CAM_SPLIT = [False, False, True, True]
@@ -114,6 +123,7 @@ class ratir(instrument):
         h['CD2_1']    =   CAM_SECPIX1[cam_i]*np.sin(CAM_THETA[cam_i]*np.pi/180.0)/3600.
         h['CD1_2']    =   CAM_SECPIX2[cam_i]*np.sin(CAM_THETA[cam_i]*np.pi/180.0)/3600.
         h['CD2_2']    =   CAM_SECPIX2[cam_i]*np.cos(CAM_THETA[cam_i]*np.pi/180.0)/3600.  
+        
         h['CRVAL1']   =  h[RA_KEY]  - APOFFS[h[CENTER_KEY]][0]/60.0 + h[OFFRA_KEY] #includes aperture offsets and target offsets (ie. dithering)
         h['CRVAL2']   =  h[DEC_KEY] - APOFFS[h[CENTER_KEY]][1]/60.0 + h[OFFDEC_KEY]      
             
@@ -133,8 +143,8 @@ class ratir(instrument):
         J_SLICE  = np.s_[50:1000,4:2000]
         H_SLICE  = np.s_[1200:2043,4:1940]
         
-        slicedict = {'C0': C0_SLICE, 'C1': C1_SLICE, 'C2a':Z_SLICE, 
-            'C2b':Y_SLICE, 'C3a':J_SLICE, 'C3b':H_SLICE}
+        slicedict = {'C0': C0_SLICE, 'C1': C1_SLICE, 'C2': np.s_[0:2048,0:2048],'C2a':Z_SLICE, 
+            'C2b':Y_SLICE, 'C3': np.s_[0:2048,0:2048], 'C3a':J_SLICE, 'C3b':H_SLICE}
         
         return slicedict[cam]
         
@@ -155,11 +165,12 @@ class ratir(instrument):
         return h['EXPTIME']
 
     def get_filter(self, h, cam):
-        SLICE_FILTERS = {'C2a': 'Z', 'C2b': 'Y', 'C3a': 'J', 'C3b': 'H'}
+    
+        SLICE_FILTERS = {'C2': 'NA', 'C2a': 'Z', 'C2b': 'Y', 'C3': 'NA', 'C3a': 'J', 'C3b': 'H'}
         
         idx = int(cam[1])
         
-        if self.is_cam_split(idx) == True:    
+        if self.is_cam_split(idx) == True: 
             return SLICE_FILTERS[cam]
         else:
             return h['FILTER']      

@@ -138,13 +138,15 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
             'prefix':'', 'datadir':'' , 'imworkingdir':'' , 'overwrite':0 , 'verbose':1,
             'flatfail':'' , 'fullastrofail':'' ,
             'pipeautopath':'' , 'refdatapath':'', 'defaultspath':'' }
+
+    if imdir    != None: pipevar['imworkingdir'] = imdir
+
     
     ap.autopipedefaults(pipevar=pipevar)
     
     if redo     != None: pipevar['overwrite'] = 1
     if quiet    != None: pipevar['verbose'] = 0
     if datadir  != None: pipevar['datadir'] = datadir
-    if imdir    != None: pipevar['imworkingdir'] = imdir
     if rmifiles != None: pipevar['rmifiles'] = 1
     
     # Step options
