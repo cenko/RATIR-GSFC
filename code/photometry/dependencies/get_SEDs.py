@@ -1005,6 +1005,7 @@ def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=
     
     if quiet == 'False': quiet = False
     if alloptstars == 'False': alloptstars = False
+    usnob_thresh = int(usnob_thresh)
 
     # load the data and produce a catalog
     in_data = np.loadtxt( input_file )
@@ -1016,6 +1017,7 @@ def zeropoint( input_file, band, output_file=None, usnob_thresh=15, alloptstars=
     band_index = FILTER_PARAMS[band][-1]
     # check to see whether we need to use USNOB sources
     mask = np.array(c.modes)<2
+
     if sum( mask ) >= usnob_thresh:
         if quiet == False: print 'Using',sum(mask),'APASS and/or SDSS sources.'
         cat_mags = c.SEDs[:, band_index][mask]

@@ -6,6 +6,7 @@ import autoproc_depend as apd
 from astropy import wcs
 import re
 import datetime
+from astropy.time import Time
 
 inpipevar = {'autoastrocommand':'autoastrometry', 'getsedcommand':'get_SEDs', 
 			'sexcommand':'sex' , 'swarpcommand':'swarp' , 'rmifiles':0,  
@@ -663,29 +664,33 @@ def autopipestack(pipevar=inpipevar):
     
     # Find files that have had astrometry performed on them, stop program if don't exist
     files = glob.glob(pipevar['imworkingdir'] + 'a*sfp' + pipevar['prefix'] + '*.fits')
-    
+    print pipevar['imworkingdir'] + 'a*sfp' + pipevar['prefix'] + '*.fits'
+    print files
     if len(files) == 0:
         print 'Did not find any files! Check your data directory path!'
         return
 
     filetargs = []; fileexpos = []; filefilts = []; fileairmv = [] 
-    filesatvs = []; filearms1 = []; filearms2 = []
+    filesatvs = []; filearms1 = []; filearms2 = []; filetime  = []
     
     # Grab information in the headers of astrometry corrected file and save to array
     for i,file in enumerate(files):
         head = pf.getheader(file)
-        if i == 0: datestr = head['DATE-OBS']
+        obstime = Time(head['DATE-OBS'], format='isot', scale='utc')
+        
         
         # Strip target name of whitespace
         filetargs += [re.sub(r'\s+', '', head['TARGNAME'])]; 
         fileexpos += [head['EXPTIME']]; filefilts += [head['FILTER']]
         fileairmv += [head['AIRMASS']]; filesatvs += [head['SATURATE']]
         filearms1 += [head['ASTRRMS1']]; filearms2 += [head['ASTRRMS2']]
+        filetime  += [obstime.jd]
     
     files     = np.array(files); filetargs = np.array(filetargs)
     fileexpos = np.array(fileexpos); filefilts = np.array(filefilts)
     filesatvs = np.array(filesatvs); fileairmv = np.array(fileairmv)
     filearms1 = np.array(filearms1); filearms2 = np.array(filearms2)
+    filetime  = np.array(filetime)
     targets = set(filetargs)
     
     # Dictionary of corresponding columns for catalog file
@@ -714,6 +719,7 @@ def autopipestack(pipevar=inpipevar):
             stacklist = files[stacki]
             stackexps = fileexpos[stacki]
             stackairm = fileairmv[stacki]
+            stacktime = filetime[stacki]
             
             medexp = np.median(stackexps)
             medair = np.median(stackairm)
@@ -721,6 +727,9 @@ def autopipestack(pipevar=inpipevar):
             maxair = max(stackairm)
             totexp = sum(stackexps)
             nstack = len(stacklist)
+            firsttime = Time(stacktime[0], format='jd', scale='utc').isot
+            lasttime  = Time(stacktime[-1], format='jd', scale='utc').isot
+            medtime   = Time(np.median(stacktime), format='jd', scale='utc').isot
             
             textslist = ' '.join(stacklist)
             
@@ -862,8 +871,8 @@ def autopipestack(pipevar=inpipevar):
                         'INSTRUME,PIXSCALE,WAVELENG,DATE-OBS,AIRMASS,FLATFLD,FLATTYPE '
                              	
             # Create output variables that will be used by SWarp
-            outfl = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ filter + '.fits'
-            outwt = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ filter + '.weight.fits'
+            outfl = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ re.sub(r'[^\w]', '', medtime)+'_'+ filter + '.fits'
+            outwt = pipevar['imworkingdir'] + 'coadd' + targ + '_'+ re.sub(r'[^\w]', '', medtime)+'_'+ filter + '.weight.fits'
             
             if pipevar['verbose'] > 0:
                 stackcmd += ' -VERBOSE_TYPE NORMAL '
@@ -960,7 +969,9 @@ def autopipestack(pipevar=inpipevar):
             chead['ABSZPRMS'] = (crmss[0], 'RMS of absolute zeropoint')
             
             # Add summary of stack information to header
-            chead['DATE']     = (datestr, 'First frame time')
+            chead['DATE1']     = (firsttime, 'First frame time')
+            chead['DATEN']     = (lasttime, 'Last frame time')
+            chead['DATE']     = (medtime, 'Median frame time')
             chead['NSTACK']   = nstack
             chead['AIRMASS']  = (medair, 'Median exposure airmass')
             chead['AIRMIN']   = (minair, 'Minimum exposure airmass')

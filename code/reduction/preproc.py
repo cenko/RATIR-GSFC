@@ -639,8 +639,8 @@ def choose_science(instrument, workdir='.', targetdir='.', cams=[0,1,2,3], auto=
                             disp_im1 -= mbias_data*instrum.get_exptime(h)
                             disp_im2 -= mbias_data*instrum.get_exptime(h)
                         
-                        disp_im1 /= mflat_data1
-                        disp_im2 /= mflat_data2
+                        disp_im1 = np.divide(disp_im1, mflat_data1)
+                        disp_im2 = np.divide(disp_im2, mflat_data2)
                     
                     # display top
                     ax1 = fig.add_subplot(221)

@@ -5,4 +5,3 @@ sexcommand       : /opt/local/bin/sex
 scampcommand	  : /usr/local/bin/scamp
 prefix		 : 2
 datadir          : 
-imworkingdir     : imredux/

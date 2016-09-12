@@ -112,7 +112,8 @@ Outline
                                            targetdir='path/to/new/FITS/files/',
                                            cams=[0,1,2,3],
                                            auto=True,
-                                           save_select=True )
+                                           save_select=True.
+                                           calibrate=False )
     ```
 
     #### Input
@@ -127,6 +128,9 @@ Outline
         - function will select all science frames if True
     - *save_select*:
         - save python dictionary of selected frames to a python pickle if True
+    - *calibrate*
+        - uses calibration files (needs bias, dark, and flat) to display images with
+          less noise
     
     #### Return
     - returns a python dictionary of selected frames.

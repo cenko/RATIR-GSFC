@@ -140,7 +140,6 @@ def autoproc(datadir=None, imdir=None, start=None, stop=None, only=None, step=No
             'pipeautopath':'' , 'refdatapath':'', 'defaultspath':'' }
 
     if imdir    != None: pipevar['imworkingdir'] = imdir
-
     
     ap.autopipedefaults(pipevar=pipevar)
     
