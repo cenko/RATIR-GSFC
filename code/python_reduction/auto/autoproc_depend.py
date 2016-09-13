@@ -485,30 +485,30 @@ def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
             print file + ' could not be flat subtracted because it is not the same' +\
                          ' size as the master flat, remove file to avoid confusion'
             return
+
+        if flatmaxval != None:
+            w = np.where(flat > flatminval) 
+            if len(w[0]) != 0:
+                flat[w] = float('NaN')  
                 
         if flatminval != None:
             w = np.where(flat < flatminval)  
             if len(w[0]) != 0:
                 flat[w] = float('NaN')
-            goodsignal = np.where(np.logical_and(flat >= flatminval, np.isfinite(flat)))
+            goodsignal = np.where((flat >= flatminval) & (np.isfinite(flat)))
         else:
-            goodsignal = np.where(np.logical_and(flat >= 0.1, np.isfinite(flat)))
-
-        if flatmaxval != None:
-            w = np.where(flat > flatminval) 
-            if len(w[0]) != 0:
-                flat[w] = float('NaN')            
+            goodsignal = np.where((flat >= 0.1) & (np.isfinite(flat)))          
                 
         # Scale skyflat, subtract scaled skyflat, and subtract median of subsequent flat 
         # subtracted data. Calculate skycounts from data (above minimum, or 
         # by default above 0.1)
         flattmp = np.median(flat[np.isfinite(flat)])
-        imgtmp  = np.median(data)
+        imgtmp  = np.median(data[np.isfinite(data)])
         
         scalefr = imgtmp/flattmp
         fdata   = data - scalefr * flat
         
-        tmp     = np.median(fdata)
+        tmp     = np.median(fdata[np.isfinite(fdata)])
         fdata   = fdata - tmp
 
         skycts  = np.median(fdata[goodsignal])
