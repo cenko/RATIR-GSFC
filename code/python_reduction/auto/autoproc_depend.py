@@ -346,6 +346,7 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
             
             # Set sources above objthresh  limit to NaN
             datamed, datastd = medclip(indata, clipsig=5, maxiter=5)
+            
             sourcepixels = np.where( abs(indata-datamed) >= objthresh*datastd)
                         
             satpixels = np.where( indata >= satlevel )
@@ -358,67 +359,67 @@ def skypipecombine(filelist, outfile, filt, pipevar, removeobjects=None,
             
             data[f,:,:] = indata
         
-        reflat = np.zeros((ny, nx)) + float('NaN')
-            
-        # If algorithm set to median, find 3 sigma clipped median of each pixel 
-        # excluding NaN values (which are eventually set to median)
-        if algorithm == 'median':
-            if pipevar['verbose'] > 0: print '  Median-combining...'
-            
-            for y in np.arange(ny):
-            
-                vector = data[:,y,:]
-                temp = np.isfinite(vector)
-                me, st = medclip2d(vector, clipsig=3, maxiter=5, overaxis=0)
-                reflat[y,:] = me
+    reflat = np.zeros((ny, nx)) + float('NaN')
 
-            # Replace bad pixels with median of entire sky
-            good = np.isfinite(reflat)
-            allmed = np.median(reflat[good])
-            bad = ~good # Opposite of boolean array good
-            reflat[bad] = allmed
-        
-        # If algorithm set to mean, takes mean of trimmed sorted values. Default is to 
-        # trim 25% off top and bottom, if not enough good data, set trimming to 0
-        if algorithm == 'mean':
-        
-            if pipevar['verbose'] > 0: print '  Combining via trimmed mean...'
+    # If algorithm set to median, find 3 sigma clipped median of each pixel 
+    # excluding NaN values (which are eventually set to median)
+    if algorithm == 'median':
+        if pipevar['verbose'] > 0: print '  Median-combining...'
             
-            for y in np.arange(ny):
-                for x in np.arange(nx):
-                    slice = data[:,y,x]
-                    good = np.isfinite(slice)
+        for y in np.arange(ny):
+            
+            vector = data[:,y,:]
+            temp = np.isfinite(vector)
+            me, st = medclip2d(vector, clipsig=3, maxiter=5, overaxis=0)
+            reflat[y,:] = me
+
+        # Replace bad pixels with median of entire sky
+        good = np.isfinite(reflat)
+        allmed = np.median(reflat[good])
+        bad = ~good # Opposite of boolean array good
+        reflat[bad] = allmed
+        
+    # If algorithm set to mean, takes mean of trimmed sorted values. Default is to 
+    # trim 25% off top and bottom, if not enough good data, set trimming to 0
+    if algorithm == 'mean':
+        
+        if pipevar['verbose'] > 0: print '  Combining via trimmed mean...'
+            
+        for y in np.arange(ny):
+            for x in np.arange(nx):
+                slice = data[:,y,x]
+                good = np.isfinite(slice)
                     
-                    cslice = slice[good]
-                    ctgood = len(cslice)
+                cslice = slice[good]
+                ctgood = len(cslice)
                     
-                    if ctgood == 0:
-                        reflat[y,x] = 1
+                if ctgood == 0:
+                    reflat[y,x] = 1
                     
-                    itrimlo = trimlo
-                    itrimhi = trimhi
+                itrimlo = trimlo
+                itrimhi = trimhi
                     
-                    while ctgood-itrimlo-itrimhi < 1:
-                        itrimlo = max(itrimlo - 1, 0)
-                        itrimhi = max(itrimhi - 1, 0)
+                while ctgood-itrimlo-itrimhi < 1:
+                    itrimlo = max(itrimlo - 1, 0)
+                    itrimhi = max(itrimhi - 1, 0)
                         
-                    cslice = np.sort(cslice)
-                    cslice = cslice[itrimlo:ctgood-itrimhi]
-                    reflat[y,x] = np.mean(cslice)
+                cslice = np.sort(cslice)
+                cslice = cslice[itrimlo:ctgood-itrimhi]
+                reflat[y,x] = np.mean(cslice)
         
-        # Adds header information to signify what files we used 
-        for f in np.arange(z-1):
-            head_m['SKY'+str(f)] = usefiles[f]
+    # Adds header information to signify what files we used 
+    for f in np.arange(z-1):
+        head_m['SKY'+str(f)] = usefiles[f]
             
-        if type != None:
-            head_m['SKYTYPE'] = type
+    if type != None:
+        head_m['SKYTYPE'] = type
         
-        date = datetime.datetime.now().isoformat()
-        head_m.add_history('Processed by skypipecombine ' + date) 
+    date = datetime.datetime.now().isoformat()
+    head_m.add_history('Processed by skypipecombine ' + date) 
         
-        if pipevar['verbose'] > 0: print '  Written to ' + outfile
+    if pipevar['verbose'] > 0: print '  Written to ' + outfile
         
-        pf.writeto(outfile, reflat, head_m, clobber=True)       
+    pf.writeto(outfile, reflat, head_m, clobber=True)       
                     
 def skypipeproc(filename, flatname, outfile, flatminval=None, flatmaxval=None):
 
@@ -953,7 +954,7 @@ def medclip2d(indata, clipsig=3.0, maxiter=5, verbose=0, overaxis=0):
         
     # Flatten array
     skpix = np.ma.masked_array(indata)
-    
+    skpix = np.ma.masked_invalid(skpix)
     iter = 0
     
     while (iter < maxiter):
