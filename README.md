@@ -3,6 +3,10 @@ RATIR-GSFC
 
 GSFC/UMd RATIR Pipeline Repository
 
+**This is a development pipeline that is no longer being supported. 
+  The most up-to-date version is now being maintained on 
+  https://github.com/vickitoy/photometry_pipeline**
+
 Directories:
 
 * code/
